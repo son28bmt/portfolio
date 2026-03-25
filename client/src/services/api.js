@@ -21,10 +21,6 @@ const normalizeRequestUrl = (url = '') => {
 
   normalizedPath = normalizedPath.replace(/\/{2,}/g, '/');
 
-  if (normalizedPath !== '/' && !normalizedPath.endsWith('/')) {
-    normalizedPath += '/';
-  }
-
   return query ? `${normalizedPath}?${query}` : normalizedPath;
 };
 
