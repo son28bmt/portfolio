@@ -63,6 +63,7 @@ const staticUrlEntries = (siteUrl) => [
   { loc: buildAbsoluteUrl(siteUrl, '/du-an'), changefreq: 'daily', priority: '0.9' },
   { loc: buildAbsoluteUrl(siteUrl, '/blog'), changefreq: 'daily', priority: '0.9' },
   { loc: buildAbsoluteUrl(siteUrl, '/lien-he'), changefreq: 'monthly', priority: '0.7' },
+  { loc: buildAbsoluteUrl(siteUrl, '/donate'), changefreq: 'weekly', priority: '0.8' },
   { loc: buildAbsoluteUrl(siteUrl, '/playground'), changefreq: 'weekly', priority: '0.8' },
 ];
 

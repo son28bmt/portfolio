@@ -9,6 +9,7 @@ import Blog from '../pages/Blog';
 import BlogDetail from '../pages/BlogDetail';
 import Contact from '../pages/Contact';
 import Playground from '../pages/Playground';
+import Donate from '../pages/Donate';
 
 const PageTransition = ({ children }) => (
   <motion.div
@@ -35,6 +36,7 @@ const AppRoutes = () => {
         <Route path="/blog" element={<PageTransition><Blog /></PageTransition>} />
         <Route path="/blog/:id" element={<PageTransition><BlogDetail /></PageTransition>} />
         <Route path="/lien-he" element={<PageTransition><Contact /></PageTransition>} />
+        <Route path="/donate" element={<PageTransition><Donate /></PageTransition>} />
         <Route path="/playground" element={<PageTransition><Playground /></PageTransition>} />
       </Routes>
     </AnimatePresence>

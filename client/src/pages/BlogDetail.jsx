@@ -1,6 +1,6 @@
 ﻿import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import axios from 'axios';
+import api from '../services/api';
 import { Calendar, Clock, ArrowLeft, Share2, MessageCircle } from 'lucide-react';
 
 const decodePossibleJson = (value) => {
@@ -104,7 +104,7 @@ const BlogDetail = () => {
   useEffect(() => {
     const fetchPost = async () => {
       try {
-        const { data } = await axios.get(`https://api.nguyenquangson.id.vn/api/blog/${id}`);
+        const { data } = await api.get(`/blog/${id}`);
         setPost(data);
       } catch (err) {
         console.error('Lỗi khi tải bài viết:', err);

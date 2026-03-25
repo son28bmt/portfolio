@@ -1,6 +1,6 @@
 ﻿import React, { useMemo, useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import axios from 'axios';
+import api from '../services/api';
 import { motion } from 'framer-motion';
 import { Search, Calendar, Clock, ArrowUpRight, Hash } from 'lucide-react';
 
@@ -49,7 +49,7 @@ const Blog = () => {
   useEffect(() => {
     const fetchPosts = async () => {
       try {
-        const { data } = await axios.get(`https://api.nguyenquangson.id.vn/api/blog?t=${Date.now()}`);
+        const { data } = await api.get(`/blog?t=${Date.now()}`);
         const normalized = Array.isArray(data)
           ? data.map((post) => ({ ...post, normalizedTags: parseTags(post.tags) }))
           : [];

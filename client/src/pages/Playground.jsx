@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import axios from 'axios';
+import api from '../services/api';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles, MessageSquare, Upload, Play, CheckCircle2, AlertCircle, Wand2, ArrowRight, Download } from 'lucide-react';
 
@@ -170,7 +170,7 @@ const AIChatDemoLocalHistory = () => {
     setIsTyping(true);
 
     try {
-      const { data } = await axios.post('https://api.nguyenquangson.id.vn/api/ai/chat', {
+      const { data } = await api.post('/ai/chat', {
         message: userMessage.content,
         userApiKey,
         userBaseUrl,
@@ -353,7 +353,7 @@ const SubTranslatorDemo = () => {
     if (userApiKey) formData.append('userApiKey', userApiKey);
     if (userBaseUrl) formData.append('userBaseUrl', userBaseUrl);
     try {
-      const { data } = await axios.post('https://api.nguyenquangson.id.vn/api/ai/generate-sub', formData);
+      const { data } = await api.post('/ai/generate-sub', formData);
       setSrt(data.srt);
       setStep(3);
     } catch (err) {
@@ -382,7 +382,7 @@ const SubTranslatorDemo = () => {
     if (userApiKey) formData.append('userApiKey', userApiKey);
     if (userBaseUrl) formData.append('userBaseUrl', userBaseUrl);
     try {
-      const { data } = await axios.post('https://api.nguyenquangson.id.vn/api/ai/generate-sub', formData);
+      const { data } = await api.post('/ai/generate-sub', formData);
       // Giả định backend trả về mảng subs, ta cần convert lại thành SRT string hoặc hiển thị
       const translatedItems = Array.isArray(data?.translatedSubs) ? data.translatedSubs : null;
       if (!translatedItems) {
@@ -570,7 +570,7 @@ const TTSDemo = () => {
     }
 
     try {
-      const { data } = await axios.post('https://api.nguyenquangson.id.vn/api/ai/generate-sub', {
+      const { data } = await api.post('/ai/generate-sub', {
         mode: 'render',
         subs: typeof subs === 'string' ? subs : JSON.stringify(subs),
         targetLang,

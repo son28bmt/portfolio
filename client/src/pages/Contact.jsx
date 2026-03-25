@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import axios from 'axios';
+import api from '../services/api';
 import { motion } from 'framer-motion';
 import { Mail, Github, Youtube, Facebook, Send, MapPin, Phone, MessageSquare } from 'lucide-react';
 
@@ -17,7 +17,7 @@ const Contact = () => {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      await axios.post('https://api.nguyenquangson.id.vn/api/contact', formState);
+      await api.post('/contact', formState);
       setSubmitted(true);
       setFormState({ name: '', email: '', message: '' });
     } catch (err) {

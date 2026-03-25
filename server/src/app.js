@@ -9,6 +9,7 @@ const blogRoutes = require('./routes/blog.routes');
 const contactRoutes = require('./routes/contact.routes');
 const aiRoutes = require('./routes/ai.routes');
 const seoRoutes = require('./routes/seo.routes');
+const donateRoutes = require('./routes/donate.routes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -43,8 +44,14 @@ const corsOptions = {
 };
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ limit: '50mb', extended: true }));
+const captureRawBody = (req, res, buf) => {
+  if (buf && buf.length) {
+    req.rawBody = buf.toString('utf8');
+  }
+};
+
+app.use(express.json({ limit: '50mb', verify: captureRawBody }));
+app.use(express.urlencoded({ limit: '50mb', extended: true, verify: captureRawBody }));
 app.use(morgan('dev'));
 
 // Routes
@@ -54,6 +61,7 @@ app.use('/api/projects', projectRoutes);
 app.use('/api/blog', blogRoutes);
 app.use('/api/contact', contactRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/donate', donateRoutes);
 
 app.get('/api/ping', (req, res) => {
   res.json({ message: 'CORS and API are working!', timestamp: new Date() });

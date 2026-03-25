@@ -7,7 +7,8 @@ import {
   Settings, 
   MessageSquare, 
   LogOut,
-  Sparkles
+  Sparkles,
+  Gift
 } from 'lucide-react';
 
 const Sidebar = () => {
@@ -24,6 +25,7 @@ const Sidebar = () => {
     { icon: FolderKanban, label: 'Dự án', path: '/projects' },
     { icon: FileText, label: 'Blog', path: '/blog' },
     { icon: MessageSquare, label: 'Tin nhắn', path: '/messages' },
+    { icon: Gift, label: 'Donate', path: '/donate' },
     { icon: Settings, label: 'Cấu hình AI', path: '/ai-settings' },
   ];
 

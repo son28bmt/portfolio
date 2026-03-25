@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../services/api';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Github, Layers, X, Maximize2, Image as ImageIcon, ChevronLeft, ChevronRight } from 'lucide-react';
 
@@ -61,7 +61,7 @@ const Projects = () => {
   useEffect(() => {
     const fetchProjects = async () => {
       try {
-        const { data } = await axios.get('https://api.nguyenquangson.id.vn/api/projects');
+        const { data } = await api.get('/projects');
         const normalized = Array.isArray(data) ? data.map(normalizeProject) : [];
         setProjects(normalized);
       } catch (err) {

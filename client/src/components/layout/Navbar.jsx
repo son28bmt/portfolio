@@ -13,6 +13,7 @@ const Navbar = () => {
     { name: 'Dự Án', path: '/du-an' },
     { name: 'Blog', path: '/blog' },
     { name: 'Liên Hệ', path: '/lien-he' },
+    { name: 'Donate', path: '/donate' },
     { name: 'Playground', path: '/playground' },
   ];
 
