@@ -1,0 +1,32 @@
+{
+  "name": "server",
+  "version": "1.0.0",
+  "description": "",
+  "main": "src/app.js",
+  "scripts": {
+    "start": "node src/app.js",
+    "dev": "nodemon src/app.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.925.0",
+    "axios": "^1.13.6",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "form-data": "^4.0.5",
+    "jsonwebtoken": "^9.0.2",
+    "morgan": "^1.10.0",
+    "multer": "^2.1.1",
+    "mysql2": "^3.12.0",
+    "sequelize": "^6.37.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.9"
+  }
+}

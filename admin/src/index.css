@@ -1,0 +1,54 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #0a0a0a;
+  --primary: #9d00ff;
+  --secondary: #00d4ff;
+  --surface: #1a1a1a;
+}
+
+body {
+  @apply bg-background text-white font-sans antialiased;
+  margin: 0;
+}
+
+/* Glassmorphism utility */
+.glass {
+  @apply bg-white/5 backdrop-blur-md border border-white/10;
+}
+
+/* React Quill Dark Mode Fixes */
+.quill-container .ql-toolbar {
+  @apply border-white/10 bg-white/5 border-none !important;
+}
+
+.quill-container .ql-container {
+  @apply border-none !important;
+  font-family: inherit !important;
+}
+
+.quill-container .ql-editor {
+  @apply min-h-[300px] text-white/90 text-sm leading-relaxed !important;
+}
+
+.quill-container .ql-editor.ql-blank::before {
+  @apply text-white/20 italic !important;
+}
+
+.quill-container .ql-snow .ql-stroke {
+  stroke: rgba(255, 255, 255, 0.6) !important;
+}
+
+.quill-container .ql-snow .ql-fill {
+  fill: rgba(255, 255, 255, 0.6) !important;
+}
+
+.quill-container .ql-snow .ql-picker {
+  @apply text-white/60 !important;
+}
+
+.quill-container .ql-snow .ql-picker-options {
+  @apply bg-surface border-white/10 !important;
+}
