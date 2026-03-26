@@ -13,23 +13,30 @@ const sequelize = new Sequelize(
   }
 );
 
-let hasSynced = false;
+const shouldSyncOnStart = String(process.env.DB_SYNC_ON_START || '').toLowerCase() === 'true';
+const shouldAlterOnSync = String(process.env.DB_SYNC_ALTER || '').toLowerCase() === 'true';
+let hasAttemptedSync = false;
 
 const connectDB = async () => {
   try {
     await sequelize.authenticate();
-    console.log('✅ MySQL Connected successfully.');
+    console.log('MySQL connected successfully.');
 
-    // Sync models once after first successful connection.
-    if (!hasSynced) {
-      await sequelize.sync({ alter: true });
-      hasSynced = true;
-      console.log('✅ MySQL schema synced.');
+    if (!shouldSyncOnStart || hasAttemptedSync) {
+      return;
+    }
+
+    hasAttemptedSync = true;
+    try {
+      await sequelize.sync({ alter: shouldAlterOnSync });
+      console.log(`MySQL schema synced (alter=${shouldAlterOnSync}).`);
+    } catch (syncError) {
+      console.error('Schema sync skipped:', syncError?.message || syncError);
     }
   } catch (error) {
     const retryMs = Number(process.env.DB_RETRY_MS || 5000);
-    console.error('❌ Unable to connect to the database:', error?.message || error);
-    console.log(`⏳ Retry database connection in ${Math.round(retryMs / 1000)}s...`);
+    console.error('Unable to connect to the database:', error?.message || error);
+    console.log(`Retry database connection in ${Math.round(retryMs / 1000)}s...`);
     setTimeout(connectDB, retryMs);
   }
 };
