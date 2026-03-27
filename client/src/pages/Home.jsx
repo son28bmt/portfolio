@@ -95,7 +95,7 @@ const Home = () => {
             to="/donate"
             className="px-8 py-4 bg-secondary hover:bg-secondary/90 text-white rounded-xl font-semibold transition-all shadow-[0_0_20px_rgba(0,191,255,0.35)]"
           >
-            Ủng hộ dự án
+            Ủng hộ tôi
           </Link>
         </motion.div>
 

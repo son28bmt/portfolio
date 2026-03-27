@@ -8,10 +8,15 @@ const path = require('path');
 const fs = require('fs');
 const FormData = require('form-data');
 
+const UPLOAD_DIR = path.resolve(__dirname, '../../uploads');
+if (!fs.existsSync(UPLOAD_DIR)) {
+  fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+}
+
 // Multer Config
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, 'uploads/');
+    cb(null, UPLOAD_DIR);
   },
   filename: (req, file, cb) => {
     cb(null, `${Date.now()}-${file.originalname}`);
@@ -25,6 +30,51 @@ const upload = multer({
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const retryDelays = [0, 2000, 5000]; 
+
+const MODEL_PROVIDER_KEYS = {
+  chatgpt: 'ai_model_chatgpt',
+  gemini: 'ai_model_gemini',
+  claude: 'ai_model_claude',
+  grok: 'ai_model_grok',
+  deepseek: 'ai_model_deepseek',
+};
+
+const MODEL_PROVIDER_DEFAULTS = {
+  chatgpt: 'gpt-4o',
+  gemini: 'gemini-2.0-flash',
+  claude: 'claude-sonnet-4-5',
+  grok: 'grok-3',
+  deepseek: 'deepseek-chat',
+};
+
+const OPENAI_COMPATIBLE_PROVIDERS = new Set([
+  'openai',
+  'chatgpt',
+  'gemini',
+  'claude',
+  'grok',
+  'deepseek',
+]);
+
+const normalizeModelProvider = (raw, fallback = 'chatgpt') => {
+  const value = String(raw || '').trim().toLowerCase();
+  if (value in MODEL_PROVIDER_KEYS) return value;
+  if (value === 'openai' || value === 'gpt') return 'chatgpt';
+  return fallback;
+};
+
+const resolveModelByProvider = (configData, provider = 'chatgpt') => {
+  const normalizedProvider = normalizeModelProvider(provider);
+  const providerKey = MODEL_PROVIDER_KEYS[normalizedProvider];
+  const providerModel = String(configData?.[providerKey] || '').trim();
+  if (providerModel) return providerModel;
+
+  if (normalizedProvider === 'chatgpt') {
+    return String(configData?.ai_model || MODEL_PROVIDER_DEFAULTS.chatgpt).trim();
+  }
+
+  return '';
+};
 
 const getProviderErrorMessage = (error) => {
   return (
@@ -61,13 +111,30 @@ router.get('/config', protect, async (req, res) => {
 
 // POST AI Config (Admin only)
 router.post('/config', protect, async (req, res) => {
-  const { apiKey, baseUrl, model, systemPrompt } = req.body;
+  const {
+    apiKey,
+    baseUrl,
+    model,
+    modelChatgpt,
+    modelGemini,
+    modelClaude,
+    modelGrok,
+    modelDeepseek,
+    systemPrompt
+  } = req.body;
   console.log('--- [ADMIN] SAVING AI CONFIG ---');
   try {
+    const safeChatgptModel = modelChatgpt || model || MODEL_PROVIDER_DEFAULTS.chatgpt;
+
     const configs = [
       { key: 'ai_apiKey', value: apiKey },
       { key: 'ai_baseUrl', value: baseUrl || 'https://api.openai.com/v1' },
-      { key: 'ai_model', value: model || 'gpt-4o' },
+      { key: 'ai_model', value: safeChatgptModel },
+      { key: 'ai_model_chatgpt', value: safeChatgptModel },
+      { key: 'ai_model_gemini', value: modelGemini || '' },
+      { key: 'ai_model_claude', value: modelClaude || '' },
+      { key: 'ai_model_grok', value: modelGrok || '' },
+      { key: 'ai_model_deepseek', value: modelDeepseek || '' },
       { key: 'ai_systemPrompt', value: systemPrompt }
     ];
 
@@ -82,33 +149,54 @@ router.post('/config', protect, async (req, res) => {
       }
     }
     
-    console.log('✅ AI Config saved successfully');
+    console.log('AI Config saved successfully');
     res.json({ message: 'Cấu hình đã được lưu thành công' });
   } catch (err) {
-    console.error('❌ Lỗi lưu cấu hình AI:', err);
+    console.error('Lỗi lưu cấu hình AI:', err);
     res.status(500).json({ message: 'Lỗi Database: ' + err.message });
   }
 });
 
 // Real Chat logic
 router.post('/chat', async (req, res) => {
-  const { message, userApiKey, userBaseUrl } = req.body;
+  const { message, userApiKey, userBaseUrl, modelProvider = 'chatgpt', userModel = '' } = req.body;
   
   try {
-    const apiKeySetting = await Setting.findOne({ where: { key: 'ai_apiKey' } });
-    const baseUrlSetting = await Setting.findOne({ where: { key: 'ai_baseUrl' } });
-    const modelSetting = await Setting.findOne({ where: { key: 'ai_model' } });
-    const systemPromptSetting = await Setting.findOne({ where: { key: 'ai_systemPrompt' } });
+    const settings = await Setting.findAll({
+      where: {
+        key: [
+          'ai_apiKey',
+          'ai_baseUrl',
+          'ai_model',
+          'ai_model_chatgpt',
+          'ai_model_gemini',
+          'ai_model_claude',
+          'ai_model_grok',
+          'ai_model_deepseek',
+          'ai_systemPrompt',
+        ]
+      }
+    });
+    const configData = {};
+    settings.forEach((s) => {
+      configData[s.key] = s.value;
+    });
 
-    const apiKey = userApiKey || apiKeySetting?.value;
-    let baseUrl = userBaseUrl || baseUrlSetting?.value || 'https://api.openai.com/v1';
-    const model = modelSetting?.value || 'gpt-3.5-turbo';
-    const systemPrompt = systemPromptSetting?.value || 'Bạn là một trợ lý AI hữu ích.';
+    const apiKey = userApiKey || configData.ai_apiKey;
+    let baseUrl = userBaseUrl || configData.ai_baseUrl || 'https://api.openai.com/v1';
+    const normalizedModelProvider = normalizeModelProvider(modelProvider, 'chatgpt');
+    const model = String(userModel || resolveModelByProvider(configData, normalizedModelProvider)).trim();
+    const systemPrompt = configData.ai_systemPrompt || 'Bạn là một trợ lý AI hữu ích.';
 
     if (baseUrl.endsWith('/')) baseUrl = baseUrl.slice(0, -1);
 
     if (!apiKey) {
       return res.json({ reply: 'Admin chưa cấu hình API Key cho Chatbot.' });
+    }
+    if (!model) {
+      return res.status(400).json({
+        reply: `Chưa cấu hình model cho nhóm AI '${normalizedModelProvider}'. Vui lòng vào Admin > Cấu hình AI để điền model.`,
+      });
     }
 
     const messages = [
@@ -132,14 +220,14 @@ router.post('/chat', async (req, res) => {
       });
     } else {
       res.status(500).json({ 
-        reply: 'API trả về kết quả không đúng định dạng. Vui lòng kiểm tra lại Base URL và Model.' 
+        reply: 'API trả về kết quả không đúng định dạng. Vui lòng kiểm tra lại Base URL và Model.'
       });
     }
   } catch (err) {
     console.error('Lỗi AI Chat:', err.response?.data || err.message);
     const errorMsg = err.response?.data?.error?.message || err.message;
     res.status(500).json({ 
-      reply: `Lỗi kết nối AI: ${errorMsg}` 
+      reply: `Lỗi kết nối AI: ${errorMsg}`
     });
   }
 });
@@ -158,6 +246,8 @@ router.post('/generate-sub', upload.single('file'), async (req, res) => {
     userApiKey = '',
     userBaseUrl = '',
     translationProvider = 'gemini',
+    translationModelProvider = '',
+    translationModel = '',
     transcribeModel = ''
   } = req.body;
   const file = req.file;
@@ -167,11 +257,23 @@ router.post('/generate-sub', upload.single('file'), async (req, res) => {
   }
 
   const filePath = file ? file.path : null;
-  const workDir = filePath ? path.dirname(filePath) : path.join(__dirname, '../../uploads');
+  const workDir = filePath ? path.dirname(filePath) : UPLOAD_DIR;
 
   try {
     const settings = await Setting.findAll({
-      where: { key: ['ai_apiKey', 'ai_baseUrl', 'ai_model', 'ai_transcribeModel'] }
+      where: {
+        key: [
+          'ai_apiKey',
+          'ai_baseUrl',
+          'ai_model',
+          'ai_model_chatgpt',
+          'ai_model_gemini',
+          'ai_model_claude',
+          'ai_model_grok',
+          'ai_model_deepseek',
+          'ai_transcribeModel'
+        ]
+      }
     });
     const configData = {};
     settings.forEach(s => configData[s.key] = s.value);
@@ -281,17 +383,37 @@ router.post('/generate-sub', upload.single('file'), async (req, res) => {
         work_dir: workDir,
         config: {
           translation: {
-            provider: normalizedTranslationProvider,
+            provider:
+              normalizedTranslationProvider === 'google'
+                ? 'google'
+                : OPENAI_COMPATIBLE_PROVIDERS.has(normalizedTranslationProvider)
+                  ? 'openai'
+                  : normalizedTranslationProvider,
             source_lang: 'auto',
             target_lang: targetLang,
             gemini_keys: apiKey ? [apiKey] : [],
             gemini_base_url: baseUrl,
             openai_key: apiKey,
             openai_base_url: baseUrl,
-            openai_model: configData.ai_model || 'gpt-4o',
+            openai_model: String(
+              translationModel ||
+              resolveModelByProvider(
+                configData,
+                normalizeModelProvider(translationModelProvider || normalizedTranslationProvider, 'chatgpt')
+              )
+            ).trim(),
           }
         }
       };
+
+      if (
+        pythonInput.config.translation.provider !== 'google' &&
+        !pythonInput.config.translation.openai_model
+      ) {
+        return res.status(400).json({
+          message: `Chưa cấu hình model cho nhóm AI '${normalizeModelProvider(translationModelProvider || normalizedTranslationProvider, 'chatgpt')}'.`,
+        });
+      }
 
       const result = await runPythonScript(RUNNER_PATH, pythonInput);
       if (filePath && fs.existsSync(filePath)) fs.unlinkSync(filePath);
@@ -342,7 +464,11 @@ router.post('/generate-sub', upload.single('file'), async (req, res) => {
       const result = await runPythonScript(RUNNER_PATH, pythonInput);
       if (result.error) throw new Error(result.error);
       if (result.output) {
-        result.output = `/uploads/${result.output.replace(/\\/g, '/').split('uploads/')[1]}`;
+        const normalizedOutput = result.output.replace(/\\/g, '/');
+        const outputFileName = normalizedOutput.includes('/uploads/')
+          ? normalizedOutput.split('/uploads/')[1]
+          : path.basename(normalizedOutput);
+        result.output = `/uploads/${outputFileName}`;
       }
       return res.json(result);
     }

@@ -1,75 +1,116 @@
-import React, { useEffect, useRef, useState } from 'react';
+﻿import React, { useEffect, useRef, useState } from 'react';
+import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles, MessageSquare, Upload, Play, CheckCircle2, AlertCircle, Wand2, ArrowRight, Download } from 'lucide-react';
 
+const PLAYGROUND_TOOLS = [
+  { key: 'chat', label: 'AI Chat', icon: MessageSquare, activeClass: 'bg-primary text-white glow', inactiveClass: 'text-white/40 hover:text-white' },
+  { key: 'subtitle', label: 'Dịch Phụ đề', icon: Wand2, activeClass: 'bg-secondary text-white glow-blue', inactiveClass: 'text-white/40 hover:text-white' },
+  { key: 'tts', label: 'TTS & Lồng tiếng', icon: Play, activeClass: 'bg-purple-600 text-white shadow-[0_0_20px_rgba(147,51,234,0.4)]', inactiveClass: 'text-white/40 hover:text-white' },
+];
+
+const PlaygroundTabs = ({ activeTool, onChangeTool }) => (
+  <div className="flex bg-surface p-1 rounded-2xl border border-white/5 gap-1 overflow-x-auto no-scrollbar max-[400px]:flex-col w-full md:w-auto">
+    {PLAYGROUND_TOOLS.map((tool) => {
+      const Icon = tool.icon;
+      return (
+        <button
+          key={tool.key}
+          onClick={() => onChangeTool(tool.key)}
+          className={`px-4 md:px-5 py-2.5 md:py-3 rounded-xl text-xs md:text-sm font-bold flex items-center justify-center gap-2 transition-all whitespace-nowrap ${
+            activeTool === tool.key ? tool.activeClass : tool.inactiveClass
+          }`}
+        >
+          <Icon className="w-4 h-4" /> {tool.label}
+        </button>
+      );
+    })}
+  </div>
+);
+
+const PlaygroundLanding = ({ onOpenTool }) => (
+  <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-12">
+    <div className="text-center space-y-6 max-w-3xl mx-auto">
+      <h1 className="text-3xl md:text-5xl font-bold flex items-center justify-center gap-4">
+        AI Playground
+        <Sparkles className="text-primary w-6 h-6 md:w-8 md:h-8 animate-pulse" />
+      </h1>
+      <p className="text-white/60 text-base md:text-lg leading-relaxed">
+        Đây là khu vực trải nghiệm các công cụ AI mình đang phát triển. Bạn có thể trò chuyện với AI, dịch phụ đề, hoặc tạo giọng đọc TTS ngay trong một trang duy nhất.
+      </p>
+      <button
+        type="button"
+        onClick={() => onOpenTool('chat')}
+        className="px-6 py-3 rounded-2xl bg-primary text-white font-bold glow hover:scale-105 transition-transform"
+      >
+        Bắt đầu với AI Chat
+      </button>
+    </div>
+
+    <div className="grid md:grid-cols-3 gap-4 md:gap-6">
+      {PLAYGROUND_TOOLS.map((tool) => {
+        const Icon = tool.icon;
+        return (
+          <div key={tool.key} className="glass rounded-3xl p-6 border border-white/10 space-y-4">
+            <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center">
+              <Icon className="w-5 h-5 text-primary" />
+            </div>
+            <h3 className="text-xl font-bold">{tool.label}</h3>
+            <button
+              type="button"
+              onClick={() => onOpenTool(tool.key)}
+              className="w-full py-2.5 rounded-xl border border-white/10 text-sm font-semibold text-white/80 hover:bg-white/5 transition-colors"
+            >
+              Mở {tool.label}
+            </button>
+          </div>
+        );
+      })}
+    </div>
+  </motion.div>
+);
+
+const PlaygroundToolShell = ({ activeTool, onChangeTool, children }) => (
+  <>
+    <div className="flex flex-col md:flex-row justify-between items-center mb-16 gap-8 text-center md:text-left">
+      <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>
+        <h1 className="text-3xl md:text-5xl font-bold mb-4 flex items-center justify-center md:justify-start gap-4">
+          AI Playground
+          <Sparkles className="text-primary w-6 h-6 md:w-8 md:h-8 animate-pulse" />
+        </h1>
+        <p className="text-white/50 text-base md:text-lg max-w-xl mx-auto md:mx-0">
+          Chọn một công cụ bên dưới để trải nghiệm. Mỗi công cụ có đường dẫn riêng để bạn có thể chia sẻ trực tiếp.
+        </p>
+      </motion.div>
+      <PlaygroundTabs activeTool={activeTool} onChangeTool={onChangeTool} />
+    </div>
+
+    <div className="min-h-[600px] flex items-stretch">
+      <motion.div key={activeTool} initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="w-full">
+        {children}
+      </motion.div>
+    </div>
+  </>
+);
+
 const Playground = () => {
-  const [activeDemo, setActiveDemo] = useState('chat'); // 'chat', 'sub', or 'tts'
+  const navigate = useNavigate();
+
+  const handleOpenTool = (tool) => {
+    navigate(`/playground/${tool}`);
+  };
 
   return (
     <div className="py-12 max-w-6xl mx-auto px-4">
-      <div className="flex flex-col md:flex-row justify-between items-center mb-16 gap-8 text-center md:text-left">
-        <motion.div 
-          initial={{ opacity: 0, x: -20 }}
-          whileInView={{ opacity: 1, x: 0 }}
-          viewport={{ once: true }}
-        >
-          <h1 className="text-3xl md:text-5xl font-bold mb-4 flex items-center justify-center md:justify-start gap-4">
-            AI Playground
-            <Sparkles className="text-primary w-6 h-6 md:w-8 md:h-8 animate-pulse" />
-          </h1>
-          <p className="text-white/50 text-base md:text-lg max-w-xl mx-auto md:mx-0">
-            Thử nghiệm các tính năng AI thông minh tôi đã phát triển. Chọn một bộ công cụ bên dưới để bắt đầu.
-          </p>
-        </motion.div>
-
-        <div className="flex bg-surface p-1 rounded-2xl border border-white/5 gap-1 overflow-x-auto no-scrollbar max-[400px]:flex-col w-full md:w-auto">
-          <button 
-            onClick={() => setActiveDemo('chat')}
-            className={`px-4 md:px-5 py-2.5 md:py-3 rounded-xl text-xs md:text-sm font-bold flex items-center justify-center gap-2 transition-all whitespace-nowrap ${
-              activeDemo === 'chat' ? 'bg-primary text-white glow' : 'text-white/40 hover:text-white'
-            }`}
-          >
-            <MessageSquare className="w-4 h-4" /> AI Chat
-          </button>
-          <button 
-            onClick={() => setActiveDemo('sub')}
-            className={`px-4 md:px-5 py-2.5 md:py-3 rounded-xl text-xs md:text-sm font-bold flex items-center justify-center gap-2 transition-all whitespace-nowrap ${
-              activeDemo === 'sub' ? 'bg-secondary text-white glow-blue' : 'text-white/40 hover:text-white'
-            }`}
-          >
-            <Wand2 className="w-4 h-4" /> Dịch Phụ đề
-          </button>
-          <button 
-            onClick={() => setActiveDemo('tts')}
-            className={`px-4 md:px-5 py-2.5 md:py-3 rounded-xl text-xs md:text-sm font-bold flex items-center justify-center gap-2 transition-all whitespace-nowrap ${
-              activeDemo === 'tts' ? 'bg-purple-600 text-white shadow-[0_0_20px_rgba(147,51,234,0.4)]' : 'text-white/40 hover:text-white'
-            }`}
-          >
-            <Play className="w-4 h-4" /> TTS & Lồng tiếng
-          </button>
-        </div>
-      </div>
-
-      <div className="min-h-[600px] flex items-stretch">
-        <AnimatePresence mode="wait">
-          {activeDemo === 'chat' && (
-            <motion.div key="chat" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.98 }} className="w-full">
-              <AIChatDemoLocalHistory />
-            </motion.div>
-          )}
-          {activeDemo === 'sub' && (
-            <motion.div key="sub" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.98 }} className="w-full">
-              <SubTranslatorDemo />
-            </motion.div>
-          )}
-          {activeDemo === 'tts' && (
-            <motion.div key="tts" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.98 }} className="w-full">
-              <TTSDemo />
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
+      <Routes>
+        <Route index element={<PlaygroundLanding onOpenTool={handleOpenTool} />} />
+        <Route path="chat" element={<PlaygroundToolShell activeTool="chat" onChangeTool={handleOpenTool}><AIChatDemoLocalHistory /></PlaygroundToolShell>} />
+        <Route path="subtitle" element={<PlaygroundToolShell activeTool="subtitle" onChangeTool={handleOpenTool}><SubTranslatorDemo /></PlaygroundToolShell>} />
+        <Route path="sub" element={<Navigate to="/playground/subtitle" replace />} />
+        <Route path="tts" element={<PlaygroundToolShell activeTool="tts" onChangeTool={handleOpenTool}><TTSDemo /></PlaygroundToolShell>} />
+        <Route path="*" element={<Navigate to="/playground" replace />} />
+      </Routes>
 
       <style jsx global>{`
         select option {
@@ -90,7 +131,6 @@ const Playground = () => {
     </div>
   );
 };
-
 // --- Sub-components ---
 
 const AI_CHAT_HISTORY_KEY = 'playground_ai_chat_history_v1';
@@ -131,6 +171,7 @@ const AIChatDemoLocalHistory = () => {
 
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [chatModelProvider, setChatModelProvider] = useState('chatgpt');
   const [userApiKey, setUserApiKey] = useState('');
   const [userBaseUrl, setUserBaseUrl] = useState('');
   const messagesEndRef = useRef(null);
@@ -172,6 +213,7 @@ const AIChatDemoLocalHistory = () => {
     try {
       const { data } = await api.post('/ai/chat', {
         message: userMessage.content,
+        modelProvider: chatModelProvider,
         userApiKey,
         userBaseUrl,
       });
@@ -211,13 +253,26 @@ const AIChatDemoLocalHistory = () => {
             </p>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={handleClearHistory}
-          className="px-3 py-2 rounded-xl text-[10px] md:text-xs font-bold uppercase tracking-wider bg-white/5 border border-white/10 text-white/50 hover:text-white hover:bg-white/10 transition-all"
-        >
-          Xóa lịch sử
-        </button>
+        <div className="flex items-center gap-2">
+          <select
+            value={chatModelProvider}
+            onChange={(e) => setChatModelProvider(e.target.value)}
+            className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-[10px] md:text-xs font-bold uppercase tracking-wider text-white/70 focus:outline-none focus:border-primary"
+          >
+            <option value="chatgpt">ChatGPT</option>
+            <option value="gemini">Gemini</option>
+            <option value="claude">Claude</option>
+            <option value="grok">Grok</option>
+            <option value="deepseek">DeepSeek</option>
+          </select>
+          <button
+            type="button"
+            onClick={handleClearHistory}
+            className="px-3 py-2 rounded-xl text-[10px] md:text-xs font-bold uppercase tracking-wider bg-white/5 border border-white/10 text-white/50 hover:text-white hover:bg-white/10 transition-all"
+          >
+            Xóa lịch sử
+          </button>
+        </div>
       </div>
 
       <div className="flex-grow overflow-y-auto p-4 md:p-6 space-y-6 custom-scrollbar">
@@ -290,7 +345,7 @@ const UserConfig = ({ apiKey, setApiKey, baseUrl, setBaseUrl }) => {
       {isOpen && (
         <div className="p-4 pt-0 space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
           <div className="space-y-2">
-            <label className="text-[10px] text-white/40 font-bold uppercase">API Key (Gemini/OpenAI)</label>
+            <label className="text-[10px] text-white/40 font-bold uppercase">API Key (Gemini/ChatGPT/Claude/Grok/DeepSeek)</label>
             <input 
               type="password"
               value={apiKey}
@@ -324,7 +379,7 @@ const SubTranslatorDemo = () => {
   const [srt, setSrt] = useState('');
   const [translatedSrt, setTranslatedSrt] = useState('');
   const [targetLang, setTargetLang] = useState('vi');
-  const [translationProvider, setTranslationProvider] = useState('gemini');
+  const [translationProvider, setTranslationProvider] = useState('chatgpt');
   const [userApiKey, setUserApiKey] = useState('');
   const [userBaseUrl, setUserBaseUrl] = useState('');
   
@@ -379,6 +434,7 @@ const SubTranslatorDemo = () => {
     formData.append('mode', 'translate');
     formData.append('targetLang', targetLang);
     formData.append('translationProvider', translationProvider);
+    formData.append('translationModelProvider', translationProvider);
     if (userApiKey) formData.append('userApiKey', userApiKey);
     if (userBaseUrl) formData.append('userBaseUrl', userBaseUrl);
     try {
@@ -474,10 +530,13 @@ const SubTranslatorDemo = () => {
                     </select>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-xs text-white/60">Công cụ dịch</label>
+                    <label className="text-xs text-white/60">Nhóm AI dịch</label>
                     <select value={translationProvider} onChange={(e) => setTranslationProvider(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-secondary">
-                      <option value="gemini">Gemini (Khuyên dùng)</option>
-                      <option value="openai">OpenAI (Gói trả phí)</option>
+                      <option value="chatgpt">ChatGPT</option>
+                      <option value="gemini">Gemini</option>
+                      <option value="claude">Claude</option>
+                      <option value="grok">Grok</option>
+                      <option value="deepseek">DeepSeek</option>
                       <option value="google">Google Translate (Miễn phí)</option>
                     </select>
                   </div>
@@ -543,6 +602,33 @@ const TTSDemo = () => {
   const [resultUrl, setResultUrl] = useState('');
   const [userApiKey, setUserApiKey] = useState('');
   const [userBaseUrl, setUserBaseUrl] = useState('');
+  const isVideoResult = /\.mp4($|\?)/i.test(resultUrl);
+
+  const resolveResultUrl = (rawUrl) => {
+    const cleanUrl = String(rawUrl || '').trim();
+    if (!cleanUrl) return '';
+    if (/^https?:\/\//i.test(cleanUrl)) return cleanUrl;
+
+    let apiOrigin = '';
+    try {
+      apiOrigin = new URL(api.defaults.baseURL).origin;
+    } catch {
+      apiOrigin = window.location.origin;
+    }
+
+    const normalizedPath = cleanUrl.startsWith('/') ? cleanUrl : `/${cleanUrl}`;
+    return `${apiOrigin}${normalizedPath}`;
+  };
+
+  const handleDownloadResult = () => {
+    if (!resultUrl) return;
+    const a = document.createElement('a');
+    a.href = resultUrl;
+    a.download = isVideoResult ? 'tts_rendered.mp4' : 'tts_rendered.mp3';
+    a.target = '_blank';
+    a.rel = 'noopener';
+    a.click();
+  };
 
   const handleFileChange = (e) => {
     const selectedFile = e.target.files[0];
@@ -556,13 +642,14 @@ const TTSDemo = () => {
     setLoading(true);
     setStep(2);
     setError('');
+    setResultUrl('');
 
     let subs = [];
     if (inputType === 'text') {
       if (!text.trim()) { setError('Vui lòng nhập văn bản.'); setStep(1); setLoading(false); return; }
       subs = [{ index: 1, start: "00:00:00,000", end: "00:00:10,000", content: text }];
     } else {
-      if (!file) { setError('Vui lóng chọn file .srt.'); setStep(1); setLoading(false); return; }
+      if (!file) { setError('Vui lòng chọn file .srt.'); setStep(1); setLoading(false); return; }
       // Đọc file SRT và gửi lên (giả định route handle JSON subs)
       const content = await file.text();
       // Parser đơn giản hoặc gửi text thô cho backend
@@ -579,10 +666,12 @@ const TTSDemo = () => {
         userApiKey,
         userBaseUrl
       });
-      if (data.success) {
-        setResultUrl(data.output);
+      if (data.success && data.output) {
+        setResultUrl(resolveResultUrl(data.output));
         setStep(3);
-      } else throw new Error(data.error);
+      } else {
+        throw new Error(data.error || 'Không có tệp đầu ra.');
+      }
     } catch (err) {
       console.error(err);
       const msg = err.response?.data?.error || err.response?.data?.message || err.message;
@@ -688,8 +777,18 @@ const TTSDemo = () => {
           <motion.div key="s3" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="space-y-8 relative z-10">
             <div className="w-24 h-24 bg-green-500/10 text-green-500 rounded-full flex items-center justify-center mx-auto"><CheckCircle2 className="w-12 h-12" /></div>
             <h3 className="text-3xl font-bold">Thành phẩm sẵn sàng!</h3>
+            {resultUrl && (
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-4 space-y-3">
+                <p className="text-sm font-bold text-white/70">Nghe thử trước khi tải</p>
+                {isVideoResult ? (
+                  <video src={resultUrl} controls className="w-full rounded-xl bg-black/30" />
+                ) : (
+                  <audio src={resultUrl} controls className="w-full" />
+                )}
+              </div>
+            )}
             <div className="flex flex-col gap-4">
-              <button onClick={() => window.open(resultUrl, '_blank')} className="w-full py-4 bg-purple-600 text-white rounded-2xl font-bold shadow-lg flex items-center justify-center gap-2">Tải Video/Audio <Download className="w-5 h-5" /></button>
+              <button onClick={handleDownloadResult} className="w-full py-4 bg-purple-600 text-white rounded-2xl font-bold shadow-lg flex items-center justify-center gap-2">Tải Video/Audio <Download className="w-5 h-5" /></button>
               <button onClick={() => setStep(1)} className="text-white/40 text-sm">Quay lại</button>
             </div>
           </motion.div>
@@ -707,5 +806,6 @@ const SendIcon = ({ className }) => (
 );
 
 export default Playground;
+
 
 

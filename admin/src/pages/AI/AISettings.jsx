@@ -8,6 +8,11 @@ const AISettings = () => {
     apiKey: '',
     baseUrl: 'https://api.openai.com/v1',
     model: 'gpt-4o',
+    modelChatgpt: 'gpt-4o',
+    modelGemini: '',
+    modelClaude: '',
+    modelGrok: '',
+    modelDeepseek: '',
     systemPrompt: 'Bạn là một trợ lý AI hữu ích, đại diện cho Nguyễn Quang Sơn - một Fullstack Developer.'
   });
 
@@ -15,11 +20,27 @@ const AISettings = () => {
     const fetchConfig = async () => {
       try {
         const { data } = await api.get('/ai/config');
-        if (data.ai_apiKey || data.ai_baseUrl || data.ai_model || data.ai_systemPrompt) {
+        if (
+          data.ai_apiKey ||
+          data.ai_baseUrl ||
+          data.ai_model ||
+          data.ai_model_chatgpt ||
+          data.ai_model_gemini ||
+          data.ai_model_claude ||
+          data.ai_model_grok ||
+          data.ai_model_deepseek ||
+          data.ai_systemPrompt
+        ) {
+          const chatgptModel = data.ai_model_chatgpt || data.ai_model || 'gpt-4o';
           setFormData({
             apiKey: data.ai_apiKey || '',
             baseUrl: data.ai_baseUrl || 'https://api.openai.com/v1',
-            model: data.ai_model || 'gpt-4o',
+            model: chatgptModel,
+            modelChatgpt: chatgptModel,
+            modelGemini: data.ai_model_gemini || '',
+            modelClaude: data.ai_model_claude || '',
+            modelGrok: data.ai_model_grok || '',
+            modelDeepseek: data.ai_model_deepseek || '',
             systemPrompt: data.ai_systemPrompt || '',
           });
         }
@@ -88,17 +109,53 @@ const AISettings = () => {
             </div>
           </div>
 
-          {/* Model Name */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-white/60">MODEL NAME</label>
-            <input
-              type="text"
-              name="model"
-              value={formData.model}
-              onChange={handleChange}
-              placeholder="e.g. gpt-4, claude-3"
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary transition-colors"
-            />
+          <div className="space-y-3">
+            <label className="text-sm font-medium text-white/60">MODEL NAME THEO NHÓM AI</label>
+            <p className="text-xs text-white/40">
+              Điền model bạn muốn dùng cho từng nhóm. Nếu key không hỗ trợ nhóm nào thì để trống ô đó.
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <input
+                type="text"
+                name="modelChatgpt"
+                value={formData.modelChatgpt}
+                onChange={handleChange}
+                placeholder="ChatGPT (vd: gpt-4o)"
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary transition-colors"
+              />
+              <input
+                type="text"
+                name="modelGemini"
+                value={formData.modelGemini}
+                onChange={handleChange}
+                placeholder="Gemini (vd: gemini-2.5-flash)"
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary transition-colors"
+              />
+              <input
+                type="text"
+                name="modelClaude"
+                value={formData.modelClaude}
+                onChange={handleChange}
+                placeholder="Claude (vd: claude-sonnet-4-6)"
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary transition-colors"
+              />
+              <input
+                type="text"
+                name="modelGrok"
+                value={formData.modelGrok}
+                onChange={handleChange}
+                placeholder="Grok (vd: grok-3)"
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary transition-colors"
+              />
+              <input
+                type="text"
+                name="modelDeepseek"
+                value={formData.modelDeepseek}
+                onChange={handleChange}
+                placeholder="DeepSeek (vd: deepseek-chat)"
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary transition-colors md:col-span-2"
+              />
+            </div>
           </div>
 
           {/* System Prompt */}
@@ -133,7 +190,7 @@ const AISettings = () => {
          <div>
            <h4 className="font-bold text-sm mb-1">Mẹo nhỏ</h4>
            <p className="text-xs text-white/50 leading-relaxed">
-             Bạn có thể sử dụng các nhà cung cấp như OpenAI, Groq, hoặc thậm chì là Local LLM thông qua LM Studio/Ollama bằng cách thay đổi Base URL.
+             Bạn có thể sử dụng các nhà cung cấp như OpenAI, Groq, hoặc thậm chí là Local LLM thông qua LM Studio/Ollama bằng cách thay đổi Base URL.
            </p>
          </div>
       </div>

@@ -1,6 +1,8 @@
 const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');
+const fs = require('fs');
+const path = require('path');
 require('dotenv').config();
 const { connectDB, sequelize } = require('./config/db');
 const authRoutes = require('./routes/auth.routes');
@@ -53,6 +55,12 @@ const captureRawBody = (req, res, buf) => {
 app.use(express.json({ limit: '50mb', verify: captureRawBody }));
 app.use(express.urlencoded({ limit: '50mb', extended: true, verify: captureRawBody }));
 app.use(morgan('dev'));
+
+const uploadsDir = path.resolve(__dirname, '../uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+app.use('/uploads', express.static(uploadsDir));
 
 // Routes
 app.use('/', seoRoutes);

@@ -25,6 +25,14 @@ const Navbar = () => {
     document.body.style.overflow = isOpen ? 'hidden' : 'unset';
   }, [isOpen]);
 
+  const isLinkActive = (linkPath) => {
+    if (linkPath === '/') return pathname === '/';
+    if (linkPath === '/playground') {
+      return pathname === '/playground' || pathname.startsWith('/playground/');
+    }
+    return pathname === linkPath || pathname.startsWith(`${linkPath}/`);
+  };
+
   return (
     <>
       <motion.nav
@@ -47,11 +55,11 @@ const Navbar = () => {
                 <Link
                   to={link.path}
                   className={`text-sm font-medium hover:text-primary transition-colors relative ${
-                    pathname === link.path ? 'text-primary' : 'text-white/70'
+                    isLinkActive(link.path) ? 'text-primary' : 'text-white/70'
                   }`}
                 >
                   {link.name}
-                  {pathname === link.path && (
+                  {isLinkActive(link.path) && (
                     <motion.div
                       layoutId="activeNav"
                       className="absolute -bottom-1 left-0 right-0 h-0.5 bg-primary"
@@ -94,7 +102,7 @@ const Navbar = () => {
                   <Link
                     to={link.path}
                     className={`text-2xl font-semibold hover:text-primary transition-colors ${
-                      pathname === link.path ? 'text-primary' : 'text-white'
+                      isLinkActive(link.path) ? 'text-primary' : 'text-white'
                     }`}
                   >
                     {link.name}

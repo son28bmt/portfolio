@@ -93,7 +93,7 @@ const About = () => {
       {/* Timeline Section */}
       <section className="mb-20">
         <h3 className="text-2xl font-bold mb-10 text-center">Hành trình phát triển</h3>
-        <div className="relative border-l border-white/10 ml-4 md:ml-0 md:left-1/2">
+        <div className="relative border-l border-white/10 ml-4 md:ml-0 md:left-1">
           {timeline.map((item, index) => (
             <motion.div
               key={index}
