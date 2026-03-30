@@ -39,22 +39,27 @@ const Marketplace = () => {
   }, []);
 
   useEffect(() => {
-    let interval;
+    let sse;
     if (orderResult?.payment_ref && orderStatus === 'pending') {
-      interval = setInterval(async () => {
+      const baseUrl = api.defaults.baseURL || 'https://api.nguyenquangson.id.vn/api';
+      sse = new EventSource(`${baseUrl}/sse/orders/${orderResult.payment_ref}`);
+
+      sse.onmessage = (event) => {
         try {
-          const { data } = await api.get(`/orders/${orderResult.payment_ref}/status`);
+          const data = JSON.parse(event.data);
           if (data.status === 'paid') {
             setOrderStatus('paid');
-            clearInterval(interval);
             fetchProducts();
+            sse.close();
           }
         } catch {
           // ignore
         }
-      }, 3000);
+      };
     }
-    return () => clearInterval(interval);
+    return () => {
+      if (sse) sse.close();
+    };
   }, [orderResult, orderStatus]);
 
   const selectedProduct = useMemo(

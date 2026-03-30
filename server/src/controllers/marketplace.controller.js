@@ -10,6 +10,7 @@ const {
   getAdminCategories,
   getAdminOrders,
 } = require('../services/marketplace.service');
+const { addClient } = require('../services/sse.service');
 
 const signAdminToken = (adminId) =>
   jwt.sign({ adminId, role: 'marketplace_admin' }, process.env.JWT_SECRET || 'secret', {
@@ -68,6 +69,12 @@ const publicGetOrderStatus = async (req, res) => {
   } catch (error) {
     return handleError(res, error);
   }
+};
+
+const publicGetOrderSSE = (req, res) => {
+  const paymentRef = String(req.params.payment_ref || '').trim();
+  if (!paymentRef) return res.status(400).json({ message: 'Thiếu mã thanh toán.' });
+  addClient(req, res, 'market', paymentRef);
 };
 
 const webhookSePay = async (req, res) => {
@@ -446,6 +453,7 @@ module.exports = {
   publicGetProducts,
   publicCreateOrder,
   publicGetOrderStatus,
+  publicGetOrderSSE,
   webhookSePay,
   adminLogin,
   adminGetProducts,

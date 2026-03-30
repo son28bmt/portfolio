@@ -8,6 +8,7 @@ const router = express.Router();
 router.get('/products', controller.publicGetProducts);
 router.post('/orders', controller.publicCreateOrder);
 router.get('/orders/:payment_ref/status', controller.publicGetOrderStatus);
+router.get('/sse/orders/:payment_ref', controller.publicGetOrderSSE);
 
 // Webhook
 router.post('/webhook/sepay', controller.webhookSePay);

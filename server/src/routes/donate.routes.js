@@ -17,6 +17,8 @@ const {
   isExpired,
   toAmount,
 } = require('../services/donate.service');
+const { addClient, sendEvent } = require('../services/sse.service');
+const { notifyAdmin } = require('../services/socket.service');
 
 const router = express.Router();
 
@@ -88,6 +90,8 @@ router.post('/intents', async (req, res) => {
       isPublic: true,
     });
 
+    notifyAdmin('admin_donate_refresh');
+
     const qrImageUrl = buildVietQrUrl({
       bankBin: config.bankBin,
       accountNo: config.accountNo,
@@ -135,6 +139,12 @@ router.get('/intents/:orderCode/status', async (req, res) => {
   } catch (error) {
     return res.status(500).json({ message: error.message || 'Không thể lấy trạng thái donate.' });
   }
+});
+
+router.get('/sse/donates/:orderCode', (req, res) => {
+  const orderCode = String(req.params.orderCode || '').trim().toUpperCase();
+  if (!orderCode) return res.status(400).json({ message: 'Thiếu mã đơn.' });
+  addClient(req, res, 'donate', orderCode);
 });
 
 router.get('/public-summary', async (req, res) => {
@@ -213,6 +223,9 @@ router.post('/webhook/sepay', async (req, res) => {
       paidAt: new Date(),
       rawWebhook: JSON.stringify(payload.rawPayload),
     });
+
+    sendEvent('donate', donation.orderCode, { status: DONATION_STATUS.PAID });
+    notifyAdmin('admin_donate_refresh');
 
     return res.status(200).json({ success: true, message: 'OK' });
   } catch (error) {

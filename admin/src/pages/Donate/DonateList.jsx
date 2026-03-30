@@ -10,6 +10,7 @@ import {
   AlertTriangle,
   XCircle,
 } from 'lucide-react';
+import { io } from 'socket.io-client';
 import api from '../../services/api';
 
 const STATUS_OPTIONS = [
@@ -52,6 +53,7 @@ const DonateList = () => {
   const [limit] = useState(20);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
+  const [toggleRefresh, setToggleRefresh] = useState(false);
 
   const fetchDonations = async () => {
     setLoading(true);
@@ -77,7 +79,29 @@ const DonateList = () => {
   useEffect(() => {
     fetchDonations();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, status, query]);
+  }, [page, status, query, toggleRefresh]);
+
+  useEffect(() => {
+    const apiUrl = api.defaults.baseURL || 'https://api.nguyenquangson.id.vn/api';
+    const serverUrl = apiUrl.replace(/\/api\/?$/, '');
+    
+    const socket = io(serverUrl, {
+      reconnectionDelayMax: 10000,
+      transports: ['websocket', 'polling']
+    });
+
+    socket.on('connect', () => {
+      socket.emit('join_admin_room');
+    });
+
+    socket.on('admin_donate_refresh', () => {
+      setToggleRefresh(prev => !prev);
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, []);
 
   const applySearch = (e) => {
     e.preventDefault();

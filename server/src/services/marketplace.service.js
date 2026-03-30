@@ -6,6 +6,8 @@ const { sequelize } = require('../config/db');
 const { Product, Order, StockItem, Category } = require('../models');
 const { buildVietQrUrl, verifySepayWebhook, normalizeSepayPayload } = require('./donate.service');
 const { sendMarketplaceDeliveryEmail } = require('./email.service');
+const { sendEvent } = require('./sse.service');
+const { notifyAdmin } = require('./socket.service');
 
 const raise = (status, message) => {
   const error = new Error(message);
@@ -133,6 +135,8 @@ const createOrderIntent = async ({ email, productId }) => {
     amount,
   });
 
+  notifyAdmin('admin_market_refresh');
+
   const qrUrl = buildVietQrUrl({
     bankBin,
     accountNo,
@@ -244,6 +248,8 @@ const processSepayWebhook = async (req) => {
   });
 
   if (result.type === 'paid') {
+    sendEvent('market', paymentRef, { status: 'paid' });
+    notifyAdmin('admin_market_refresh');
     try {
       await sendMarketplaceDeliveryEmail({
         to: result.order.email,

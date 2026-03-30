@@ -3,8 +3,6 @@ import { motion } from 'framer-motion';
 import { Gift, QrCode, Clock3, CheckCircle2, AlertCircle, Copy, RefreshCw } from 'lucide-react';
 import api from '../services/api';
 
-const POLL_INTERVAL_MS = 3000;
-const POLL_TIMEOUT_MS = 10 * 60 * 1000;
 const SUGGESTED_AMOUNTS = [20000, 50000, 100000, 200000];
 
 const STATUS_LABELS = {
@@ -98,56 +96,31 @@ const Donate = () => {
   useEffect(() => {
     if (!intent?.orderCode || intent.status !== 'pending') return undefined;
 
-    let active = true;
-    const startedAt = Date.now();
     setPolling(true);
+    let sse;
+    
+    const baseUrl = api.defaults.baseURL || 'https://api.nguyenquangson.id.vn/api';
+    sse = new EventSource(`${baseUrl}/sse/donates/${intent.orderCode}`);
 
-    const stopPolling = () => {
-      if (active) setPolling(false);
-      active = false;
-    };
-
-    const poll = async () => {
-      if (!active) return;
+    sse.onmessage = (event) => {
       try {
-        const { data } = await api.get(`/donate/intents/${intent.orderCode}/status`);
-        if (!active) return;
-
-        const nextStatus = data?.status || 'pending';
-        setIntent((prev) => (prev ? { ...prev, ...data } : prev));
-
-        if (nextStatus === 'paid') {
+        const data = JSON.parse(event.data);
+        if (data.status === 'paid') {
+          setIntent((prev) => (prev ? { ...prev, status: 'paid' } : prev));
           setNotice('Đã nhận thanh toán thành công. Cảm ơn bạn đã ủng hộ!');
           setError('');
-          stopPolling();
+          setPolling(false);
           fetchSummary();
-          return;
+          sse.close();
         }
-
-        if (nextStatus === 'expired' || nextStatus === 'failed') {
-          setError(nextStatus === 'expired' ? 'Mã QR đã hết hạn. Vui lòng tạo lại đơn mới.' : 'Giao dịch không thành công.');
-          stopPolling();
-        }
-      } catch (err) {
-        if (!active) return;
-        console.error('Không thể cập nhật trạng thái donate:', err);
+      } catch {
+        // ignore
       }
     };
 
-    poll();
-    const interval = setInterval(() => {
-      if (Date.now() - startedAt > POLL_TIMEOUT_MS) {
-        clearInterval(interval);
-        stopPolling();
-        setError('Đã hết thời gian theo dõi tự động. Bạn có thể làm mới trạng thái.');
-        return;
-      }
-      poll();
-    }, POLL_INTERVAL_MS);
-
     return () => {
-      clearInterval(interval);
-      stopPolling();
+      if (sse) sse.close();
+      setPolling(false);
     };
   }, [intent?.orderCode, intent?.status, fetchSummary]);
 
@@ -449,7 +422,7 @@ const Donate = () => {
 
           {polling && (
             <div className="text-xs text-primary bg-primary/10 border border-primary/20 rounded-xl p-3">
-              Hệ thống đang kiểm tra thanh toán tự động mỗi 3 giây...
+              Hệ thống đang chờ thanh toán...
             </div>
           )}
 

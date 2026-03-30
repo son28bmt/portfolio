@@ -9,6 +9,7 @@ import {
   Pencil,
   Plus,
 } from 'lucide-react';
+import { io } from 'socket.io-client';
 import api from '../../services/api';
 
 const tabs = [
@@ -34,6 +35,7 @@ const MarketplaceManager = () => {
   const [categories, setCategories] = useState([]);
   const [products, setProducts] = useState([]);
   const [stockItems, setStockItems] = useState([]);
+  const [stockFilter, setStockFilter] = useState('all');
   const [orders, setOrders] = useState([]);
 
   const [categoryName, setCategoryName] = useState('');
@@ -132,13 +134,32 @@ const MarketplaceManager = () => {
     [stockItems]
   );
 
+  const filteredStockItems = useMemo(() => {
+    if (stockFilter === 'all') return stockItems;
+    return stockItems.filter((item) => item.status === stockFilter);
+  }, [stockItems, stockFilter]);
+
   useEffect(() => {
-    if (activeTab !== 'stock') return undefined;
-    const intervalId = setInterval(() => {
-      Promise.all([fetchStockItems(), fetchProducts()]).catch(() => {});
-    }, 5000);
-    return () => clearInterval(intervalId);
-  }, [activeTab]);
+    const apiUrl = api.defaults.baseURL || 'https://api.nguyenquangson.id.vn/api';
+    const serverUrl = apiUrl.replace(/\/api\/?$/, '');
+    
+    const socket = io(serverUrl, {
+      reconnectionDelayMax: 10000,
+      transports: ['websocket', 'polling']
+    });
+
+    socket.on('connect', () => {
+      socket.emit('join_admin_room');
+    });
+
+    socket.on('admin_market_refresh', () => {
+      fetchAll(); // Tự động reload lại toàn bộ dữ liệu mới nhất
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, []);
 
   const createCategory = async (event) => {
     event.preventDefault();
@@ -534,8 +555,21 @@ const MarketplaceManager = () => {
             </button>
           </form>
 
+          <div className="flex items-center gap-3 border-t border-white/10 pt-4">
+            <span className="text-sm font-bold text-white/60">Bộ lọc hiển thị:</span>
+            <select
+              value={stockFilter}
+              onChange={(e) => setStockFilter(e.target.value)}
+              className="admin-select"
+            >
+              <option value="all">Tất cả</option>
+              <option value="available">Chưa bán (available)</option>
+              <option value="sold">Đã bán (sold)</option>
+            </select>
+          </div>
+
           <div className="space-y-2 max-h-[420px] overflow-y-auto pr-1">
-            {stockItems.map((item) => (
+            {filteredStockItems.map((item) => (
               <div key={item.id} className="p-3 rounded-xl border border-white/10 bg-white/5">
                 <div className="flex items-center justify-between gap-2 mb-2">
                   <p className="font-bold text-sm">#{item.id} - {item.product?.name || `Sản phẩm ${item.productId}`}</p>
@@ -556,7 +590,7 @@ const MarketplaceManager = () => {
                 <pre className="text-xs text-white/60 whitespace-pre-wrap break-all">{item.data}</pre>
               </div>
             ))}
-            {stockItems.length === 0 && <p className="text-sm text-white/40">Kho hàng đang trống.</p>}
+            {filteredStockItems.length === 0 && <p className="text-sm text-white/40">Không tìm thấy dữ liệu nào.</p>}
           </div>
         </div>
       )}
