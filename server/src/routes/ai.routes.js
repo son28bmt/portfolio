@@ -2,6 +2,9 @@ const express = require('express');
 const axios = require('axios');
 const router = express.Router();
 const Setting = require('../models/Setting');
+const Product = require('../models/Product');
+const Project = require('../models/Project');
+const Blog = require('../models/Blog');
 const { protect } = require('../middleware/auth.middleware');
 const multer = require('multer');
 const path = require('path');
@@ -159,7 +162,7 @@ router.post('/config', protect, async (req, res) => {
 
 // Real Chat logic
 router.post('/chat', async (req, res) => {
-  const { message, userApiKey, userBaseUrl, modelProvider = 'chatgpt', userModel = '' } = req.body;
+  const { message, imageBase64, userApiKey, userBaseUrl, modelProvider = 'chatgpt', userModel = '' } = req.body;
   
   try {
     const settings = await Setting.findAll({
@@ -186,7 +189,38 @@ router.post('/chat', async (req, res) => {
     let baseUrl = userBaseUrl || configData.ai_baseUrl || 'https://api.openai.com/v1';
     const normalizedModelProvider = normalizeModelProvider(modelProvider, 'chatgpt');
     const model = String(userModel || resolveModelByProvider(configData, normalizedModelProvider)).trim();
-    const systemPrompt = configData.ai_systemPrompt || 'Bạn là một trợ lý AI hữu ích.';
+    let systemPrompt = configData.ai_systemPrompt || 'Bạn là một trợ lý AI hữu ích. Bạn đang làm việc trên website nguyenquangson.id.vn. Nhiệm vụ của bạn là tư vấn nhiệt tình, thân thiện, trả lời ngắn gọn súc tích.';
+
+    // --- RAG (RAG CƠ BẢN TỔNG HỢP CONTEXT) ---
+    // Tiêm thông tin Marketplace, Projects, Blogs, Playground vào AI
+    try {
+      const [products, projects, blogs] = await Promise.all([
+        Product.findAll({ where: { quantity: { [require('sequelize').Op.gt]: 0 } }, attributes: ['name', 'price', 'description'], raw: true }),
+        Project.findAll({ attributes: ['title', 'description', 'tech', 'demo'], limit: 15, raw: true }),
+        Blog.findAll({ attributes: ['title', 'slug', 'excerpt'], limit: 15, raw: true })
+      ]);
+
+      let ragContext = '\n\n--- DỮ LIỆU TỪ HỆ THỐNG NGUYENQUANGSON.ID.VN ---\nBạn hãy dùng dữ liệu dưới đây để tư vấn hoặc điều hướng người dùng một cách thân thiện. Nếu họ hỏi tool/source code, hãy kiểm tra xem nó có trong Cửa Hàng, Dự Án, Bài Viết, hay Playground không và tư vấn họ cài đặt/dùng/mua nhé:\n\n';
+
+      if (products.length > 0) {
+        ragContext += `* KHO HÀNG ĐANG BÁN:\n` + products.map((p, i) => `  ${i + 1}. ${p.name} - Giá: ${Number(p.price).toLocaleString()} VNĐ. Hỗ trợ: ${p.description}`).join('\n') + '\n\n';
+      }
+
+      if (projects.length > 0) {
+        ragContext += `* CÁC DỰ ÁN TRONG PORTFOLIO CỦA SƠN (Mục Dự Án):\n` + projects.map((p, i) => `  ${i + 1}. Tên project: ${p.title} | Stack: ${typeof p.tech === 'string' ? p.tech : JSON.stringify(p.tech)} | Mô tả: ${p.description}`).join('\n') + '\n\n';
+      }
+
+      if (blogs.length > 0) {
+        ragContext += `* CÁC BÀI VIẾT NỔI BẬT (Mục Blog):\n` + blogs.map((b, i) => `  ${i + 1}. Bài viết: "${b.title}" - Tóm tắt: ${b.excerpt} - Link bài: /blog/${b.slug}`).join('\n') + '\n\n';
+      }
+
+      ragContext += `* PLAYGROUND (CÔNG CỤ ONLINE TRÊN WEB):\n  1. AI Chatbot (như hiện tại)\n  2. Dịch Phụ đề & Video tự động (Subtitle Translator)\n  3. TTS - Lồng tiếng văn bản tự động.\n\n-> LƯU Ý CHO AI: Khi khách hỏi "Có tool này tool kia không", hãy phân tích xem nó hợp với dự án nào hay món hàng nào để chèn vào câu trả lời, đừng bao giờ bê nguyên danh sách ra đọc. Trả lời cực kỳ ngắn gọn, trò chuyện như con người.`;
+
+      systemPrompt += ragContext;
+    } catch (err) {
+      console.error('Lỗi lấy dữ liệu RAG AI:', err.message);
+    }
+    // ------------------------
 
     if (baseUrl.endsWith('/')) baseUrl = baseUrl.slice(0, -1);
 
@@ -199,9 +233,17 @@ router.post('/chat', async (req, res) => {
       });
     }
 
+    let userContent = message;
+    if (imageBase64) {
+      userContent = [
+        { type: 'text', text: message || "Xin hãy mô tả hoặc phân tích hình ảnh này." },
+        { type: 'image_url', image_url: { url: imageBase64 } }
+      ];
+    }
+
     const messages = [
       { role: 'system', content: systemPrompt },
-      { role: 'user', content: message }
+      { role: 'user', content: userContent }
     ];
 
     const response = await axios.post(`${baseUrl}/chat/completions`, {

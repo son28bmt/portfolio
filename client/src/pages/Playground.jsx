@@ -1,8 +1,10 @@
-﻿import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, MessageSquare, Upload, Play, CheckCircle2, AlertCircle, Wand2, ArrowRight, Download } from 'lucide-react';
+import { Sparkles, MessageSquare, Upload, Play, CheckCircle2, AlertCircle, Wand2, ArrowRight, Download, Send, ImagePlus, X } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 const PLAYGROUND_TOOLS = [
   { key: 'chat', label: 'AI Chat', icon: MessageSquare, activeClass: 'bg-primary text-white glow', inactiveClass: 'text-white/40 hover:text-white' },
@@ -174,6 +176,8 @@ const AIChatDemoLocalHistory = () => {
   const [chatModelProvider, setChatModelProvider] = useState('chatgpt');
   const [userApiKey, setUserApiKey] = useState('');
   const [userBaseUrl, setUserBaseUrl] = useState('');
+  const [selectedImage, setSelectedImage] = useState(null);
+  const fileInputRef = useRef(null);
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
@@ -201,18 +205,52 @@ const AIChatDemoLocalHistory = () => {
     }
   };
 
+  const handleImageUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      alert('Ảnh quá lớn, vui lòng chọn ảnh dưới 2MB.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => setSelectedImage(e.target.result);
+    reader.readAsDataURL(file);
+    e.target.value = null; // reset input
+  };
+
+  const handlePaste = (e) => {
+    const items = e.clipboardData.items;
+    for (const item of items) {
+      if (item.type.indexOf('image') !== -1) {
+        const file = item.getAsFile();
+        if (file.size > 2 * 1024 * 1024) {
+          alert('Ảnh dán vào quá lớn (trên 2MB).');
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = (e) => setSelectedImage(e.target.result);
+        reader.readAsDataURL(file);
+        break;
+      }
+    }
+  };
+
   const handleSend = async (e) => {
     e.preventDefault();
-    if (!input.trim()) return;
+    if (!input.trim() && !selectedImage) return;
 
-    const userMessage = { role: 'user', content: input.trim() };
+    const userMessage = { role: 'user', content: input.trim(), imageBase64: selectedImage };
     setMessages((prev) => [...prev, userMessage]);
+    
+    const sentImageBase64 = selectedImage;
     setInput('');
+    setSelectedImage(null);
     setIsTyping(true);
 
     try {
       const { data } = await api.post('/ai/chat', {
         message: userMessage.content,
+        imageBase64: sentImageBase64,
         modelProvider: chatModelProvider,
         userApiKey,
         userBaseUrl,
@@ -247,7 +285,7 @@ const AIChatDemoLocalHistory = () => {
             <Sparkles className="w-4 h-4 md:w-5 md:h-5 text-white" />
           </div>
           <div>
-            <h3 className="font-bold text-sm md:text-base">Assistant AI</h3>
+            <h3 className="font-bold text-sm md:text-base">Trợ Lý GuangShan</h3>
             <p className="text-[10px] text-green-400 flex items-center gap-1">
               <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" /> Trực tuyến
             </p>
@@ -286,11 +324,22 @@ const AIChatDemoLocalHistory = () => {
             className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
           >
             <div
-              className={`max-w-[90%] md:max-w-[80%] p-3 md:p-4 rounded-2xl ${
+              className={`max-w-[90%] md:max-w-[80%] p-3 md:p-4 rounded-2xl overflow-hidden ${
                 msg.role === 'user' ? 'bg-primary text-white ml-8' : 'bg-white/10 text-white/80 mr-8'
               }`}
             >
-              <p className="text-xs md:text-sm leading-relaxed">{msg.content}</p>
+              {msg.role === 'user' ? (
+                <>
+                  <p className="text-xs md:text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                  {msg.imageBase64 && (
+                    <img src={msg.imageBase64} alt="Attached" className="mt-3 max-w-full rounded-lg max-h-48 object-contain border border-white/20" />
+                  )}
+                </>
+              ) : (
+                <div className="prose prose-invert prose-sm md:prose-base max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-ol:my-1 prose-headings:text-white prose-a:text-secondary prose-strong:text-white marker:text-white/60">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
+                </div>
+              )}
             </div>
           </motion.div>
         ))}
@@ -308,19 +357,50 @@ const AIChatDemoLocalHistory = () => {
         <div ref={messagesEndRef} />
       </div>
 
-      <form onSubmit={handleSend} className="p-4 md:p-6 bg-white/5 border-t border-white/5 flex gap-3 md:gap-4">
+      {selectedImage && (
+        <div className="px-4 md:px-6 pt-4 bg-white/5 flex gap-2">
+          <div className="relative inline-block">
+            <img src={selectedImage} alt="Preview" className="h-14 w-14 object-cover rounded-xl border border-white/20" />
+            <button 
+              type="button" 
+              onClick={() => setSelectedImage(null)}
+              className="absolute -top-2 -right-2 bg-red-500 text-white p-1 rounded-full hover:scale-110 transition-transform shadow-lg"
+            >
+              <X className="w-3 h-3" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      <form onSubmit={handleSend} className="p-4 md:p-6 bg-white/5 border-t border-white/5 flex gap-2 md:gap-3 items-center">
+        <input 
+          type="file" 
+          ref={fileInputRef} 
+          accept="image/*" 
+          className="hidden" 
+          onChange={handleImageUpload} 
+        />
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          className="p-3 bg-white/5 text-white/50 rounded-xl hover:text-white hover:bg-white/10 transition-colors"
+          title="Đính kèm ảnh"
+        >
+          <ImagePlus className="w-4 h-4 md:w-5 md:h-5" />
+        </button>
         <input
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Nhập câu hỏi..."
+          onPaste={handlePaste}
+          placeholder="Nhập câu hỏi hoặc nhấn Ctrl+V để dán ảnh..."
           className="flex-grow bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-xs md:text-sm focus:outline-none focus:border-primary transition-colors"
         />
         <button
           type="submit"
           className="p-3 bg-primary text-white rounded-xl hover:scale-105 transition-transform glow"
         >
-          <SendIcon className="w-4 h-4 md:w-5 md:h-5" />
+          <Send className="w-4 h-4 md:w-5 md:h-5" />
         </button>
       </form>
     </div>
