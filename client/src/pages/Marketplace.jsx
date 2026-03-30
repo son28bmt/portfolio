@@ -47,6 +47,7 @@ const Marketplace = () => {
           if (data.status === 'paid') {
             setOrderStatus('paid');
             clearInterval(interval);
+            fetchProducts();
           }
         } catch {
           // ignore
