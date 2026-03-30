@@ -2,6 +2,7 @@ const express = require('express');
 const { Op } = require('sequelize');
 const Donation = require('../models/Donation');
 const { protect } = require('../middleware/auth.middleware');
+const { processSepayWebhook: processMarketplaceWebhook } = require('../services/marketplace.service');
 const {
   DONATION_STATUS,
   sanitizeDonorName,
@@ -175,6 +176,12 @@ router.post('/webhook/sepay', async (req, res) => {
       return res.status(202).json({ message: 'Bỏ qua webhook không phải giao dịch thành công.' });
     }
 
+    const transferContentStr = String(payload.transferContent || '').toUpperCase();
+    if (transferContentStr.match(/ORD[A-Z0-9]{8,40}/)) {
+      const result = await processMarketplaceWebhook(req);
+      return res.status(200).json({ success: true, ...result });
+    }
+
     const orderCode = extractOrderCode(payload.transferContent);
     if (!orderCode) {
       return res.status(400).json({ message: 'Không tìm thấy mã đơn donate trong nội dung chuyển khoản.' });
@@ -207,9 +214,10 @@ router.post('/webhook/sepay', async (req, res) => {
       rawWebhook: JSON.stringify(payload.rawPayload),
     });
 
-    return res.status(200).json({ message: 'OK' });
+    return res.status(200).json({ success: true, message: 'OK' });
   } catch (error) {
-    return res.status(500).json({ message: error.message || 'Lỗi xử lý webhook donate.' });
+    const status = error.status || 500;
+    return res.status(status).json({ message: error.message || 'Lỗi xử lý webhook donate.' });
   }
 });
 

@@ -59,7 +59,7 @@ const publicCreateOrder = async (req, res) => {
 const webhookSePay = async (req, res) => {
   try {
     const result = await processSepayWebhook(req);
-    return res.status(200).json(result);
+    return res.status(200).json({ success: true, ...result });
   } catch (error) {
     return handleError(res, error);
   }
