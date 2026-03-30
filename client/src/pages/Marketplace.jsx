@@ -19,6 +19,7 @@ const Marketplace = () => {
   const [creatingOrder, setCreatingOrder] = useState(false);
   const [notice, setNotice] = useState('');
   const [orderResult, setOrderResult] = useState(null);
+  const [orderStatus, setOrderStatus] = useState(null);
 
   const fetchProducts = async () => {
     setLoading(true);
@@ -36,6 +37,24 @@ const Marketplace = () => {
   useEffect(() => {
     fetchProducts();
   }, []);
+
+  useEffect(() => {
+    let interval;
+    if (orderResult?.payment_ref && orderStatus === 'pending') {
+      interval = setInterval(async () => {
+        try {
+          const { data } = await api.get(`/orders/${orderResult.payment_ref}/status`);
+          if (data.status === 'paid') {
+            setOrderStatus('paid');
+            clearInterval(interval);
+          }
+        } catch {
+          // ignore
+        }
+      }, 3000);
+    }
+    return () => clearInterval(interval);
+  }, [orderResult, orderStatus]);
 
   const selectedProduct = useMemo(
     () => products.find((item) => Number(item.id) === Number(selectedProductId)) || null,
@@ -60,6 +79,7 @@ const Marketplace = () => {
       });
 
       setOrderResult(data);
+      setOrderStatus('pending');
       setNotice('Đã tạo đơn thành công. Vui lòng chuyển khoản đúng nội dung để nhận hàng tự động qua email.');
     } catch (err) {
       setError(err?.response?.data?.message || 'Không thể tạo đơn hàng.');
@@ -201,27 +221,47 @@ const Marketplace = () => {
 
           {orderResult?.qr_url && (
             <div className="space-y-3 border-t border-white/10 pt-4">
-              <div className="flex items-center gap-2 text-sm font-bold">
-                <QrCode className="w-4 h-4 text-primary" />
-                Mã QR thanh toán
-              </div>
-              <img src={orderResult.qr_url} alt="Mã QR thanh toán" className="w-full max-w-[280px] mx-auto bg-white p-2 rounded-2xl border border-white/10" />
-              <div className="bg-black/20 border border-white/10 rounded-xl p-3 text-sm">
-                <p className="text-white/50 text-xs mb-1">Nội dung chuyển khoản</p>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-mono">{orderResult.transfer_content || orderResult.payment_ref}</span>
-                  <button
-                    type="button"
-                    onClick={() => copyText(orderResult.transfer_content || orderResult.payment_ref)}
-                    className="p-2 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10"
-                  >
-                    <Copy className="w-4 h-4" />
-                  </button>
+              {orderStatus === 'paid' ? (
+                <div className="p-6 rounded-2xl border border-green-500/20 bg-green-500/10 text-center space-y-3">
+                  <div className="mx-auto w-12 h-12 bg-green-500/20 text-green-400 rounded-full flex items-center justify-center">
+                    <CheckCircle2 className="w-6 h-6" />
+                  </div>
+                  <h3 className="font-bold text-green-400 text-lg">Thanh toán thành công!</h3>
+                  <p className="text-sm text-green-300/80">
+                    Sản phẩm của bạn đã được gửi. Vui lòng kiểm tra Email (tất cả các hòm thư nha).
+                  </p>
                 </div>
-              </div>
-              <p className="text-xs text-white/50">
-                Sau khi chuyển khoản thành công, hệ thống tự giao hàng vào email của bạn trong vài giây.
-              </p>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-sm font-bold">
+                      <QrCode className="w-4 h-4 text-primary" />
+                      Mã QR thanh toán
+                    </div>
+                    <div className="flex items-center gap-2 text-xs font-semibold text-orange-400 bg-orange-400/10 px-3 py-1.5 rounded-full">
+                      <div className="w-3 h-3 border-2 border-orange-400 border-t-transparent rounded-full animate-spin"></div>
+                      Đang chờ...
+                    </div>
+                  </div>
+                  <img src={orderResult.qr_url} alt="Mã QR thanh toán" className="w-full max-w-[280px] mx-auto bg-white p-2 rounded-2xl border border-white/10" />
+                  <div className="bg-black/20 border border-white/10 rounded-xl p-3 text-sm">
+                    <p className="text-white/50 text-xs mb-1">Nội dung chuyển khoản</p>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-mono">{orderResult.transfer_content || orderResult.payment_ref}</span>
+                      <button
+                        type="button"
+                        onClick={() => copyText(orderResult.transfer_content || orderResult.payment_ref)}
+                        className="p-2 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10"
+                      >
+                        <Copy className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                  <p className="text-xs text-white/50 text-center">
+                    Sau khi thanh toán, hệ thống giao hàng tự động vào email của bạn trong vài giây.
+                  </p>
+                </>
+              )}
             </div>
           )}
         </div>

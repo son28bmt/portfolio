@@ -56,6 +56,20 @@ const publicCreateOrder = async (req, res) => {
   }
 };
 
+const publicGetOrderStatus = async (req, res) => {
+  try {
+    const paymentRef = String(req.params.payment_ref || '').trim();
+    if (!paymentRef) return res.status(400).json({ message: 'Thiếu mã thanh toán.' });
+
+    const order = await Order.findOne({ where: { payment_ref: paymentRef }, attributes: ['status'] });
+    if (!order) return res.status(404).json({ message: 'Không tìm thấy đơn hàng.' });
+
+    return res.json({ status: order.status });
+  } catch (error) {
+    return handleError(res, error);
+  }
+};
+
 const webhookSePay = async (req, res) => {
   try {
     const result = await processSepayWebhook(req);
@@ -431,6 +445,7 @@ const adminDeleteOrder = async (req, res) => {
 module.exports = {
   publicGetProducts,
   publicCreateOrder,
+  publicGetOrderStatus,
   webhookSePay,
   adminLogin,
   adminGetProducts,

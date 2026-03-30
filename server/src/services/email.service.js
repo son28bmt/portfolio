@@ -3,7 +3,7 @@ require('dotenv').config();
 
 const getTransporter = () => {
   const user = String(process.env.EMAIL_USER || '').trim();
-  const pass = String(process.env.EMAIL_PASS || '').trim();
+  const pass = String(process.env.EMAIL_PASS || '').replace(/\s+/g, '');
 
   if (!user || !pass) {
     throw new Error('Chưa cấu hình EMAIL_USER hoặc EMAIL_PASS cho SMTP Gmail.');
