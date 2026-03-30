@@ -12,6 +12,7 @@ import EditBlog from './pages/Blog/EditBlog';
 import AISettings from './pages/AI/AISettings';
 import Messages from './pages/Contact/Messages';
 import DonateList from './pages/Donate/DonateList';
+import MarketplaceManager from './pages/Marketplace/MarketplaceManager';
 
 // Simple Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -49,6 +50,7 @@ function App() {
       <Route path="/ai-settings" element={<ProtectedRoute><AISettings /></ProtectedRoute>} />
       <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
       <Route path="/donate" element={<ProtectedRoute><DonateList /></ProtectedRoute>} />
+      <Route path="/marketplace" element={<ProtectedRoute><MarketplaceManager /></ProtectedRoute>} />
       
       {/* Fallback */}
       <Route path="*" element={<Navigate to="/" replace />} />

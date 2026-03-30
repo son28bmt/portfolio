@@ -140,7 +140,7 @@ const DonateList = () => {
                 setStatus(e.target.value);
                 setPage(1);
               }}
-              className="bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-primary"
+              className="admin-select"
             >
               {STATUS_OPTIONS.map((option) => (
                 <option key={option.value || 'all'} value={option.value}>

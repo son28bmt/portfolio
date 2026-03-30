@@ -12,6 +12,8 @@ const contactRoutes = require('./routes/contact.routes');
 const aiRoutes = require('./routes/ai.routes');
 const seoRoutes = require('./routes/seo.routes');
 const donateRoutes = require('./routes/donate.routes');
+const shopRoutes = require('./routes/shop.routes');
+const marketplaceRoutes = require('./routes/marketplace.routes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -70,6 +72,9 @@ app.use('/api/blog', blogRoutes);
 app.use('/api/contact', contactRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/donate', donateRoutes);
+app.use('/api/shop', shopRoutes);
+app.use('/api', marketplaceRoutes);
+app.use('/', marketplaceRoutes);
 
 app.get('/api/ping', (req, res) => {
   res.json({ message: 'CORS and API are working!', timestamp: new Date() });

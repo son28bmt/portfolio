@@ -1,14 +1,15 @@
 import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { 
-  LayoutDashboard, 
-  FolderKanban, 
-  FileText, 
-  Settings, 
-  MessageSquare, 
+import {
+  LayoutDashboard,
+  FolderKanban,
+  FileText,
+  Settings,
+  MessageSquare,
   LogOut,
   Sparkles,
-  Gift
+  Gift,
+  ShoppingBag,
 } from 'lucide-react';
 
 const Sidebar = () => {
@@ -26,6 +27,7 @@ const Sidebar = () => {
     { icon: FileText, label: 'Blog', path: '/blog' },
     { icon: MessageSquare, label: 'Tin nhắn', path: '/messages' },
     { icon: Gift, label: 'Donate', path: '/donate' },
+    { icon: ShoppingBag, label: 'Chợ số', path: '/marketplace' },
     { icon: Settings, label: 'Cấu hình AI', path: '/ai-settings' },
   ];
 
@@ -43,8 +45,8 @@ const Sidebar = () => {
             to={item.path}
             className={({ isActive }) => `
               flex items-center gap-4 px-4 py-3 rounded-xl text-sm font-medium transition-all
-              ${isActive 
-                ? 'bg-primary/10 text-primary border border-primary/20' 
+              ${isActive
+                ? 'bg-primary/10 text-primary border border-primary/20'
                 : 'text-white/40 hover:text-white hover:bg-white/5'}
             `}
           >
@@ -54,7 +56,7 @@ const Sidebar = () => {
         ))}
       </nav>
 
-      <button 
+      <button
         onClick={handleLogout}
         className="flex items-center gap-4 px-4 py-3 rounded-xl text-sm font-medium text-red-400 hover:bg-red-400/10 transition-all mt-auto"
       >

@@ -218,7 +218,7 @@ const EditProject = () => {
               <select
                 value={formData.category}
                 onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 px-4 text-sm focus:outline-none focus:border-primary transition-all appearance-none"
+                className="admin-select"
               >
                 {categories.map((c) => (
                   <option key={c} value={c} className="bg-surface">{c}</option>

@@ -12,6 +12,7 @@ const Navbar = () => {
     { name: 'Giới Thiệu', path: '/gioi-thieu' },
     { name: 'Dự Án', path: '/du-an' },
     { name: 'Blog', path: '/blog' },
+    { name: 'Cửa Hàng', path: '/cua-hang' },
     { name: 'Liên Hệ', path: '/lien-he' },
     { name: 'Donate', path: '/donate' },
     { name: 'Playground', path: '/playground' },
