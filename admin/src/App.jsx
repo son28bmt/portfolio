@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
 import Login from './pages/Login';
@@ -13,22 +13,41 @@ import AISettings from './pages/AI/AISettings';
 import Messages from './pages/Contact/Messages';
 import DonateList from './pages/Donate/DonateList';
 import MarketplaceManager from './pages/Marketplace/MarketplaceManager';
+import { Menu } from 'lucide-react';
 
 // Simple Protected Route Component
 const ProtectedRoute = ({ children }) => {
   const token = localStorage.getItem('adminToken');
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
   if (!token) return <Navigate to="/login" replace />;
+
   return (
-    <div className="flex min-h-screen bg-background text-white">
-      <Sidebar />
-      <div className="flex-grow flex flex-col h-screen overflow-hidden">
-        <header className="h-16 border-b border-white/5 flex items-center px-8 bg-surface/50 backdrop-blur-md shrink-0">
+    <div className="flex min-h-screen bg-background text-white relative">
+      {/* Overlay Backdrop cho Mobile */}
+      {isMobileMenuOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden backdrop-blur-sm transition-opacity"
+          onClick={() => setIsMobileMenuOpen(false)}
+        />
+      )}
+
+      <Sidebar isOpen={isMobileMenuOpen} onClose={() => setIsMobileMenuOpen(false)} />
+      
+      <div className="flex-grow flex flex-col h-screen overflow-hidden w-full lg:min-w-0">
+        <header className="h-16 border-b border-white/5 flex items-center px-4 lg:px-8 bg-surface/50 backdrop-blur-md shrink-0">
+           <button 
+             className="lg:hidden p-2 -ml-2 mr-3 text-white/70 hover:text-white rounded-lg hover:bg-white/5 transition-colors"
+             onClick={() => setIsMobileMenuOpen(true)}
+           >
+             <Menu className="w-6 h-6" />
+           </button>
            <div className="ml-auto flex items-center gap-4">
               <span className="text-xs text-white/40">Admin</span>
               <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-[10px] font-bold">A</div>
            </div>
         </header>
-        <main className="flex-grow p-8 overflow-y-auto">
+        <main className="flex-grow p-4 lg:p-8 overflow-y-auto w-full">
           {children}
         </main>
       </div>
