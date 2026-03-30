@@ -1,13 +1,16 @@
-﻿import React, { useState } from 'react';
+import React, { useRef, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 import ReactQuill from 'react-quill-new';
 import 'react-quill-new/dist/quill.snow.css';
-import { ArrowLeft, Save, Image as ImageIcon, Tag, Clock } from 'lucide-react';
+import { ArrowLeft, Save, Image as ImageIcon, Tag, Clock, Upload } from 'lucide-react';
 
 const AddBlog = () => {
   const navigate = useNavigate();
+  const quillRef = useRef(null);
+  const coverInputRef = useRef(null);
   const [loading, setLoading] = useState(false);
+  const [uploadingCover, setUploadingCover] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
     excerpt: '',
@@ -16,6 +19,74 @@ const AddBlog = () => {
     readTime: '5 min',
     image: '',
   });
+
+  const uploadToCloudflareR2 = async (files, folder) => {
+    const payload = new FormData();
+    Array.from(files).forEach((file) => payload.append('files', file));
+    payload.append('folder', folder);
+
+    const { data } = await api.post('/projects/upload-images', payload, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+
+    return Array.isArray(data?.urls) ? data.urls : [];
+  };
+
+  const handleCoverUpload = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setUploadingCover(true);
+    try {
+      const [url] = await uploadToCloudflareR2([file], 'blogs/cover');
+      if (url) {
+        setFormData((prev) => ({ ...prev, image: url }));
+      }
+    } catch (err) {
+      alert('Tải ảnh đại diện thất bại: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setUploadingCover(false);
+      if (event.target) event.target.value = '';
+    }
+  };
+
+  const imageHandler = () => {
+    const input = document.createElement('input');
+    input.setAttribute('type', 'file');
+    input.setAttribute('accept', 'image/*');
+    input.click();
+
+    input.onchange = async () => {
+      const file = input.files[0];
+      if (!file) return;
+
+      try {
+        const [url] = await uploadToCloudflareR2([file], 'blogs/content');
+        if (url) {
+          const quill = quillRef.current.getEditor();
+          const range = quill.getSelection(true);
+          quill.insertEmbed(range?.index || 0, 'image', url);
+        }
+      } catch (err) {
+        alert('Tải ảnh nội dung thất bại: ' + (err.response?.data?.message || err.message));
+      }
+    };
+  };
+
+  const modules = useMemo(() => ({
+    toolbar: {
+      container: [
+        [{ header: [1, 2, 3, false] }],
+        ['bold', 'italic', 'underline', 'strike'],
+        [{ list: 'ordered' }, { list: 'bullet' }],
+        ['link', 'image', 'code-block'],
+        ['clean'],
+      ],
+      handlers: {
+        image: imageHandler,
+      },
+    },
+  }), []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -109,20 +180,13 @@ const AddBlog = () => {
             <label className="text-xs font-bold text-white/40 uppercase ml-1">Nội dung bài viết</label>
             <div className="quill-container glass rounded-2xl overflow-hidden min-h-[400px]">
               <ReactQuill
+                ref={quillRef}
                 theme="snow"
                 value={formData.content}
                 onChange={(content) => setFormData({ ...formData, content })}
-                modules={{
-                  toolbar: [
-                    [{ header: [1, 2, 3, false] }],
-                    ['bold', 'italic', 'underline', 'strike'],
-                    [{ list: 'ordered' }, { list: 'bullet' }],
-                    ['link', 'image', 'code-block'],
-                    ['clean'],
-                  ],
-                }}
+                modules={modules}
                 className="text-white h-full"
-                placeholder="Viết nội dung tại đây... Bạn có thể thêm ảnh, định dạng chữ và chèn link cực kỳ dễ dàng."
+                placeholder="Viết nội dung tại đây... Ảnh dán vào hoặc upload sẽ tự động lưu lên Cloudflare R2 để tải nhanh hơn."
               />
             </div>
           </div>
@@ -130,15 +194,48 @@ const AddBlog = () => {
 
         <div className="glass p-8 rounded-[32px] space-y-6">
           <h3 className="font-bold flex items-center gap-2"><ImageIcon className="w-4 h-4 text-secondary" /> Hình ảnh tiêu đề</h3>
-          <div className="space-y-2">
-            <label className="text-xs font-bold text-white/40 uppercase ml-1">Link ảnh</label>
-            <input
-              type="text"
-              value={formData.image}
-              onChange={(e) => setFormData({ ...formData, image: e.target.value })}
-              className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 px-4 text-sm focus:outline-none focus:border-secondary transition-all"
-              placeholder="https://..."
-            />
+          <div className="space-y-6">
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-white/40 uppercase ml-1">Link ảnh</label>
+              <input
+                type="text"
+                value={formData.image}
+                onChange={(e) => setFormData({ ...formData, image: e.target.value })}
+                className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 px-4 text-sm focus:outline-none focus:border-secondary transition-all"
+                placeholder="https://..."
+              />
+            </div>
+
+            <div className="space-y-3">
+              <label className="text-xs font-bold text-white/40 uppercase ml-1">Hoặc tải ảnh từ máy</label>
+              <input
+                ref={coverInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleCoverUpload}
+              />
+              <button
+                type="button"
+                onClick={() => coverInputRef.current?.click()}
+                disabled={uploadingCover}
+                className="w-full px-4 py-3 rounded-2xl border border-secondary/30 bg-secondary/10 hover:bg-secondary/20 transition-all text-sm font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                <Upload className="w-4 h-4" />
+                {uploadingCover ? 'Đang tải ảnh...' : 'Chọn ảnh đại diện'}
+              </button>
+            </div>
+
+            {formData.image && (
+              <div className="space-y-2">
+                <p className="text-[10px] font-bold text-white/40 uppercase">Ảnh đại diện hiện tại</p>
+                <img
+                  src={formData.image}
+                  alt="Ảnh đại diện"
+                  className="w-full max-h-48 object-cover rounded-2xl border border-white/10"
+                />
+              </div>
+            )}
           </div>
         </div>
 

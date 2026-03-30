@@ -1,5 +1,6 @@
 const express = require('express');
 const axios = require('axios');
+const rateLimit = require('express-rate-limit');
 const router = express.Router();
 const Setting = require('../models/Setting');
 const Product = require('../models/Product');
@@ -160,8 +161,20 @@ router.post('/config', protect, async (req, res) => {
   }
 });
 
+const chatLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, 
+  max: 30, 
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (req, res) => {
+    res.status(429).json({
+      reply: 'Hệ thống AI đang quá tải hoặc bạn đã trò chuyện quá 30 lượt trong 1 giờ. Vui lòng đợi một lát rồi quay lại nhé!'
+    });
+  }
+});
+
 // Real Chat logic
-router.post('/chat', async (req, res) => {
+router.post('/chat', chatLimiter, async (req, res) => {
   const { message, imageBase64, userApiKey, userBaseUrl, modelProvider = 'chatgpt', userModel = '' } = req.body;
   
   try {
