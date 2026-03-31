@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
-import { motion, AnimatePresence } from 'framer-motion';
 import { Github, Layers, X, Maximize2, Image as ImageIcon, ChevronLeft, ChevronRight } from 'lucide-react';
 
 const parseArrayField = (value, { allowCommaSplit = true } = {}) => {

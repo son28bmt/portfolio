@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
+import Turnstile from '@marsidev/react-turnstile';
 import { motion } from 'framer-motion';
 import { ShoppingBag, QrCode, Copy, Mail, CheckCircle2, RefreshCw } from 'lucide-react';
 import api from '../services/api';
@@ -20,6 +21,8 @@ const Marketplace = () => {
   const [notice, setNotice] = useState('');
   const [orderResult, setOrderResult] = useState(null);
   const [orderStatus, setOrderStatus] = useState(null);
+  const [turnstileToken, setTurnstileToken] = useState(null);
+  const turnstileRef = useRef();
 
   const fetchProducts = async () => {
     setLoading(true);
@@ -69,6 +72,11 @@ const Marketplace = () => {
 
   const handleCreateOrder = async (event) => {
     event.preventDefault();
+    if (!turnstileToken && (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1')) {
+      setError('Hệ thống đang kiểm tra bảo mật (Anti-Bot)... Vui lòng thử lại sau 1 giây.');
+      return;
+    }
+
     if (!selectedProduct) {
       setError('Vui lòng chọn sản phẩm trước khi thanh toán.');
       return;
@@ -82,11 +90,14 @@ const Marketplace = () => {
       const { data } = await api.post('/orders', {
         email: String(email || '').trim(),
         product_id: selectedProduct.id,
+        turnstileToken
       });
 
       setOrderResult(data);
       setOrderStatus('pending');
       setNotice('Đã tạo đơn thành công. Vui lòng chuyển khoản đúng nội dung để nhận hàng tự động qua email.');
+      setTurnstileToken(null);
+      if (turnstileRef.current) turnstileRef.current.reset();
     } catch (err) {
       setError(err?.response?.data?.message || 'Không thể tạo đơn hàng.');
     } finally {
@@ -223,6 +234,19 @@ const Marketplace = () => {
             >
               {creatingOrder ? 'Đang tạo đơn...' : 'Tạo mã QR thanh toán'}
             </button>
+
+            <div className="opacity-0 pointer-events-none absolute h-0">
+              <Turnstile
+                ref={turnstileRef}
+                siteKey={
+                  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+                    ? '1x00000000000000000000AA'
+                    : (import.meta.env.VITE_TURNSTILE_SITE_KEY || '1x00000000000000000000AA')
+                }
+                onSuccess={(token) => setTurnstileToken(token)}
+                options={{ theme: 'dark', size: 'invisible' }}
+              />
+            </div>
           </form>
 
           {orderResult?.qr_url && (

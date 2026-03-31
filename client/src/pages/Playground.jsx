@@ -242,7 +242,7 @@ const AIChatDemoLocalHistory = () => {
     e.preventDefault();
     if (!input.trim() && !selectedImage) return;
 
-    if (!turnstileToken && import.meta.env.VITE_TURNSTILE_SITE_KEY) {
+    if (!turnstileToken) {
       alert("Hệ thống đang kiểm tra bảo mật (Anti-Bot)... Vui lòng đợi 1 giây rồi thử lại!");
       return;
     }
@@ -509,7 +509,7 @@ const SubTranslatorDemo = () => {
 
   const handleTranscribe = async () => {
     if (!file) return;
-    if (!turnstileToken && import.meta.env.VITE_TURNSTILE_SITE_KEY) {
+    if (!turnstileToken) {
       alert("Hệ thống đang kiểm tra bảo mật (Anti-Bot)... Vui lòng đợi 1 giây rồi thử lại!");
       return;
     }
@@ -544,7 +544,7 @@ const SubTranslatorDemo = () => {
   };
 
   const handleTranslate = async () => {
-    if (!turnstileToken && import.meta.env.VITE_TURNSTILE_SITE_KEY) {
+    if (!turnstileToken) {
       alert("Hệ thống đang kiểm tra bảo mật (Anti-Bot)... Vui lòng đợi 1 giây rồi thử lại!");
       return;
     }
@@ -840,7 +840,11 @@ const TTSDemo = () => {
         <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 pointer-events-none opacity-0">
           <Turnstile
             ref={turnstileRef}
-            siteKey={import.meta.env.VITE_TURNSTILE_SITE_KEY || '1x00000000000000000000AA'}
+            siteKey={
+              (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+                ? '1x00000000000000000000AA'
+                : (import.meta.env.VITE_TURNSTILE_SITE_KEY || '1x00000000000000000000AA')
+            }
             onSuccess={(token) => setTurnstileToken(token)}
             options={{ theme: 'dark', size: 'invisible' }}
           />

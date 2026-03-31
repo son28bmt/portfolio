@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
+import Turnstile from '@marsidev/react-turnstile';
 import api from '../services/api';
 import { motion } from 'framer-motion';
-import { Mail, Github, Youtube, Facebook, Send, MapPin, Phone, MessageSquare } from 'lucide-react';
+import { Mail, Github, Youtube, Facebook, Send, MapPin, MessageSquare } from 'lucide-react';
 
 const Contact = () => {
   const [formState, setFormState] = useState({
@@ -12,14 +13,23 @@ const Contact = () => {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState(null);
+  const turnstileRef = useRef();
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    if (!turnstileToken && (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1')) {
+      alert("Hệ thống đang kiểm tra bảo mật (Anti-Bot)... Vui lòng đợi 1 giây rồi thử lại!");
+      return;
+    }
+
     setIsSubmitting(true);
     try {
-      await api.post('/contact', formState);
+      await api.post('/contact', { ...formState, turnstileToken });
       setSubmitted(true);
       setFormState({ name: '', email: '', message: '' });
+      setTurnstileToken(null);
+      if (turnstileRef.current) turnstileRef.current.reset();
     } catch (err) {
       console.error('Lỗi gửi tin nhắn:', err);
       alert('Rất tiếc, đã có lỗi xảy ra. Vui lòng thử lại sau!');
@@ -182,6 +192,19 @@ const Contact = () => {
                     </>
                   )}
                 </button>
+
+                <div className="opacity-0 pointer-events-none absolute h-0">
+                  <Turnstile
+                    ref={turnstileRef}
+                    siteKey={
+                      (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+                        ? '1x00000000000000000000AA'
+                        : (import.meta.env.VITE_TURNSTILE_SITE_KEY || '1x00000000000000000000AA')
+                    }
+                    onSuccess={(token) => setTurnstileToken(token)}
+                    options={{ theme: 'dark', size: 'invisible' }}
+                  />
+                </div>
               </form>
             )}
           </div>

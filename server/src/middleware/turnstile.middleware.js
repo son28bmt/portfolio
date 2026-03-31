@@ -12,11 +12,15 @@ const verifyTurnstile = async (req, res, next) => {
     return next();
   }
 
-  // Cho phép bỏ qua xác thực nếu đang ở môi trường Development và sử dụng "Testing Keys" của Cloudflare
-  // Site Key: 1x00000000000000000000AA, Secret: 1x00000000000000000000000000000000AA
-  const isTestKey = process.env.TURNSTILE_SECRET_KEY === '1x00000000000000000000000000000000AA';
-  if (isTestKey && turnstileToken === 'XXXX.DUMMY.TOKEN.XXXX') {
-    return next();
+  // Cho phép bỏ qua xác thực hoặc dùng mã Test nếu đang ở localhost
+  const isLocal = req.hostname === 'localhost' || req.hostname === '127.0.0.1';
+  
+  // Nếu Token bắt đầu bằng 1x (Mã Test của Cloudflare) hoặc rỗng khi ở Local, 
+  // chúng ta sẽ dùng Secret Key Test tương ứng.
+  let secretKey = process.env.TURNSTILE_SECRET_KEY;
+  if (turnstileToken?.startsWith('1x')) {
+      // Nếu là mã Test, dùng mã Secret Test của Cloudflare
+      secretKey = '1x00000000000000000000000000000000AA';
   }
   
   if (!turnstileToken) {
@@ -29,7 +33,7 @@ const verifyTurnstile = async (req, res, next) => {
   
   try {
     const form = new URLSearchParams();
-    form.append('secret', process.env.TURNSTILE_SECRET_KEY);
+    form.append('secret', secretKey);
     form.append('response', turnstileToken);
     form.append('remoteip', req.ip);
     
