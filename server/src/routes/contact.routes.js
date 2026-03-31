@@ -1,3 +1,7 @@
+const express = require('express');
+const router = express.Router();
+const Message = require('../models/Message');
+const { protect } = require('../middleware/auth.middleware');
 const rateLimit = require('express-rate-limit');
 const { verifyTurnstile } = require('../middleware/turnstile.middleware');
 
