@@ -9,13 +9,27 @@ if sys.platform == "win32":
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 
-# Add tool sub video to path
-# Cấu trúc: e:/portfolio/server/src/utils/sub_tool_runner.py
-# Tool: e:/portfolio/tool sub video/
-current_dir = os.path.dirname(os.path.abspath(__file__))
-# Đi lên 3 cấp để ra portfolio, rồi vào 'tool sub video'
-tool_dir = os.path.abspath(os.path.join(current_dir, '..', '..', '..', 'tool sub video'))
+# --- CƠ CHẾ TÌM ĐƯỜNG DẪN CÔNG CỤ (DỮ LIỆU BẢO MẬT/THIÊN HƯỚNG LINH HOẠT) ---
+def find_tool_dir():
+    # Thử tìm trong các thư mục cha từ vị trí script hiện tại
+    current = os.path.dirname(os.path.abspath(__file__))
+    # Đi lên tối đa 5 cấp để tìm thư mục 'tool sub video'
+    for _ in range(5):
+        potential = os.path.join(current, 'tool sub video')
+        if os.path.exists(potential) and os.path.isdir(os.path.join(potential, 'modules')):
+            return potential
+        parent = os.path.dirname(current)
+        if parent == current: # Đã lên đến gốc
+            break
+        current = parent
+    
+    # Mặc định (nếu không tìm thấy tự động) - Đi lên 3 cấp
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    return os.path.abspath(os.path.join(script_dir, '..', '..', '..', 'tool sub video'))
+
+tool_dir = find_tool_dir()
 sys.path.insert(0, tool_dir)
+# --------------------------------------------------------------------------
 
 try:
     from modules.srt_parser import parse_srt, save_srt

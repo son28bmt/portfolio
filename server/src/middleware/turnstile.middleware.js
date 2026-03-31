@@ -5,7 +5,7 @@ const axios = require('axios');
  * Sử dụng cho các form công khai như Contact, AI Chat, Tạo đơn hàng.
  */
 const verifyTurnstile = async (req, res, next) => {
-  const { turnstileToken } = req.body;
+  const turnstileToken = req.body.turnstileToken || req.headers['x-turnstile-token'];
   
   // Nếu Admin chưa cấu hình Secret Key thì tạm thời bỏ qua (thuận tiện cho Dev)
   if (!process.env.TURNSTILE_SECRET_KEY) {

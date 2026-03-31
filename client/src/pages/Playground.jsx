@@ -263,6 +263,10 @@ const AIChatDemoLocalHistory = () => {
         userApiKey,
         userBaseUrl,
         turnstileToken,
+      }, {
+        headers: {
+          'x-turnstile-token': turnstileToken
+        }
       });
 
       setMessages((prev) => [
@@ -524,7 +528,11 @@ const SubTranslatorDemo = () => {
     if (userApiKey) formData.append('userApiKey', userApiKey);
     if (userBaseUrl) formData.append('userBaseUrl', userBaseUrl);
     try {
-      const { data } = await api.post('/ai/generate-sub', formData);
+      const { data } = await api.post('/ai/generate-sub', formData, {
+        headers: {
+          'x-turnstile-token': turnstileToken
+        }
+      });
       setSrt(data.srt);
       setStep(3);
     } catch (err) {
@@ -562,7 +570,11 @@ const SubTranslatorDemo = () => {
     if (userApiKey) formData.append('userApiKey', userApiKey);
     if (userBaseUrl) formData.append('userBaseUrl', userBaseUrl);
     try {
-      const { data } = await api.post('/ai/generate-sub', formData);
+      const { data } = await api.post('/ai/generate-sub', formData, {
+        headers: {
+          'x-turnstile-token': turnstileToken
+        }
+      });
       const translatedItems = Array.isArray(data?.translatedSubs) ? data.translatedSubs : null;
       if (!translatedItems) {
         throw new Error(data?.error || data?.message || 'Du lieu dich khong hop le.');

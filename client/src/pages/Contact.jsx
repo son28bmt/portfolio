@@ -25,7 +25,11 @@ const Contact = () => {
 
     setIsSubmitting(true);
     try {
-      await api.post('/contact', { ...formState, turnstileToken });
+      await api.post('/contact', { ...formState, turnstileToken }, {
+        headers: {
+          'x-turnstile-token': turnstileToken
+        }
+      });
       setSubmitted(true);
       setFormState({ name: '', email: '', message: '' });
       setTurnstileToken(null);

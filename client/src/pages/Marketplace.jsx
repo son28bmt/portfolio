@@ -91,6 +91,10 @@ const Marketplace = () => {
         email: String(email || '').trim(),
         product_id: selectedProduct.id,
         turnstileToken
+      }, {
+        headers: {
+          'x-turnstile-token': turnstileToken
+        }
       });
 
       setOrderResult(data);
