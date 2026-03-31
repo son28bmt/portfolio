@@ -42,15 +42,20 @@ const parseJsonArray = (value) => {
 const ProjectList = () => {
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
 
   useEffect(() => {
-    fetchProjects();
-  }, []);
+    fetchProjects(page);
+  }, [page]);
 
-  const fetchProjects = async () => {
+  const fetchProjects = async (pageNum = 1) => {
+    setLoading(true);
     try {
-      const { data } = await api.get('/projects');
-      setProjects(data);
+      const { data } = await api.get('/projects', { params: { page: pageNum, limit: 10 } });
+      const items = Array.isArray(data.items) ? data.items : [];
+      setProjects(items);
+      setTotalPages(data.totalPages || 1);
     } catch (err) {
       console.error('Lỗi khi tải dự án:', err);
     } finally {
@@ -62,7 +67,12 @@ const ProjectList = () => {
     if (window.confirm('Bạn có chắc muốn xóa dự án này?')) {
       try {
         await api.delete(`/projects/${id}`);
-        setProjects(projects.filter(p => p.id !== id));
+        // If current page is now empty and not page 1, go back one page
+        if (projects.length === 1 && page > 1) {
+          setPage(page - 1);
+        } else {
+          fetchProjects(page);
+        }
       } catch (err) {
         alert('Lỗi khi xóa: ' + (err.response?.data?.message || err.message));
       }
@@ -175,6 +185,29 @@ const ProjectList = () => {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="p-6 bg-white/5 border-t border-white/5 flex items-center justify-between">
+            <span className="text-xs text-white/40 font-medium">Trang {page} / {totalPages}</span>
+            <div className="flex gap-2">
+              <button
+                disabled={page === 1}
+                onClick={() => setPage(page - 1)}
+                className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-xs font-bold hover:bg-white/10 disabled:opacity-30 transition-all"
+              >
+                Trước
+              </button>
+              <button
+                disabled={page >= totalPages}
+                onClick={() => setPage(page + 1)}
+                className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-xs font-bold hover:bg-white/10 disabled:opacity-30 transition-all"
+              >
+                Sau
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
