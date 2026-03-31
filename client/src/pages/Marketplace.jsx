@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react';
-import Turnstile from '@marsidev/react-turnstile';
+import { Turnstile } from '@marsidev/react-turnstile';
 import { motion } from 'framer-motion';
 import { ShoppingBag, QrCode, Copy, Mail, CheckCircle2, RefreshCw } from 'lucide-react';
 import api from '../services/api';

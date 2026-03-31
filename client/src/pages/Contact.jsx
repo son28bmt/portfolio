@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import Turnstile from '@marsidev/react-turnstile';
+import { Turnstile } from '@marsidev/react-turnstile';
 import api from '../services/api';
 import { motion } from 'framer-motion';
 import { Mail, Github, Youtube, Facebook, Send, MapPin, MessageSquare } from 'lucide-react';
