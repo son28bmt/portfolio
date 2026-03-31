@@ -483,6 +483,8 @@ const SubTranslatorDemo = () => {
   const [step, setStep] = useState(1); // 1: Upload, 2: Transcribing, 3: Edit & Translate, 4: Done
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(false);
+  const turnstileRef = useRef();
+  const [turnstileToken, setTurnstileToken] = useState(null);
   const [error, setError] = useState('');
   const [srt, setSrt] = useState('');
   const [translatedSrt, setTranslatedSrt] = useState('');
@@ -507,12 +509,18 @@ const SubTranslatorDemo = () => {
 
   const handleTranscribe = async () => {
     if (!file) return;
+    if (!turnstileToken && import.meta.env.VITE_TURNSTILE_SITE_KEY) {
+      alert("Hệ thống đang kiểm tra bảo mật (Anti-Bot)... Vui lòng đợi 1 giây rồi thử lại!");
+      return;
+    }
+    
     setLoading(true);
     setStep(2);
     setError('');
     const formData = new FormData();
     formData.append('file', file);
     formData.append('mode', 'transcribe');
+    formData.append('turnstileToken', turnstileToken);
     if (userApiKey) formData.append('userApiKey', userApiKey);
     if (userBaseUrl) formData.append('userBaseUrl', userBaseUrl);
     try {
@@ -530,10 +538,17 @@ const SubTranslatorDemo = () => {
       setStep(1);
     } finally {
       setLoading(false);
+      setTurnstileToken(null);
+      if (turnstileRef.current) turnstileRef.current.reset();
     }
   };
 
   const handleTranslate = async () => {
+    if (!turnstileToken && import.meta.env.VITE_TURNSTILE_SITE_KEY) {
+      alert("Hệ thống đang kiểm tra bảo mật (Anti-Bot)... Vui lòng đợi 1 giây rồi thử lại!");
+      return;
+    }
+    
     setLoading(true);
     setError('');
     const formData = new FormData();
@@ -543,11 +558,11 @@ const SubTranslatorDemo = () => {
     formData.append('targetLang', targetLang);
     formData.append('translationProvider', translationProvider);
     formData.append('translationModelProvider', translationProvider);
+    formData.append('turnstileToken', turnstileToken);
     if (userApiKey) formData.append('userApiKey', userApiKey);
     if (userBaseUrl) formData.append('userBaseUrl', userBaseUrl);
     try {
       const { data } = await api.post('/ai/generate-sub', formData);
-      // Giả định backend trả về mảng subs, ta cần convert lại thành SRT string hoặc hiển thị
       const translatedItems = Array.isArray(data?.translatedSubs) ? data.translatedSubs : null;
       if (!translatedItems) {
         throw new Error(data?.error || data?.message || 'Du lieu dich khong hop le.');
@@ -574,11 +589,26 @@ const SubTranslatorDemo = () => {
       }
     } finally {
       setLoading(false);
+      setTurnstileToken(null);
+      if (turnstileRef.current) turnstileRef.current.reset();
     }
   };
 
   return (
     <div className="glass rounded-[32px] p-8 md:p-12 flex flex-col items-center justify-center text-center h-full min-h-[600px] relative overflow-hidden">
+      
+      {/* Turnstile Widget */}
+      {(step === 1 || step === 3) && (
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 pointer-events-none opacity-0">
+          <Turnstile
+            ref={turnstileRef}
+            siteKey={import.meta.env.VITE_TURNSTILE_SITE_KEY || '1x00000000000000000000AA'}
+            onSuccess={(token) => setTurnstileToken(token)}
+            options={{ theme: 'dark', size: 'invisible' }}
+          />
+        </div>
+      )}
+
       <AnimatePresence mode="wait">
         {step === 1 && (
           <motion.div key="s1" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="space-y-8 max-w-md w-full relative z-10">
@@ -710,6 +740,8 @@ const TTSDemo = () => {
   const [resultUrl, setResultUrl] = useState('');
   const [userApiKey, setUserApiKey] = useState('');
   const [userBaseUrl, setUserBaseUrl] = useState('');
+  const turnstileRef = useRef();
+  const [turnstileToken, setTurnstileToken] = useState(null);
   const isVideoResult = /\.mp4($|\?)/i.test(resultUrl);
 
   const resolveResultUrl = (rawUrl) => {
@@ -747,6 +779,11 @@ const TTSDemo = () => {
   };
 
   const handleGenerate = async () => {
+    if (!turnstileToken && import.meta.env.VITE_TURNSTILE_SITE_KEY) {
+      alert("Hệ thống đang kiểm tra bảo mật (Anti-Bot)... Vui lòng đợi 1 giây rồi thử lại!");
+      return;
+    }
+
     setLoading(true);
     setStep(2);
     setError('');
@@ -758,10 +795,8 @@ const TTSDemo = () => {
       subs = [{ index: 1, start: "00:00:00,000", end: "00:00:10,000", content: text }];
     } else {
       if (!file) { setError('Vui lòng chọn file .srt.'); setStep(1); setLoading(false); return; }
-      // Đọc file SRT và gửi lên (giả định route handle JSON subs)
       const content = await file.text();
-      // Parser đơn giản hoặc gửi text thô cho backend
-      subs = content; // Backend handle string or json
+      subs = content;
     }
 
     try {
@@ -772,7 +807,8 @@ const TTSDemo = () => {
         ttsProvider,
         voice,
         userApiKey,
-        userBaseUrl
+        userBaseUrl,
+        turnstileToken
       });
       if (data.success && data.output) {
         setResultUrl(resolveResultUrl(data.output));
@@ -791,11 +827,26 @@ const TTSDemo = () => {
       setStep(1);
     } finally {
       setLoading(false);
+      setTurnstileToken(null);
+      if (turnstileRef.current) turnstileRef.current.reset();
     }
   };
 
   return (
-    <div className="glass rounded-[32px] p-8 md:p-12 flex flex-col items-center justify-center text-center h-full min-h-[600px] relative overflow-hidden">
+    <div className="glass rounded-[32px] p-6 md:p-12 flex flex-col items-center justify-center text-center h-[500px] md:h-[600px] relative overflow-hidden">
+      
+      {/* Turnstile Widget */}
+      {step === 1 && (
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 pointer-events-none opacity-0">
+          <Turnstile
+            ref={turnstileRef}
+            siteKey={import.meta.env.VITE_TURNSTILE_SITE_KEY || '1x00000000000000000000AA'}
+            onSuccess={(token) => setTurnstileToken(token)}
+            options={{ theme: 'dark', size: 'invisible' }}
+          />
+        </div>
+      )}
+
       <AnimatePresence mode="wait">
         {step === 1 && (
           <motion.div key="s1" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-2xl space-y-8 relative z-10">

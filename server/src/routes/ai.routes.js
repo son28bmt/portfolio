@@ -161,40 +161,57 @@ router.post('/config', protect, async (req, res) => {
   }
 });
 
-const chatLimiter = rateLimit({
+const aiLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, 
   max: 30, 
   standardHeaders: true,
   legacyHeaders: false,
   handler: (req, res) => {
-    res.status(429).json({
-      reply: 'Hệ thống AI đang quá tải hoặc bạn đã trò chuyện quá 30 lượt trong 1 giờ. Vui lòng đợi một lát rồi quay lại nhé!'
+    return res.status(429).json({
+      error: 'Hệ thống AI đang quá tải hoặc bạn đã sử dụng quá mức 30 lượt/giờ. Vui lòng đợi một lát rồi quay lại nhé!',
+      reply: 'Hệ thống AI đang quá tải hoặc bạn đã sử dụng quá mức 30 lượt/giờ. Vui lòng đợi một lát rồi quay lại nhé!'
     });
   }
 });
 
-// Real Chat logic
-router.post('/chat', chatLimiter, async (req, res) => {
-  const { message, imageBase64, userApiKey, userBaseUrl, modelProvider = 'chatgpt', userModel = '', turnstileToken } = req.body;
-  
-  if (process.env.TURNSTILE_SECRET_KEY) {
-    if (!turnstileToken) {
-      return res.status(403).json({ reply: 'Bảo mật: Thiếu mã xác thực an ninh Cloudflare (Turnstile Token).' });
-    }
-    try {
-      const form = new URLSearchParams();
-      form.append('secret', process.env.TURNSTILE_SECRET_KEY);
-      form.append('response', turnstileToken);
-      form.append('remoteip', req.ip);
-      
-      const verifyRes = await axios.post('https://challenges.cloudflare.com/turnstile/v0/siteverify', form);
-      if (!verifyRes.data.success) {
-        return res.status(403).json({ reply: 'Bảo mật tắt: Xác thực Cloudflare Turnstile thất bại (Nghi vấn Bot/Auto Tool).' });
-      }
-    } catch (err) {
-      return res.status(500).json({ reply: 'Bảo mật tắt: Lỗi máy chủ khi xác thực rào chắn Cloudflare.' });
-    }
+const verifyTurnstile = async (req, res, next) => {
+  const { turnstileToken } = req.body;
+  if (!process.env.TURNSTILE_SECRET_KEY) {
+    return next();
   }
+  
+  if (!turnstileToken) {
+    return res.status(403).json({ 
+      error: 'Bảo mật: Thiếu mã xác thực an ninh Cloudflare (Turnstile Token).',
+      reply: 'Bảo mật: Thiếu mã xác thực an ninh Cloudflare (Turnstile Token).' 
+    });
+  }
+  
+  try {
+    const form = new URLSearchParams();
+    form.append('secret', process.env.TURNSTILE_SECRET_KEY);
+    form.append('response', turnstileToken);
+    form.append('remoteip', req.ip);
+    
+    const verifyRes = await axios.post('https://challenges.cloudflare.com/turnstile/v0/siteverify', form);
+    if (!verifyRes.data.success) {
+      return res.status(403).json({ 
+        error: 'Bảo mật: Xác thực Cloudflare Turnstile thất bại (Nghi vấn Bot/Auto Tool).',
+        reply: 'Bảo mật: Xác thực Cloudflare Turnstile thất bại (Nghi vấn Bot/Auto Tool).' 
+      });
+    }
+    next();
+  } catch (err) {
+    return res.status(500).json({ 
+      error: 'Bảo mật tắt: Lỗi máy chủ khi xác thực rào chắn Cloudflare.',
+      reply: 'Bảo mật tắt: Lỗi máy chủ khi xác thực rào chắn Cloudflare.' 
+    });
+  }
+};
+
+// Real Chat logic
+router.post('/chat', aiLimiter, verifyTurnstile, async (req, res) => {
+  const { message, imageBase64, userApiKey, userBaseUrl, modelProvider = 'chatgpt', userModel = '' } = req.body;
 
   try {
     const settings = await Setting.findAll({
@@ -311,7 +328,7 @@ const RUNNER_PATH = path.join(__dirname, '..', 'utils', 'sub_tool_runner.py');
 
 // --- AI Routes ---
 
-router.post('/generate-sub', upload.single('file'), async (req, res) => {
+router.post('/generate-sub', aiLimiter, verifyTurnstile, upload.single('file'), async (req, res) => {
   const { 
     mode = 'transcribe', 
     targetLang = 'vi', 

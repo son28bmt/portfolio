@@ -99,7 +99,7 @@ const DonateList = () => {
     });
 
     return () => {
-      socket.disconnect();
+      setTimeout(() => socket.disconnect(), 100);
     };
   }, []);
 

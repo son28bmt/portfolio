@@ -194,7 +194,8 @@ const adminDeleteProduct = async (req, res) => {
 
 const adminGetStockItems = async (req, res) => {
   try {
-    const items = await getAdminStockItems();
+    const { page, limit, status, productId } = req.query;
+    const items = await getAdminStockItems({ page, limit, status, productId });
     return res.json(items);
   } catch (error) {
     return handleError(res, error);
@@ -379,7 +380,8 @@ const adminDeleteCategory = async (req, res) => {
 
 const adminGetOrders = async (req, res) => {
   try {
-    const orders = await getAdminOrders({ status: req.query.status, email: req.query.email });
+    const { page, limit, status, email } = req.query;
+    const orders = await getAdminOrders({ status, email, page, limit });
     return res.json(orders);
   } catch (error) {
     return handleError(res, error);

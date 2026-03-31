@@ -4,6 +4,7 @@ const morgan = require('morgan');
 const fs = require('fs');
 const path = require('path');
 require('dotenv').config();
+const rateLimit = require('express-rate-limit');
 const { connectDB, sequelize } = require('./config/db');
 const authRoutes = require('./routes/auth.routes');
 const projectRoutes = require('./routes/project.routes');
@@ -22,6 +23,18 @@ const PORT = process.env.PORT || 5000;
 
 // Connect to Database
 connectDB();
+
+// Global Rate Limiter: 200 requests per 15 minutes
+// Protects the server against DDoS and excessive auto-polling
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 200,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Hệ thống bảo vệ từ chối: IP của bạn đã gửi quá nhiều yêu cầu. Vui lòng quay lại sau 15 phút.' }
+});
+
+app.use(globalLimiter);
 
 // Sync Database (Forcefully for initialization if needed, but usually sequelize.sync() is enough)
 // sequelize.sync();

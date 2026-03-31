@@ -276,28 +276,68 @@ const getAdminCategories = async () => {
   return Category.findAll({ order: [['id', 'DESC']] });
 };
 
-const getAdminStockItems = async () => {
-  return StockItem.findAll({
+const getAdminStockItems = async ({ page = 1, limit = 20, status, productId } = {}) => {
+  const CleanPage = Number(page) || 1;
+  const CleanLimit = Number(limit) || 20;
+  const offset = (CleanPage - 1) * CleanLimit;
+  
+  const where = {};
+  if (status && status !== 'all') where.status = status;
+  if (productId) where.productId = productId;
+
+  const result = await StockItem.findAndCountAll({
+    where,
     include: [{ model: Product, as: 'product', attributes: ['id', 'name', 'price'] }],
     order: [['id', 'DESC']],
+    limit: CleanLimit,
+    offset,
   });
+  
+  // Calculate stats
+  const totalAvailableStock = await StockItem.count({ where: { status: 'available' } });
+  let selectedAvailableStock = 0;
+  if (productId) {
+    selectedAvailableStock = await StockItem.count({ where: { status: 'available', productId } });
+  }
+
+  return {
+    items: result.rows,
+    total: result.count,
+    page: CleanPage,
+    totalPages: Math.ceil(result.count / CleanLimit),
+    totalAvailableStock,
+    selectedAvailableStock
+  };
 };
 
-const getAdminOrders = async ({ status, email }) => {
+const getAdminOrders = async ({ status, email, page = 1, limit = 20 }) => {
+  const CleanPage = Number(page) || 1;
+  const CleanLimit = Number(limit) || 20;
+  const offset = (CleanPage - 1) * CleanLimit;
+
   const where = {};
   const cleanStatus = String(status || '').trim();
   const cleanEmail = String(email || '').trim().toLowerCase();
-  if (cleanStatus) where.status = cleanStatus;
+  if (cleanStatus && cleanStatus !== 'all') where.status = cleanStatus;
   if (cleanEmail) where.email = { [Op.like]: `%${cleanEmail}%` };
 
-  return Order.findAll({
+  const result = await Order.findAndCountAll({
     where,
     include: [
       { model: Product, as: 'product', attributes: ['id', 'name', 'price'] },
       { model: StockItem, as: 'stockItem', attributes: ['id', 'data', 'status'] },
     ],
     order: [['id', 'DESC']],
+    limit: CleanLimit,
+    offset,
   });
+
+  return {
+    items: result.rows,
+    total: result.count,
+    page: CleanPage,
+    totalPages: Math.ceil(result.count / CleanLimit),
+  };
 };
 
 const createOrder = async (email, productId) => {
