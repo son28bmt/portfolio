@@ -25,11 +25,12 @@ const Dashboard = () => {
           api.get('/contact'),
         ]);
         setStats({
-          projects: p.data.length,
-          blogs: b.data.length,
-          messages: m.data.length,
+          projects: p.data.total || 0,
+          blogs: b.data.total || 0,
+          messages: Array.isArray(m.data) ? m.data.length : (m.data.total || 0),
         });
-        setRecentMessages(m.data.slice(0, 5));
+        const messages = Array.isArray(m.data) ? m.data : (m.data.items || []);
+        setRecentMessages(messages.slice(0, 5));
       } catch (err) {
         console.error('Lỗi khi lấy dữ liệu dashboard:', err);
       }
