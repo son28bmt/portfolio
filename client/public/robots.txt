@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://api.nguyenquangson.id.vn/sitemap.xml
+Sitemap: https://nguyenquangson.id.vn/sitemap.xml

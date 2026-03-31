@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import api from '../services/api';
 import { Calendar, Clock, ArrowLeft, Share2, MessageCircle } from 'lucide-react';
@@ -118,6 +118,12 @@ const BlogDetail = () => {
 
   const tags = useMemo(() => parseTags(post?.tags), [post?.tags]);
   const normalizedContent = useMemo(() => normalizeBlogContent(post?.content), [post?.content]);
+  
+  // SEO Meta
+  const siteUrl = 'https://nguyenquangson.id.vn';
+  const pageTitle = post ? `${post.title} | Blog Nguyễn Quang Sơn` : 'Đang tải bài viết...';
+  const pageDesc = post ? (post.description || post.title) : 'Đọc bài viết mới nhất từ Nguyễn Quang Sơn.';
+  const canonicalUrl = `${siteUrl}/blog/${id}`;
 
   const showFeatureNotice = (message) => {
     setFeatureNotice(message);
@@ -146,6 +152,17 @@ const BlogDetail = () => {
 
   return (
     <div className="py-6 sm:py-10 md:py-12 max-w-4xl mx-auto px-3 sm:px-4">
+      <Helmet>
+        <title>{pageTitle}</title>
+        <meta name="description" content={pageDesc} />
+        <link rel="canonical" href={canonicalUrl} />
+        <meta property="og:title" content={pageTitle} />
+        <meta property="og:description" content={pageDesc} />
+        <meta property="og:image" content={post.image || 'https://api.nguyenquangson.id.vn/logo.png'} />
+        <meta property="og:url" content={canonicalUrl} />
+        <meta property="og:type" content="article" />
+      </Helmet>
+
       <Link
         to="/blog"
         className="inline-flex items-center gap-2 text-white/40 hover:text-white transition-colors group mb-6 sm:mb-8 text-sm sm:text-base"

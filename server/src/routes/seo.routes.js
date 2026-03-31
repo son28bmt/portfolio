@@ -5,7 +5,7 @@ const Project = require('../models/Project');
 const router = express.Router();
 
 const DEFAULT_SITE_URL = 'https://nguyenquangson.id.vn';
-const DEFAULT_SITEMAP_URL = 'https://api.nguyenquangson.id.vn/sitemap.xml';
+const DEFAULT_SITEMAP_URL = 'https://nguyenquangson.id.vn/sitemap.xml';
 const DEFAULT_CACHE_MS = 5 * 60 * 1000;
 
 let sitemapCache = {
