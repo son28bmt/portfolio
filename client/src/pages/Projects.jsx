@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import api from '../services/api';
 import { Github, Layers, X, Maximize2, Image as ImageIcon, ChevronLeft, ChevronRight } from 'lucide-react';
 
