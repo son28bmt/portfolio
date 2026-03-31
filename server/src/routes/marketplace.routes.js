@@ -4,9 +4,18 @@ const { protectMarketplaceAdmin } = require('../middleware/marketplace-admin.mid
 
 const router = express.Router();
 
+const { verifyTurnstile } = require('../middleware/turnstile.middleware');
+const rateLimit = require('express-rate-limit');
+
+const orderLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, 
+  max: 10, 
+  message: { message: 'Bạn đã tạo quá nhiều đơn hàng (limit 10/h). Vui lòng thử lại sau!' }
+});
+
 // Public routes
 router.get('/products', controller.publicGetProducts);
-router.post('/orders', controller.publicCreateOrder);
+router.post('/orders', orderLimiter, verifyTurnstile, controller.publicCreateOrder);
 router.get('/orders/:payment_ref/status', controller.publicGetOrderStatus);
 router.get('/sse/orders/:payment_ref', controller.publicGetOrderSSE);
 

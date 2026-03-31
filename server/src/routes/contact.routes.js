@@ -1,13 +1,21 @@
-const express = require('express');
-const router = express.Router();
-const Message = require('../models/Message');
-const { protect } = require('../middleware/auth.middleware');
+const rateLimit = require('express-rate-limit');
+const { verifyTurnstile } = require('../middleware/turnstile.middleware');
+
+const contactLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 giờ
+  max: 5, // Tối đa 5 tin nhắn mỗi IP mỗi giờ
+  message: { message: 'Bạn đã gửi quá nhiều tin nhắn. Vui lòng đợi 1 tiếng nữa nhé!' }
+});
 
 // Public: Submit contact form
-router.post('/', async (req, res) => {
+router.post('/', contactLimiter, verifyTurnstile, async (req, res) => {
   try {
+    const { name, email, subject, message: content } = req.body;
+    if (!name || !email || !content) {
+      return res.status(400).json({ message: 'Vui lòng điền đầy đủ các trường bắt buộc.' });
+    }
     const message = await Message.create(req.body);
-    res.status(201).json({ message: 'Message sent successfully' });
+    res.status(201).json({ message: 'Cảm ơn bạn! Tin nhắn đã được gửi tới Sơn.' });
   } catch (error) {
     res.status(400).json({ message: error.message });
   }

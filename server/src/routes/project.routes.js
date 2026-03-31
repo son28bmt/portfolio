@@ -141,11 +141,25 @@ router.post('/upload-images', protect, uploadImagesMiddleware, async (req, res) 
   }
 });
 
-// Public: Get all projects
+// Public: Get all projects (With Pagination)
 router.get('/', async (req, res) => {
   try {
-    const projects = await Project.findAll({ order: [['createdAt', 'DESC']] });
-    res.json(projects.map(normalizeProjectRecord));
+    const page = parseInt(req.query.page) || 1;
+    const limit = Math.min(parseInt(req.query.limit) || 10, 50);
+    const offset = (page - 1) * limit;
+
+    const { count, rows } = await Project.findAndCountAll({
+      order: [['createdAt', 'DESC']],
+      limit,
+      offset
+    });
+
+    res.json({
+      items: rows.map(normalizeProjectRecord),
+      total: count,
+      page,
+      totalPages: Math.ceil(count / limit)
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

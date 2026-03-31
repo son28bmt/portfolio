@@ -57,13 +57,18 @@ const Projects = () => {
   const [selectedDemo, setSelectedDemo] = useState(null);
   const [selectedProject, setSelectedProject] = useState(null);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
 
   useEffect(() => {
     const fetchProjects = async () => {
+      setLoading(true);
       try {
-        const { data } = await api.get('/projects');
-        const normalized = Array.isArray(data) ? data.map(normalizeProject) : [];
+        const { data } = await api.get('/projects', { params: { page, limit: 6 } });
+        const items = Array.isArray(data.items) ? data.items : [];
+        const normalized = items.map(normalizeProject);
         setProjects(normalized);
+        setTotalPages(data.totalPages || 1);
       } catch (err) {
         console.error('Lỗi khi tải dự án:', err);
       } finally {
@@ -71,7 +76,7 @@ const Projects = () => {
       }
     };
     fetchProjects();
-  }, []);
+  }, [page]);
 
   const filteredProjects = activeCategory === 'All'
     ? projects
@@ -230,6 +235,48 @@ const Projects = () => {
             ))}
           </AnimatePresence>
         </motion.div>
+      )}
+
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-4 mt-16 pt-8 border-t border-white/5">
+          <button
+            disabled={page === 1}
+            onClick={() => { setPage(page - 1); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+            className="px-6 py-3 rounded-2xl bg-white/5 border border-white/10 text-sm font-bold hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+          >
+            ← Trước
+          </button>
+          
+          <div className="flex items-center gap-2">
+            {[...Array(totalPages)].map((_, i) => {
+              const p = i + 1;
+              if (totalPages > 7 && p !== 1 && p !== totalPages && Math.abs(p - page) > 1) {
+                if (p === 2 || p === totalPages - 1) return <span key={p} className="text-white/20">...</span>;
+                return null;
+              }
+              return (
+                <button
+                  key={p}
+                  onClick={() => { setPage(p); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                  className={`w-10 h-10 rounded-xl text-xs font-bold transition-all ${
+                    page === p ? 'bg-primary text-white glow' : 'bg-white/5 text-white/40 hover:bg-white/10'
+                  }`}
+                >
+                  {p}
+                </button>
+              );
+            })}
+          </div>
+
+          <button
+            disabled={page >= totalPages}
+            onClick={() => { setPage(page + 1); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+            className="px-6 py-3 rounded-2xl bg-white/5 border border-white/10 text-sm font-bold hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+          >
+            Sau →
+          </button>
+        </div>
       )}
 
       <AnimatePresence>

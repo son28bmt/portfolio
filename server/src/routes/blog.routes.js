@@ -79,11 +79,25 @@ const findBlog = async (idOrSlug) => {
   });
 };
 
-// Public: Get all posts
+// Public: Get all posts (With Pagination)
 router.get('/', async (req, res) => {
   try {
-    const posts = await Blog.findAll({ order: [['createdAt', 'DESC']] });
-    res.json(posts.map(normalizeBlogRecord));
+    const page = parseInt(req.query.page) || 1;
+    const limit = Math.min(parseInt(req.query.limit) || 10, 50);
+    const offset = (page - 1) * limit;
+
+    const { count, rows } = await Blog.findAndCountAll({
+      order: [['createdAt', 'DESC']],
+      limit,
+      offset
+    });
+
+    res.json({
+      items: rows.map(normalizeBlogRecord),
+      total: count,
+      page,
+      totalPages: Math.ceil(count / limit)
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

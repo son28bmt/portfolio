@@ -1,4 +1,4 @@
-﻿import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../services/api';
 import { motion } from 'framer-motion';
@@ -45,15 +45,19 @@ const Blog = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
 
   useEffect(() => {
     const fetchPosts = async () => {
+      setLoading(true);
       try {
-        const { data } = await api.get(`/blog?t=${Date.now()}`);
-        const normalized = Array.isArray(data)
-          ? data.map((post) => ({ ...post, normalizedTags: parseTags(post.tags) }))
-          : [];
+        const { data } = await api.get('/blog', { params: { page, limit: 9 } });
+        const items = Array.isArray(data.items) ? data.items : [];
+        const normalized = items.map((post) => ({ ...post, normalizedTags: parseTags(post.tags) }));
+        
         setPosts(normalized);
+        setTotalPages(data.totalPages || 1);
       } catch (err) {
         console.error('Lỗi khi tải blog:', err);
       } finally {
@@ -62,7 +66,7 @@ const Blog = () => {
     };
 
     fetchPosts();
-  }, []);
+  }, [page]);
 
   const filteredPosts = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -164,6 +168,49 @@ const Blog = () => {
               </Link>
             </motion.article>
           ))}
+        </div>
+      )}
+
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-4 mt-16 pt-8 border-t border-white/5">
+          <button
+            disabled={page === 1}
+            onClick={() => { setPage(page - 1); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+            className="px-6 py-3 rounded-2xl bg-white/5 border border-white/10 text-sm font-bold hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+          >
+            ← Trước
+          </button>
+          
+          <div className="flex items-center gap-2">
+            {[...Array(totalPages)].map((_, i) => {
+              const p = i + 1;
+              // Chỉ hiển thị vài trang đầu, cuối và quanh trang hiện tại nếu quá nhiều trang
+              if (totalPages > 7 && p !== 1 && p !== totalPages && Math.abs(p - page) > 1) {
+                if (p === 2 || p === totalPages - 1) return <span key={p} className="text-white/20">...</span>;
+                return null;
+              }
+              return (
+                <button
+                  key={p}
+                  onClick={() => { setPage(p); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                  className={`w-10 h-10 rounded-xl text-xs font-bold transition-all ${
+                    page === p ? 'bg-primary text-white glow' : 'bg-white/5 text-white/40 hover:bg-white/10'
+                  }`}
+                >
+                  {p}
+                </button>
+              );
+            })}
+          </div>
+
+          <button
+            disabled={page >= totalPages}
+            onClick={() => { setPage(page + 1); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+            className="px-6 py-3 rounded-2xl bg-white/5 border border-white/10 text-sm font-bold hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+          >
+            Sau →
+          </button>
         </div>
       )}
 
