@@ -181,6 +181,7 @@ const verifyTurnstile = async (req, res, next) => {
   }
   
   if (!turnstileToken) {
+    console.warn('[VerifyTurnstile] Thiếu token từ IP:', req.ip, 'Body keys:', Object.keys(req.body));
     return res.status(403).json({ 
       error: 'Bảo mật: Thiếu mã xác thực an ninh Cloudflare (Turnstile Token).',
       reply: 'Bảo mật: Thiếu mã xác thực an ninh Cloudflare (Turnstile Token).' 
@@ -195,6 +196,7 @@ const verifyTurnstile = async (req, res, next) => {
     
     const verifyRes = await axios.post('https://challenges.cloudflare.com/turnstile/v0/siteverify', form);
     if (!verifyRes.data.success) {
+      console.error('[VerifyTurnstile] Cloudflare từ chối. Error codes:', verifyRes.data['error-codes']);
       return res.status(403).json({ 
         error: 'Bảo mật: Xác thực Cloudflare Turnstile thất bại (Nghi vấn Bot/Auto Tool).',
         reply: 'Bảo mật: Xác thực Cloudflare Turnstile thất bại (Nghi vấn Bot/Auto Tool).' 
@@ -202,9 +204,10 @@ const verifyTurnstile = async (req, res, next) => {
     }
     next();
   } catch (err) {
+    console.error('[VerifyTurnstile] Lỗi hệ thống khi xác thực:', err.message);
     return res.status(500).json({ 
-      error: 'Bảo mật tắt: Lỗi máy chủ khi xác thực rào chắn Cloudflare.',
-      reply: 'Bảo mật tắt: Lỗi máy chủ khi xác thực rào chắn Cloudflare.' 
+      error: 'Bảo mật tạm thời tắt: Lỗi máy chủ khi xác thực rào chắn Cloudflare.',
+      reply: 'Bảo mật tạm thời tắt: Lỗi máy chủ khi xác thực rào chắn Cloudflare.' 
     });
   }
 };
@@ -328,7 +331,7 @@ const RUNNER_PATH = path.join(__dirname, '..', 'utils', 'sub_tool_runner.py');
 
 // --- AI Routes ---
 
-router.post('/generate-sub', aiLimiter, verifyTurnstile, upload.single('file'), async (req, res) => {
+router.post('/generate-sub', aiLimiter, upload.single('file'), verifyTurnstile, async (req, res) => {
   const { 
     mode = 'transcribe', 
     targetLang = 'vi', 

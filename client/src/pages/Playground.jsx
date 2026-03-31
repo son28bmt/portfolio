@@ -115,7 +115,7 @@ const Playground = () => {
         <Route path="*" element={<Navigate to="/playground" replace />} />
       </Routes>
 
-      <style jsx global>{`
+      <style>{`
         select option {
           background-color: #1a1a1a;
           color: white;
