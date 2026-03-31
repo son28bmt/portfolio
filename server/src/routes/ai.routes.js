@@ -175,8 +175,27 @@ const chatLimiter = rateLimit({
 
 // Real Chat logic
 router.post('/chat', chatLimiter, async (req, res) => {
-  const { message, imageBase64, userApiKey, userBaseUrl, modelProvider = 'chatgpt', userModel = '' } = req.body;
+  const { message, imageBase64, userApiKey, userBaseUrl, modelProvider = 'chatgpt', userModel = '', turnstileToken } = req.body;
   
+  if (process.env.TURNSTILE_SECRET_KEY) {
+    if (!turnstileToken) {
+      return res.status(403).json({ reply: 'Bảo mật: Thiếu mã xác thực an ninh Cloudflare (Turnstile Token).' });
+    }
+    try {
+      const form = new URLSearchParams();
+      form.append('secret', process.env.TURNSTILE_SECRET_KEY);
+      form.append('response', turnstileToken);
+      form.append('remoteip', req.ip);
+      
+      const verifyRes = await axios.post('https://challenges.cloudflare.com/turnstile/v0/siteverify', form);
+      if (!verifyRes.data.success) {
+        return res.status(403).json({ reply: 'Bảo mật tắt: Xác thực Cloudflare Turnstile thất bại (Nghi vấn Bot/Auto Tool).' });
+      }
+    } catch (err) {
+      return res.status(500).json({ reply: 'Bảo mật tắt: Lỗi máy chủ khi xác thực rào chắn Cloudflare.' });
+    }
+  }
+
   try {
     const settings = await Setting.findAll({
       where: {

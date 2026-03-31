@@ -2,9 +2,10 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, MessageSquare, Upload, Play, CheckCircle2, AlertCircle, Wand2, ArrowRight, Download, Send, ImagePlus, X } from 'lucide-react';
+import { Sparkles, MessageSquare, Upload, Play, CheckCircle2, AlertCircle, Wand2, ArrowRight, Download, Send, ImagePlus, X, Trash2, KeyRound } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { Turnstile } from '@marsidev/react-turnstile';
 
 const PLAYGROUND_TOOLS = [
   { key: 'chat', label: 'AI Chat', icon: MessageSquare, activeClass: 'bg-primary text-white glow', inactiveClass: 'text-white/40 hover:text-white' },
@@ -179,6 +180,8 @@ const AIChatDemoLocalHistory = () => {
   const [selectedImage, setSelectedImage] = useState(null);
   const fileInputRef = useRef(null);
   const messagesEndRef = useRef(null);
+  const turnstileRef = useRef();
+  const [turnstileToken, setTurnstileToken] = useState(null);
 
   useEffect(() => {
     try {
@@ -239,6 +242,11 @@ const AIChatDemoLocalHistory = () => {
     e.preventDefault();
     if (!input.trim() && !selectedImage) return;
 
+    if (!turnstileToken && import.meta.env.VITE_TURNSTILE_SITE_KEY) {
+      alert("Hệ thống đang kiểm tra bảo mật (Anti-Bot)... Vui lòng đợi 1 giây rồi thử lại!");
+      return;
+    }
+
     const userMessage = { role: 'user', content: input.trim(), imageBase64: selectedImage };
     setMessages((prev) => [...prev, userMessage]);
     
@@ -254,6 +262,7 @@ const AIChatDemoLocalHistory = () => {
         modelProvider: chatModelProvider,
         userApiKey,
         userBaseUrl,
+        turnstileToken,
       });
 
       setMessages((prev) => [
@@ -265,15 +274,24 @@ const AIChatDemoLocalHistory = () => {
       ]);
     } catch (error) {
       console.error('Lỗi Chat:', error);
+      let errorMessage = 'Rất tiếc, tôi đang gặp sự cố kết nối. Hãy thử lại sau nhé!';
+      if (error.response?.data?.reply) {
+        errorMessage = error.response.data.reply;
+      }
+      
       setMessages((prev) => [
         ...prev,
         {
           role: 'ai',
-          content: 'Rất tiếc, tôi đang gặp sự cố kết nối. Hãy thử lại sau nhé!',
+          content: errorMessage,
         },
       ]);
     } finally {
       setIsTyping(false);
+      setTurnstileToken(null);
+      if (turnstileRef.current) {
+        turnstileRef.current.reset();
+      }
     }
   };
 
@@ -371,6 +389,16 @@ const AIChatDemoLocalHistory = () => {
           </div>
         </div>
       )}
+
+      {/* Cloudflare Turnstile */}
+      <div className="px-4 md:px-6 pt-2 pb-2 bg-white/5 flex justify-center">
+        <Turnstile
+          ref={turnstileRef}
+          siteKey={import.meta.env.VITE_TURNSTILE_SITE_KEY || '1x00000000000000000000AA'}
+          onSuccess={(token) => setTurnstileToken(token)}
+          options={{ theme: 'dark' }}
+        />
+      </div>
 
       <form onSubmit={handleSend} className="p-4 md:p-6 bg-white/5 border-t border-white/5 flex gap-2 md:gap-3 items-center">
         <input 
