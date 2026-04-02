@@ -15,7 +15,7 @@ dist/
 **/dist/
 build/
 **/build/
-
+portfolioApp
 # Environment files
 .env
 .env.*

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 import api from '../services/api';
 import { Calendar, Clock, ArrowLeft, Share2, MessageCircle } from 'lucide-react';
 
