@@ -1,4 +1,3 @@
-import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   MessageSquare, 
@@ -18,6 +17,7 @@ import { io } from 'socket.io-client';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Turnstile } from '@marsidev/react-turnstile';
+import { useState, useEffect, useRef } from 'react';
 
 const AI_CHAT_HISTORY_KEY = 'global_floating_ai_chat_history_v1';
 const MAX_CHAT_HISTORY_MESSAGES = 50;
@@ -85,14 +85,18 @@ const FloatingChat = () => {
 
   // Socket setup
   useEffect(() => {
-    // Robust socket URL discovery
-    let socketUrl = import.meta.env.VITE_API_BASE_URL || window.location.origin;
+    const API_BASE_URL = (
+      import.meta.env.VITE_API_BASE_URL || 
+      (typeof window !== 'undefined' && window.location.hostname !== 'localhost' 
+        ? 'https://api.nguyenquangson.id.vn/api' 
+        : 'http://localhost:5000/api')
+    ).replace(/\/+$/, '');
+    
+    let socketUrl = API_BASE_URL;
     if (socketUrl.includes('/api')) {
       socketUrl = socketUrl.split('/api')[0];
     }
-    
-    // Fallback logic if VITE_API_BASE_URL is relative
-    if (socketUrl.startsWith('/')) {
+    if (socketUrl.startsWith('/') || (window.location.hostname !== 'localhost' && socketUrl.includes('localhost'))) {
       socketUrl = window.location.origin;
     }
 
@@ -113,10 +117,27 @@ const FloatingChat = () => {
       setStaffMessages(prev => [...prev, { role: 'admin', content: data.text, timestamp: data.timestamp || new Date() }]);
     });
 
+    const loadStaffHistory = async () => {
+      try {
+        const { data } = await api.get(`/chat/history/${guestId}`);
+        setStaffMessages(data.map(m => ({ 
+          role: m.role, 
+          content: m.content, 
+          timestamp: m.createdAt 
+        })));
+      } catch (err) {
+        console.error('Failed to load staff history:', err);
+      }
+    };
+
+    if (isOpen && activeTab === 'staff') {
+      loadStaffHistory();
+    }
+
     return () => {
       if (socketRef.current) socketRef.current.disconnect();
     };
-  }, [guestId]);
+  }, [guestId, activeTab, isOpen]);
 
   const handleAiSend = async (e) => {
     e.preventDefault();
@@ -195,7 +216,7 @@ const FloatingChat = () => {
             initial={{ opacity: 0, y: 40, scale: 0.9, filter: 'blur(10px)' }}
             animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
             exit={{ opacity: 0, y: 40, scale: 0.9, filter: 'blur(10px)' }}
-            className="w-[calc(100vw-32px)] md:w-[420px] max-h-[85vh] h-[650px] glass rounded-[40px] border border-white/10 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.6)] overflow-hidden flex flex-col pointer-events-auto mb-4"
+            className="w-[calc(100vw-32px)] md:w-[350px] max-h-[80vh] h-[520px] glass rounded-[32px] border border-white/10 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.6)] overflow-hidden flex flex-col pointer-events-auto mb-4"
           >
             {/* Optimized Header */}
             <div className="p-3 border-b border-white/5 bg-white/[0.02] flex items-center gap-3 shrink-0">
@@ -225,7 +246,7 @@ const FloatingChat = () => {
             </div>
 
             {/* Content Area */}
-            <div className="flex-grow overflow-y-auto p-4 md:p-6 custom-scrollbar space-y-6">
+            <div className="flex-grow overflow-y-auto p-4 custom-scrollbar space-y-3">
               {activeTab === 'ai' ? (
                 <>
                   {aiMessages.map((msg, i) => (
@@ -235,27 +256,27 @@ const FloatingChat = () => {
                       animate={{ opacity: 1, x: 0 }}
                       className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
                     >
-                      <div className={`max-w-[85%] p-4 rounded-[24px] text-[13px] leading-[1.6] ${
+                      <div className={`max-w-[85%] p-3 px-4 rounded-[18px] text-[12px] leading-[1.5] ${
                         msg.role === 'user' 
                           ? 'bg-primary text-white rounded-tr-none' 
-                          : 'bg-white/[0.08] text-white/90 border border-white/5 rounded-tl-none'
+                          : 'bg-white/[0.12] text-white/90 border border-white/5 rounded-tl-none'
                       }`}>
                         {msg.role === 'user' ? (
                           <>
                             <p className="whitespace-pre-wrap font-medium">{msg.content}</p>
-                            {msg.imageBase64 && <img src={msg.imageBase64} className="mt-4 rounded-xl w-full object-cover border border-white/10" alt="sent" />}
+                            {msg.imageBase64 && <img src={msg.imageBase64} className="mt-3 rounded-lg w-full object-cover border border-white/10" alt="sent" />}
                           </>
                         ) : (
-                          <div className="prose prose-invert prose-sm max-w-none prose-p:my-1.5">
+                          <div className="prose prose-invert prose-xs max-w-none prose-p:my-1">
                             <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
                           </div>
                         )}
                       </div>
                     </motion.div>
                   ))}
-                  {isAiTyping && (
+                   {isAiTyping && (
                     <div className="flex justify-start">
-                      <div className="bg-white/5 p-4 px-5 rounded-[24px] rounded-tl-none flex gap-2 border border-white/5">
+                      <div className="bg-white/5 p-3 px-4 rounded-[18px] rounded-tl-none flex gap-1.5 border border-white/5">
                         <div className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce [animation-duration:0.8s]" />
                         <div className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce [animation-duration:0.8s] [animation-delay:0.2s]" />
                         <div className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce [animation-duration:0.8s] [animation-delay:0.4s]" />
@@ -266,16 +287,16 @@ const FloatingChat = () => {
               ) : (
                 <>
                   {isAdminOnline ? (
-                    <div className="space-y-6">
-                      <div className="text-center py-2 text-[9px] text-green-400 font-black uppercase tracking-[0.3em] flex items-center justify-center gap-2">
+                    <div className="space-y-4">
+                      <div className="text-center py-1 text-[8px] text-green-400 font-bold uppercase tracking-[0.2em] flex items-center justify-center gap-1.5">
                          Administrator Online
                       </div>
                       {staffMessages.map((msg, i) => (
                         <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                          <div className={`p-4 rounded-[22px] text-[13px] ${
+                          <div className={`p-3 px-4 rounded-[18px] text-[12px] ${
                             msg.role === 'user' 
                               ? 'bg-secondary text-white rounded-tr-none' 
-                              : 'bg-white/[0.08] text-white/90 border border-white/5 rounded-tl-none'
+                              : 'bg-white/[0.12] text-white/90 border border-white/5 rounded-tl-none'
                           }`}>
                             {msg.content}
                           </div>
@@ -394,12 +415,13 @@ const FloatingChat = () => {
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
         onClick={() => setIsOpen(!isOpen)}
-        className="pointer-events-auto w-16 h-16 md:w-20 md:h-20 rounded-[28px] bg-primary flex items-center justify-center text-white shadow-2xl relative group overflow-hidden border border-white/10"
+        className="pointer-events-auto w-14 h-14 md:w-16 md:h-16 rounded-[22px] bg-primary flex items-center justify-center text-white shadow-2xl relative group overflow-hidden border border-white/10"
       >
         <AnimatePresence mode="wait">
           {isOpen ? (
             <motion.div key="close" initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.5 }}>
-              <X className="w-7 h-7 md:w-9 md:h-9" />
+            
+              <X className="w-7 h-7 md:w-9 md:h-9 " />
             </motion.div>
           ) : (
             <motion.div key="open" initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.5 }}>

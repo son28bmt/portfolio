@@ -1,15 +1,10 @@
 import React from 'react';
 import { ShieldCheck, ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
 
 const Terms = () => {
   return (
-    <motion.div 
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="py-12 px-4 md:px-0 max-w-4xl mx-auto space-y-12"
-    >
+    <div className="py-12 px-4 md:px-0 max-w-4xl mx-auto space-y-12">
       <Link 
         to="/" 
         className="inline-flex items-center gap-2 text-white/40 hover:text-white transition-colors group mb-8"
@@ -71,7 +66,7 @@ const Terms = () => {
           Tôi có thắc mắc khác
         </Link>
       </div>
-    </motion.div>
+    </div>
   );
 };
 

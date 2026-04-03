@@ -1,13 +1,10 @@
 import React from 'react';
 import { Lock, ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
 
 const Privacy = () => {
   return (
-    <motion.div 
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
+    <div 
       className="py-12 px-4 md:px-0 max-w-4xl mx-auto space-y-12"
     >
       <Link 
@@ -75,7 +72,7 @@ const Privacy = () => {
           Tôi đã hiểu
         </Link>
       </div>
-    </motion.div>
+    </div>
   );
 };
 
