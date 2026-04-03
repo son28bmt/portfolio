@@ -278,10 +278,7 @@ const AIChatDemoLocalHistory = () => {
       ]);
     } catch (error) {
       console.error('Lỗi Chat:', error);
-      let errorMessage = 'Rất tiếc, tôi đang gặp sự cố kết nối. Hãy thử lại sau nhé!';
-      if (error.response?.data?.reply) {
-        errorMessage = error.response.data.reply;
-      }
+      const errorMessage = error.response?.data?.reply || 'Rất tiếc, tôi đang gặp sự cố kết nối. Hãy thử lại sau nhé!';
       
       setMessages((prev) => [
         ...prev,

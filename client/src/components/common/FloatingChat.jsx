@@ -78,30 +78,55 @@ const FloatingChat = () => {
 
   // Scroll to bottom
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
   }, [aiMessages, staffMessages, isAiTyping, activeTab, isOpen]);
 
   // Socket setup
   useEffect(() => {
-    const socketUrl = import.meta.env.VITE_API_BASE_URL?.replace('/api', '') || 'https://api.nguyenquangson.id.vn';
-    socketRef.current = io(socketUrl);
+    // Robust socket URL discovery
+    let socketUrl = import.meta.env.VITE_API_BASE_URL || window.location.origin;
+    if (socketUrl.includes('/api')) {
+      socketUrl = socketUrl.split('/api')[0];
+    }
+    
+    // Fallback logic if VITE_API_BASE_URL is relative
+    if (socketUrl.startsWith('/')) {
+      socketUrl = window.location.origin;
+    }
 
-    socketRef.current.emit('join_chat', { guestId });
+    socketRef.current = io(socketUrl, {
+      transports: ['websocket', 'polling'],
+      withCredentials: true
+    });
+
+    socketRef.current.on('connect', () => {
+      socketRef.current.emit('join_chat', { guestId });
+    });
 
     socketRef.current.on('admin_status', ({ online }) => {
       setIsAdminOnline(online);
     });
 
     socketRef.current.on('receive_admin_message', (data) => {
-      setStaffMessages(prev => [...prev, { role: 'admin', content: data.text, timestamp: data.timestamp }]);
+      setStaffMessages(prev => [...prev, { role: 'admin', content: data.text, timestamp: data.timestamp || new Date() }]);
     });
 
-    return () => socketRef.current.disconnect();
+    return () => {
+      if (socketRef.current) socketRef.current.disconnect();
+    };
   }, [guestId]);
 
   const handleAiSend = async (e) => {
     e.preventDefault();
     if (!aiInput.trim() && !selectedImage) return;
+
+    // Check turnstile before sending
+    if (!turnstileToken) {
+      alert("Hệ thống đang kiểm tra bảo mật (Anti-Bot)... Vui lòng đợi 1 giây rồi thử lại!");
+      return;
+    }
 
     const userMsg = { role: 'user', content: aiInput.trim(), imageBase64: selectedImage, timestamp: new Date() };
     setAiMessages(prev => [...prev, userMsg]);
@@ -122,11 +147,12 @@ const FloatingChat = () => {
 
       setAiMessages(prev => [...prev, { role: 'ai', content: data.reply, timestamp: new Date() }]);
     } catch (err) {
-      setAiMessages(prev => [...prev, { role: 'ai', content: 'Lỗi kết nối AI. Vui lòng thử lại.', timestamp: new Date() }]);
+      const errorMsg = err.response?.data?.reply || 'Rất tiếc, tôi đang gặp sự cố kết nối. Hãy thử lại sau nhé!';
+      setAiMessages(prev => [...prev, { role: 'ai', content: errorMsg, timestamp: new Date() }]);
     } finally {
       setIsAiTyping(false);
       setTurnstileToken(null);
-      turnstileRef.current?.reset();
+      if (turnstileRef.current) turnstileRef.current.reset();
     }
   };
 
@@ -134,10 +160,12 @@ const FloatingChat = () => {
     e.preventDefault();
     if (!staffInput.trim()) return;
 
-    socketRef.current.emit('send_to_admin', {
-      guestId,
-      text: staffInput.trim()
-    });
+    if (socketRef.current) {
+      socketRef.current.emit('send_to_admin', {
+        guestId,
+        text: staffInput.trim()
+      });
+    }
 
     setStaffMessages(prev => [...prev, { role: 'user', content: staffInput.trim(), timestamp: new Date() }]);
     setStaffInput('');
@@ -147,11 +175,12 @@ const FloatingChat = () => {
     e.preventDefault();
     setIsSubmittingForm(true);
     try {
-      await api.post('/contact', { ...offlineForm, subject: 'Yêu cầu hỗ trợ từ Floating Chat' });
+      await api.post('/contact', { ...offlineForm, subject: 'Hỗ trợ từ Chatbox' });
       setFormSuccess(true);
       setOfflineForm({ name: '', email: '', message: '' });
       setTimeout(() => setFormSuccess(false), 5000);
-    } catch (err) {
+    } catch (error) {
+      console.error('Error sending support request:', error);
       alert('Lỗi gửi yêu cầu. Vui lòng thử lại.');
     } finally {
       setIsSubmittingForm(false);
@@ -159,57 +188,65 @@ const FloatingChat = () => {
   };
 
   return (
-    <div className="fixed bottom-6 right-6 z-[9999] flex flex-col items-end gap-3 pointer-events-none">
+    <div className="fixed bottom-4 right-4 md:bottom-8 md:right-8 z-[9999] flex flex-col items-end gap-3 pointer-events-none">
       <AnimatePresence>
         {isOpen && (
           <motion.div
-            initial={{ opacity: 0, y: 50, scale: 0.9, transformOrigin: 'bottom right' }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 50, scale: 0.9 }}
-            className="w-[90vw] md:w-[380px] h-[550px] md:h-[600px] glass rounded-[32px] border border-white/10 shadow-2xl overflow-hidden flex flex-col pointer-events-auto mb-2"
+            initial={{ opacity: 0, y: 40, scale: 0.9, filter: 'blur(10px)' }}
+            animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
+            exit={{ opacity: 0, y: 40, scale: 0.9, filter: 'blur(10px)' }}
+            className="w-[calc(100vw-32px)] md:w-[420px] max-h-[85vh] h-[650px] glass rounded-[40px] border border-white/10 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.6)] overflow-hidden flex flex-col pointer-events-auto mb-4"
           >
-            {/* Header / Tabs */}
-            <div className="p-2 border-b border-white/5 bg-white/5 flex gap-1">
-              <button 
-                onClick={() => setActiveTab('ai')}
-                className={`flex-1 py-3 rounded-2xl text-[10px] md:text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all ${activeTab === 'ai' ? 'bg-primary text-white shadow-lg' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
-              >
-                <Sparkles className="w-3.5 h-3.5" /> AI
-              </button>
-              <button 
-                onClick={() => setActiveTab('staff')}
-                className={`flex-1 py-3 rounded-2xl text-[10px] md:text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all ${activeTab === 'staff' ? 'bg-secondary text-white shadow-lg' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
-              >
-                <Headphones className="w-3.5 h-3.5" /> Nhân viên
-                {isAdminOnline && <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />}
-              </button>
-              <button 
+            {/* Optimized Header */}
+            <div className="p-3 border-b border-white/5 bg-white/[0.02] flex items-center gap-3 shrink-0">
+               <div className="flex bg-black/40 rounded-[22px] p-1.5 gap-1.5 flex-grow">
+                  <button 
+                    onClick={() => setActiveTab('ai')}
+                    className={`flex-1 py-1.5 md:py-2.5 rounded-[16px] text-[10px] font-black uppercase tracking-[0.1em] md:tracking-[0.2em] flex items-center justify-center gap-2 transition-all duration-300 ${activeTab === 'ai' ? 'bg-primary text-white shadow-lg scale-[1.02]' : 'text-white/30 hover:text-white/60'}`}
+                  >
+                    <Sparkles className="w-3.5 h-3.5" /> 
+                    <span className="hidden xs:inline">Sparkles</span> AI
+                  </button>
+                  <button 
+                    onClick={() => setActiveTab('staff')}
+                    className={`flex-1 py-1.5 md:py-2.5 rounded-[16px] text-[10px] font-black uppercase tracking-[0.1em] md:tracking-[0.2em] flex items-center justify-center gap-2 transition-all duration-300 ${activeTab === 'staff' ? 'bg-secondary text-white shadow-lg scale-[1.02]' : 'text-white/30 hover:text-white/60'}`}
+                  >
+                    <Headphones className="w-3.5 h-3.5" /> 
+                    <span className="hidden xs:inline">Hotline</span> Staff
+                    {isAdminOnline && <div className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse shadow-[0_0_10px_#4ade80]" />}
+                  </button>
+               </div>
+               <button 
                 onClick={() => setIsOpen(false)}
-                className="p-3 text-white/40 hover:text-white transition-colors"
+                className="w-10 h-10 md:w-11 md:h-11 rounded-[20px] flex items-center justify-center text-white/30 hover:text-white hover:bg-white/5 transition-all"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Content Area */}
-            <div className="flex-grow overflow-y-auto p-4 md:p-6 custom-scrollbar space-y-4">
+            <div className="flex-grow overflow-y-auto p-4 md:p-6 custom-scrollbar space-y-6">
               {activeTab === 'ai' ? (
                 <>
                   {aiMessages.map((msg, i) => (
                     <motion.div
                       key={i}
-                      initial={{ opacity: 0, scale: 0.95 }}
-                      animate={{ opacity: 1, scale: 1 }}
+                      initial={{ opacity: 0, x: msg.role === 'user' ? 10 : -10 }}
+                      animate={{ opacity: 1, x: 0 }}
                       className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
                     >
-                      <div className={`max-w-[90%] p-3 rounded-2xl text-[13px] md:text-sm ${msg.role === 'user' ? 'bg-primary text-white' : 'bg-white/10 text-white/80'}`}>
+                      <div className={`max-w-[85%] p-4 rounded-[24px] text-[13px] leading-[1.6] ${
+                        msg.role === 'user' 
+                          ? 'bg-primary text-white rounded-tr-none' 
+                          : 'bg-white/[0.08] text-white/90 border border-white/5 rounded-tl-none'
+                      }`}>
                         {msg.role === 'user' ? (
                           <>
-                            <p className="whitespace-pre-wrap">{msg.content}</p>
-                            {msg.imageBase64 && <img src={msg.imageBase64} className="mt-2 rounded-lg max-h-40" alt="sent" />}
+                            <p className="whitespace-pre-wrap font-medium">{msg.content}</p>
+                            {msg.imageBase64 && <img src={msg.imageBase64} className="mt-4 rounded-xl w-full object-cover border border-white/10" alt="sent" />}
                           </>
                         ) : (
-                          <div className="prose prose-invert prose-sm max-w-none">
+                          <div className="prose prose-invert prose-sm max-w-none prose-p:my-1.5">
                             <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
                           </div>
                         )}
@@ -218,10 +255,10 @@ const FloatingChat = () => {
                   ))}
                   {isAiTyping && (
                     <div className="flex justify-start">
-                      <div className="bg-white/10 p-3 rounded-2xl flex gap-1">
-                        <div className="w-1.5 h-1.5 bg-white/40 rounded-full animate-bounce" />
-                        <div className="w-1.5 h-1.5 bg-white/40 rounded-full animate-bounce [animation-delay:0.2s]" />
-                        <div className="w-1.5 h-1.5 bg-white/40 rounded-full animate-bounce [animation-delay:0.4s]" />
+                      <div className="bg-white/5 p-4 px-5 rounded-[24px] rounded-tl-none flex gap-2 border border-white/5">
+                        <div className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce [animation-duration:0.8s]" />
+                        <div className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce [animation-duration:0.8s] [animation-delay:0.2s]" />
+                        <div className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce [animation-duration:0.8s] [animation-delay:0.4s]" />
                       </div>
                     </div>
                   )}
@@ -229,70 +266,64 @@ const FloatingChat = () => {
               ) : (
                 <>
                   {isAdminOnline ? (
-                    <>
-                      <div className="text-center py-2 text-[10px] text-green-400 font-bold uppercase flex items-center justify-center gap-2">
-                         <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
-                         Nhân viên đang trực tuyến
+                    <div className="space-y-6">
+                      <div className="text-center py-2 text-[9px] text-green-400 font-black uppercase tracking-[0.3em] flex items-center justify-center gap-2">
+                         Administrator Online
                       </div>
-                      {staffMessages.length === 0 && (
-                        <p className="text-center text-white/20 text-xs py-10 px-6">
-                          Chào bạn! Đội ngũ hỗ trợ đã sẵn sàng. Hãy đặt câu hỏi bất kỳ nhé.
-                        </p>
-                      )}
                       {staffMessages.map((msg, i) => (
                         <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                          <div className={`p-3 rounded-2xl text-[13px] md:text-sm ${msg.role === 'user' ? 'bg-secondary text-white' : 'bg-white/10 text-white/80'}`}>
+                          <div className={`p-4 rounded-[22px] text-[13px] ${
+                            msg.role === 'user' 
+                              ? 'bg-secondary text-white rounded-tr-none' 
+                              : 'bg-white/[0.08] text-white/90 border border-white/5 rounded-tl-none'
+                          }`}>
                             {msg.content}
                           </div>
                         </div>
                       ))}
-                    </>
+                    </div>
                   ) : (
-                    <div className="space-y-6 py-4">
+                    <div className="space-y-8 py-4">
                       {formSuccess ? (
-                        <div className="text-center space-y-4 py-10">
-                          <CheckCircle2 className="w-12 h-12 text-green-400 mx-auto" />
-                          <h3 className="font-bold text-lg">Đã gửi yêu cầu!</h3>
-                          <p className="text-white/50 text-sm">Cảm ơn bạn. Sơn sẽ phản hồi qua email sớm nhất có thể.</p>
+                        <div className="text-center space-y-6 py-20 animate-in fade-in zoom-in">
+                          <CheckCircle2 className="w-16 h-16 text-green-400 mx-auto" />
+                          <h3 className="font-black text-2xl uppercase">Đã gửi thành công!</h3>
                         </div>
                       ) : (
                         <>
-                          <div className="text-center space-y-2">
-                            <div className="w-12 h-12 bg-white/5 rounded-full flex items-center justify-center mx-auto border border-white/5">
-                              <Headphones className="text-white/40" />
-                            </div>
-                            <h3 className="font-bold text-base">Hiện đang vắng mặt</h3>
-                            <p className="text-xs text-white/40">Nhân viên hiện không online, vui lòng để lại lời nhắn bạn nhé!</p>
+                          <div className="text-center space-y-4 mb-10">
+                            <Headphones className="w-12 h-12 text-white/20 mx-auto" />
+                            <h3 className="font-black text-xl uppercase tracking-tight">Hôm nay tôi vắng mặt</h3>
                           </div>
-                          <form onSubmit={handleOfflineSubmit} className="space-y-3">
+                          <form onSubmit={handleOfflineSubmit} className="space-y-4">
                             <input 
                               required
                               placeholder="Họ và tên"
                               value={offlineForm.name}
                               onChange={e => setOfflineForm(f => ({ ...f, name: e.target.value }))}
-                              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-secondary outline-none"
+                              className="w-full bg-white/[0.03] border border-white/10 rounded-[20px] px-6 py-4 text-sm focus:border-secondary transition-all outline-none"
                             />
                             <input 
                               required
                               type="email"
-                              placeholder="Email nhận phản hồi"
+                              placeholder="Email của bạn"
                               value={offlineForm.email}
                               onChange={e => setOfflineForm(f => ({ ...f, email: e.target.value }))}
-                              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-secondary outline-none"
+                              className="w-full bg-white/[0.03] border border-white/10 rounded-[20px] px-6 py-4 text-sm focus:border-secondary transition-all outline-none"
                             />
                             <textarea 
                               required
-                              rows={3}
-                              placeholder="Nội dung cần hỗ trợ..."
+                              rows={4}
+                              placeholder="Bạn đang cần hỗ trợ điều gì?"
                               value={offlineForm.message}
                               onChange={e => setOfflineForm(f => ({ ...f, message: e.target.value }))}
-                              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-secondary outline-none resize-none"
+                              className="w-full bg-white/[0.03] border border-white/10 rounded-[24px] px-6 py-4 text-sm focus:border-secondary transition-all outline-none resize-none"
                             />
                             <button 
                               disabled={isSubmittingForm}
-                              className="w-full py-3 bg-secondary text-white font-bold rounded-xl hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50"
+                              className="w-full py-5 bg-secondary text-white font-black uppercase text-[11px] rounded-[24px]"
                             >
-                              {isSubmittingForm ? 'Đang gửi...' : 'Gửi cho Sơn'}
+                              Gửi cho Quang Sơn
                             </button>
                           </form>
                         </>
@@ -304,11 +335,11 @@ const FloatingChat = () => {
               <div ref={messagesEndRef} />
             </div>
 
-            {/* Footer Input */}
+            {/* Smart Input Area */}
             {(!isAdminOnline && activeTab === 'staff') || formSuccess ? null : (
-              <div className="p-4 bg-white/5 border-t border-white/5">
+              <div className="p-4 md:p-6 border-t border-white/5 bg-white/[0.03] shrink-0">
                 {activeTab === 'ai' && (
-                   <div className="flex justify-center mb-2 scale-[0.7] md:scale-[0.8] origin-bottom">
+                   <div className="flex justify-center mb-4 scale-[0.7] md:scale-[0.8] origin-bottom opacity-40">
                       <Turnstile 
                         ref={turnstileRef}
                         siteKey={import.meta.env.VITE_TURNSTILE_SITE_KEY || '1x00000000000000000000AA'}
@@ -317,34 +348,39 @@ const FloatingChat = () => {
                    </div>
                 )}
                 
-                <form onSubmit={activeTab === 'ai' ? handleAiSend : handleStaffSend} className="flex gap-2 items-center">
-                  {activeTab === 'ai' && (
-                    <>
-                      <input type="file" ref={fileInputRef} className="hidden" onChange={e => {
-                        const file = e.target.files[0];
-                        if (file) {
-                          const reader = new FileReader();
-                          reader.onload = (e) => setSelectedImage(e.target.result);
-                          reader.readAsDataURL(file);
-                        }
-                      }} />
-                      <button 
-                        type="button" 
-                        onClick={() => fileInputRef.current?.click()}
-                        className="p-2 text-white/40 hover:text-white"
-                      >
-                        <ImagePlus className="w-5 h-5" />
-                      </button>
-                    </>
-                  )}
-                  <input 
-                    value={activeTab === 'ai' ? aiInput : staffInput}
-                    onChange={e => activeTab === 'ai' ? setAiInput(e.target.value) : setStaffInput(e.target.value)}
-                    placeholder={activeTab === 'ai' ? "Hỏi AI..." : "Chat..."}
-                    className="flex-grow bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-sm focus:border-primary outline-none"
-                  />
-                  <button type="submit" className={`p-3 rounded-xl text-white transition-transform active:scale-90 ${activeTab === 'ai' ? 'bg-primary' : 'bg-secondary'}`}>
-                    <Send className="w-4 h-4" />
+                <form onSubmit={activeTab === 'ai' ? handleAiSend : handleStaffSend} className="flex gap-3 items-center">
+                  <div className="flex-grow flex items-center bg-black/40 border border-white/10 rounded-[24px] px-2 focus-within:border-primary/50 transition-all">
+                    {activeTab === 'ai' && (
+                      <>
+                        <input type="file" ref={fileInputRef} className="hidden" onChange={e => {
+                          const file = e.target.files[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onload = (ev) => setSelectedImage(ev.target.result);
+                            reader.readAsDataURL(file);
+                          }
+                        }} />
+                        <button 
+                          type="button" 
+                          onClick={() => fileInputRef.current?.click()}
+                          className="w-10 h-10 flex items-center justify-center text-white/20 hover:text-white rounded-[18px]"
+                        >
+                          <ImagePlus className="w-5 h-5" />
+                        </button>
+                      </>
+                    )}
+                    <input 
+                      value={activeTab === 'ai' ? aiInput : staffInput}
+                      onChange={e => activeTab === 'ai' ? setAiInput(e.target.value) : setStaffInput(e.target.value)}
+                      placeholder={activeTab === 'ai' ? "Hỏi Sparkles AI..." : "Gửi tin nhắn..."}
+                      className="flex-grow bg-transparent px-4 py-4 text-[13px] outline-none placeholder:text-white/10"
+                    />
+                  </div>
+                  <button 
+                    type="submit" 
+                    className={`w-14 h-14 shrink-0 rounded-[24px] text-white flex items-center justify-center shadow-lg ${activeTab === 'ai' ? 'bg-primary' : 'bg-secondary'}`}
+                  >
+                    <Send className="w-5 h-5" />
                   </button>
                 </form>
               </div>
@@ -353,24 +389,23 @@ const FloatingChat = () => {
         )}
       </AnimatePresence>
 
-      {/* Main Trigger Button */}
       <motion.button
         layout
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
         onClick={() => setIsOpen(!isOpen)}
-        className="pointer-events-auto w-14 h-14 md:w-16 md:h-16 rounded-full bg-primary flex items-center justify-center text-white shadow-2xl relative group overflow-hidden"
+        className="pointer-events-auto w-16 h-16 md:w-20 md:h-20 rounded-[28px] bg-primary flex items-center justify-center text-white shadow-2xl relative group overflow-hidden border border-white/10"
       >
         <AnimatePresence mode="wait">
           {isOpen ? (
-            <motion.div key="close" initial={{ opacity: 0, rotate: -90 }} animate={{ opacity: 1, rotate: 0 }} exit={{ opacity: 0, rotate: 90 }}>
-              <X className="w-6 h-6 md:w-8 md:h-8" />
+            <motion.div key="close" initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.5 }}>
+              <X className="w-7 h-7 md:w-9 md:h-9" />
             </motion.div>
           ) : (
-            <motion.div key="open" initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.5 }} className="relative">
-              <MessageSquare className="w-6 h-6 md:w-8 md:h-8" />
+            <motion.div key="open" initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.5 }}>
+              <MessageSquare className="w-7 h-7 md:w-9 md:h-9" />
               {isAdminOnline && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-primary animate-pulse" />
+                <span className="absolute -top-1 -right-1 w-5 h-5 bg-green-400 rounded-full border-4 border-primary animate-pulse" />
               )}
             </motion.div>
           )}
@@ -378,10 +413,14 @@ const FloatingChat = () => {
       </motion.button>
 
       <style>{`
-        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar { width: 5px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
-        .glass { background: rgba(18, 18, 18, 0.8) !important; backdrop-filter: blur(20px) !important; -webkit-backdrop-filter: blur(20px) !important; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.05); border-radius: 10px; }
+        .glass { 
+          background: rgba(12, 12, 12, 0.75) !important; 
+          backdrop-filter: blur(40px) saturate(200%) !important; 
+          -webkit-backdrop-filter: blur(40px) saturate(200%) !important; 
+        }
       `}</style>
     </div>
   );
