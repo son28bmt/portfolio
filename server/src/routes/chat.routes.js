@@ -3,8 +3,8 @@ const router = express.Router();
 const { LiveChatMessage } = require('../models');
 const { protect } = require('../middleware/auth.middleware');
 
-// Admin: Get chat history for a specific guest
-router.get('/history/:guestId', protect, async (req, res) => {
+// Public: Get chat history for a specific guest (No protect needed for guests to see their own history)
+router.get('/history/:guestId', async (req, res) => {
   try {
     const { guestId } = req.params;
     const messages = await LiveChatMessage.findAll({

@@ -31,7 +31,6 @@ const LiveChat = () => {
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
-    // Robust socket URL discovery for Admin
     const API_BASE_URL = (
       import.meta.env.VITE_API_BASE_URL || 
       (typeof window !== 'undefined' && window.location.hostname !== 'localhost' 
@@ -39,14 +38,17 @@ const LiveChat = () => {
         : 'http://localhost:5000/api')
     ).replace(/\/+$/, '');
     
-    let socketUrl = API_BASE_URL;
-    if (socketUrl.includes('/api')) {
-      socketUrl = socketUrl.split('/api')[0];
+    let socketUrl = '';
+    try {
+      const urlObj = new URL(API_BASE_URL);
+      socketUrl = urlObj.origin;
+    } catch (e) {
+      socketUrl = 'https://api.nguyenquangson.id.vn';
     }
     
     // Ensure production domains don't fallback to localhost
     if (window.location.hostname !== 'localhost' && socketUrl.includes('localhost')) {
-      socketUrl = 'https://api.nguyenquangson.id.vn'; // Explicit fallback for your production setup
+      socketUrl = 'https://api.nguyenquangson.id.vn'; 
     }
 
     socketRef.current = io(socketUrl, {

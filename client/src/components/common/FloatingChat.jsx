@@ -1,4 +1,4 @@
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence } from 'framer-motion';
 import { 
   MessageSquare, 
   X, 
@@ -92,12 +92,17 @@ const FloatingChat = () => {
         : 'http://localhost:5000/api')
     ).replace(/\/+$/, '');
     
-    let socketUrl = API_BASE_URL;
-    if (socketUrl.includes('/api')) {
-      socketUrl = socketUrl.split('/api')[0];
-    }
-    if (socketUrl.startsWith('/') || (window.location.hostname !== 'localhost' && socketUrl.includes('localhost'))) {
+    let socketUrl = '';
+    try {
+      const urlObj = new URL(API_BASE_URL);
+      socketUrl = urlObj.origin;
+    } catch {
       socketUrl = window.location.origin;
+    }
+
+    // Fallback logic if socketUrl points to localhost in production
+    if (window.location.hostname !== 'localhost' && socketUrl.includes('localhost')) {
+      socketUrl = 'https://api.nguyenquangson.id.vn';
     }
 
     socketRef.current = io(socketUrl, {
