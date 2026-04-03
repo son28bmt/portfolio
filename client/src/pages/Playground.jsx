@@ -483,6 +483,13 @@ const UserConfig = ({ apiKey, setApiKey, baseUrl, setBaseUrl }) => {
   );
 };
 
+const sanitizeErrorMessage = (error) => {
+  const msg = error.response?.data?.error || error.response?.data?.message || error.message || 'Có lỗi xảy ra.';
+  const lowerMsg = String(msg).toLowerCase();
+  const isSensitive = lowerMsg.includes('/') || lowerMsg.includes('\\') || lowerMsg.includes('wwwroot') || lowerMsg.includes('python') || lowerMsg.includes('import error');
+  return isSensitive ? 'Hệ thống gặp sự cố kỹ thuật. Vui lòng thử lại sau hoặc liên hệ quản trị viên.' : msg;
+};
+
 const SubTranslatorDemo = () => {
   const [step, setStep] = useState(1); // 1: Upload, 2: Transcribing, 3: Edit & Translate, 4: Done
   const [file, setFile] = useState(null);
@@ -537,7 +544,7 @@ const SubTranslatorDemo = () => {
       setStep(3);
     } catch (err) {
       console.error(err);
-      const msg = err.response?.data?.error || err.response?.data?.message || 'Lỗi khi nhận diện giọng nói.';
+      const msg = sanitizeErrorMessage(err);
       if (msg.toLowerCase().includes('quota') || msg.toLowerCase().includes('limit') || msg.toLowerCase().includes('api key')) {
         setError(msg + ' Gợi ý: Hãy nhập API Key cá nhân của bạn bên dưới.');
       } else {
@@ -593,7 +600,7 @@ const SubTranslatorDemo = () => {
       setStep(4);
     } catch (err) {
       console.error(err);
-      const msg = err.response?.data?.error || 'Lỗi khi dịch thuật phụ đề.';
+      const msg = sanitizeErrorMessage(err);
       if (msg.toLowerCase().includes('quota') || msg.toLowerCase().includes('limit')) {
         setError(msg + ' Gợi ý: Thử nhập API Key cá nhân trong phần Cấu hình nâng cao.');
       } else {

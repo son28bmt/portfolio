@@ -175,12 +175,12 @@ const Marketplace = () => {
                     key={product.id}
                     type="button"
                     onClick={() => setSelectedProductId(product.id)}
-                    whileHover={{ y: -2 }}
+                    whileHover={{ y: Number(product.quantity) > 0 ? -2 : 0 }}
                     className={`text-left p-4 rounded-2xl border transition-all ${
                       active
                         ? 'border-primary/60 bg-primary/10'
                         : 'border-white/10 bg-white/5 hover:bg-white/10 hover:border-white/20'
-                    }`}
+                    } ${Number(product.quantity) <= 0 ? 'opacity-60 saturate-50' : ''}`}
                   >
                     <p className="text-xs text-white/40 mb-2 uppercase tracking-wider">
                       {product.category?.name || 'Chưa phân loại'}
@@ -189,7 +189,11 @@ const Marketplace = () => {
                     <p className="text-sm text-white/60 line-clamp-3 mt-2 min-h-[60px]">{product.description || 'Không có mô tả.'}</p>
                     <div className="mt-4 flex items-center justify-between">
                       <p className="font-black text-primary">{formatVnd(product.price)}</p>
-                      <span className="text-xs text-white/50">Còn {Number(product.quantity || 0).toLocaleString('vi-VN')}</span>
+                      {Number(product.quantity) > 0 ? (
+                        <span className="text-xs text-white/50">Còn {Number(product.quantity).toLocaleString('vi-VN')}</span>
+                      ) : (
+                        <span className="text-xs text-red-400 font-bold px-2 py-0.5 rounded-md bg-red-400/10">Hết hàng</span>
+                      )}
                     </div>
                   </motion.button>
                 );
@@ -233,10 +237,10 @@ const Marketplace = () => {
 
             <button
               type="submit"
-              disabled={creatingOrder || !selectedProduct}
-              className="w-full py-3 rounded-xl bg-primary text-white font-bold hover:bg-primary/90 disabled:opacity-60"
+              disabled={creatingOrder || !selectedProduct || Number(selectedProduct.quantity) <= 0}
+              className="w-full py-3 rounded-xl bg-primary text-white font-bold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {creatingOrder ? 'Đang tạo đơn...' : 'Tạo mã QR thanh toán'}
+              {creatingOrder ? 'Đang tạo đơn...' : Number(selectedProduct?.quantity || 0) <= 0 ? 'Hết hàng' : 'Tạo mã QR thanh toán'}
             </button>
 
             <div className="opacity-0 pointer-events-none absolute h-0">

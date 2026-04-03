@@ -4,7 +4,8 @@ const path = require('path');
 const runPythonScript = (scriptPath, inputData) => {
   return new Promise((resolve, reject) => {
     const pythonProcess = spawn('python', [scriptPath], {
-      env: { ...process.env, PYTHONIOENCODING: 'utf-8' }
+      env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
+      cwd: path.dirname(scriptPath)
     });
     let stdout = '';
     let stderr = '';

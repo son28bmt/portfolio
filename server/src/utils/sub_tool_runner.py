@@ -9,26 +9,32 @@ if sys.platform == "win32":
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 
-# --- CƠ CHẾ TÌM ĐƯỜNG DẪN CÔNG CỤ (DỮ LIỆU BẢO MẬT/THIÊN HƯỚNG LINH HOẠT) ---
+# --- CƠ CHẾ TÌM ĐƯỜNG DẪN CÔNG CỤ ---
 def find_tool_dir():
     # Thử tìm trong các thư mục cha từ vị trí script hiện tại
     current = os.path.dirname(os.path.abspath(__file__))
-    # Đi lên tối đa 5 cấp để tìm thư mục 'tool sub video'
+    candidates = ['tool sub video', 'tool-sub-video']
+    
+    # Đi lên tối đa 5 cấp
     for _ in range(5):
-        potential = os.path.join(current, 'tool sub video')
-        if os.path.exists(potential) and os.path.isdir(os.path.join(potential, 'modules')):
-            return potential
+        for candidate in candidates:
+            potential = os.path.join(current, candidate)
+            if os.path.exists(potential) and os.path.isdir(os.path.join(potential, 'modules')):
+                return potential
+        
         parent = os.path.dirname(current)
-        if parent == current: # Đã lên đến gốc
+        if parent == current:
             break
         current = parent
     
-    # Mặc định (nếu không tìm thấy tự động) - Đi lên 3 cấp
+    # Mặc định đi lên 3 cấp nếu không tìm thấy tự động
     script_dir = os.path.dirname(os.path.abspath(__file__))
     return os.path.abspath(os.path.join(script_dir, '..', '..', '..', 'tool sub video'))
 
+# Thêm đường dẫn vào sys.path
 tool_dir = find_tool_dir()
-sys.path.insert(0, tool_dir)
+if tool_dir not in sys.path:
+    sys.path.insert(0, tool_dir)
 # --------------------------------------------------------------------------
 
 try:

@@ -535,19 +535,34 @@ router.post('/generate-sub', aiLimiter, upload.single('file'), verifyTurnstile, 
     res.status(400).json({ message: 'Chế độ không hợp lệ' });
 
   } catch (error) {
-    console.error('Lỗi AI Route:', sanitizeErrorForLog(error));
+    // Sanitize error before logging for security, but log details to Console
+    const sanitizedLog = sanitizeErrorForLog(error);
+    console.error('--- [CRITICAL] AI Sub Tool Error ---');
+    console.error(sanitizedLog);
+    if (error.message) console.error('Full message:', error.message);
+    
     if (filePath && fs.existsSync(filePath)) fs.unlinkSync(filePath);
 
     const providerStatus = error?.response?.status;
     const providerMessage = getProviderErrorMessage(error);
 
+    // Filter sensitive info from providerMessage if it contains paths
+    const finalProviderMsg = String(providerMessage || '').includes('/') 
+      ? 'Nhà cung cấp AI gặp lỗi xử lý. Vui lòng thử lại sau.' 
+      : providerMessage;
+
     if (providerStatus === 429) {
-      return res.status(429).json({ message: 'API hết quota hoặc bị giới hạn.', error: providerMessage });
+      return res.status(429).json({ message: 'API hết quota hoặc bị giới hạn.', error: finalProviderMsg });
     }
     if (providerStatus) {
-      return res.status(providerStatus).json({ message: 'Lỗi từ nhà cung cấp AI.', error: providerMessage });
+      return res.status(providerStatus).json({ message: 'Lỗi từ nhà cung cấp AI.', error: finalProviderMsg });
     }
-    return res.status(500).json({ message: 'Lỗi xử lý hệ thống', error: error.message });
+    
+    // For 500 errors, never send detailed error.message to client
+    return res.status(500).json({ 
+      message: 'Lỗi xử lý hệ thống. Chúng tôi đã ghi nhận sự cố.', 
+      error: 'Vui lòng liên hệ quản trị viên hoặc thử lại sau.' 
+    });
   }
 });
 

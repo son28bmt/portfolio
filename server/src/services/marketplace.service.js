@@ -81,7 +81,6 @@ const extractPaymentRef = (text) => {
 
 const listPublicProducts = async () => {
   return Product.findAll({
-    where: { quantity: { [Op.gt]: 0 } },
     include: [{ model: Category, as: 'category', attributes: ['id', 'name'] }],
     attributes: ['id', 'name', 'description', 'price', 'quantity', 'createdAt', 'categoryId'],
     order: [['id', 'DESC']],

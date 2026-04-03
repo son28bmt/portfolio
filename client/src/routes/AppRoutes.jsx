@@ -11,6 +11,8 @@ import Contact from '../pages/Contact';
 import Playground from '../pages/Playground';
 import Donate from '../pages/Donate';
 import Marketplace from '../pages/Marketplace';
+import Terms from '../pages/Terms';
+import Privacy from '../pages/Privacy';
 
 const PageTransition = ({ children }) => (
   <motion.div
@@ -39,6 +41,8 @@ const AppRoutes = () => {
         <Route path="/lien-he" element={<PageTransition><Contact /></PageTransition>} />
         <Route path="/cua-hang" element={<PageTransition><Marketplace /></PageTransition>} />
         <Route path="/donate" element={<PageTransition><Donate /></PageTransition>} />
+        <Route path="/dieu-khoan" element={<PageTransition><Terms /></PageTransition>} />
+        <Route path="/bao-mat" element={<PageTransition><Privacy /></PageTransition>} />
         <Route path="/playground/*" element={<PageTransition><Playground /></PageTransition>} />
       </Routes>
     </AnimatePresence>
