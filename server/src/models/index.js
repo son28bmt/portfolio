@@ -8,7 +8,7 @@ const Blog = require('./Blog');
 const Project = require('./Project');
 const Message = require('./Message');
 const Setting = require('./Setting');
-const Donation = require('./Donation');
+const LiveChatMessage = require('./LiveChatMessage');
 
 // Associations
 Category.hasMany(Product, { foreignKey: 'categoryId', as: 'products' });
@@ -34,5 +34,6 @@ module.exports = {
   Project,
   Message,
   Setting,
-  Donation
+  Donation,
+  LiveChatMessage
 };

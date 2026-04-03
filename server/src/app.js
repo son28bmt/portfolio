@@ -15,6 +15,7 @@ const seoRoutes = require('./routes/seo.routes');
 const donateRoutes = require('./routes/donate.routes');
 const shopRoutes = require('./routes/shop.routes');
 const marketplaceRoutes = require('./routes/marketplace.routes');
+const chatRoutes = require('./routes/chat.routes');
 const http = require('http');
 const { initSocket } = require('./services/socket.service');
 
@@ -88,6 +89,7 @@ app.use('/api/contact', contactRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/donate', donateRoutes);
 app.use('/api/shop', shopRoutes);
+app.use('/api/chat', chatRoutes);
 app.use('/api', marketplaceRoutes);
 app.use('/', marketplaceRoutes);
 
