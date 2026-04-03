@@ -10,6 +10,7 @@ import {
   Sparkles,
   Gift,
   ShoppingBag,
+  Headphones,
   X
 } from 'lucide-react';
 
@@ -24,6 +25,7 @@ const Sidebar = ({ isOpen, onClose }) => {
 
   const menuItems = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
+    { icon: Headphones, label: 'Hỗ trợ trực tuyến', path: '/live-chat' },
     { icon: FolderKanban, label: 'Dự án', path: '/projects' },
     { icon: FileText, label: 'Blog', path: '/blog' },
     { icon: MessageSquare, label: 'Tin nhắn', path: '/messages' },

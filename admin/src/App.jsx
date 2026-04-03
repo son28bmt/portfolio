@@ -11,6 +11,7 @@ import AddBlog from './pages/Blog/AddBlog';
 import EditBlog from './pages/Blog/EditBlog';
 import AISettings from './pages/AI/AISettings';
 import Messages from './pages/Contact/Messages';
+import LiveChat from './pages/LiveChat';
 import DonateList from './pages/Donate/DonateList';
 import MarketplaceManager from './pages/Marketplace/MarketplaceManager';
 import { Menu } from 'lucide-react';
@@ -68,6 +69,7 @@ function App() {
       <Route path="/blog/edit/:id" element={<ProtectedRoute><EditBlog /></ProtectedRoute>} />
       <Route path="/ai-settings" element={<ProtectedRoute><AISettings /></ProtectedRoute>} />
       <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
+      <Route path="/live-chat" element={<ProtectedRoute><LiveChat /></ProtectedRoute>} />
       <Route path="/donate" element={<ProtectedRoute><DonateList /></ProtectedRoute>} />
       <Route path="/marketplace" element={<ProtectedRoute><MarketplaceManager /></ProtectedRoute>} />
       
