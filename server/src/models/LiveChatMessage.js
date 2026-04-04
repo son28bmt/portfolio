@@ -10,7 +10,6 @@ const LiveChatMessage = sequelize.define('LiveChatMessage', {
   guestId: {
     type: DataTypes.STRING,
     allowNull: false,
-    index: true,
   },
   role: {
     type: DataTypes.ENUM('user', 'admin'),
@@ -32,6 +31,12 @@ const LiveChatMessage = sequelize.define('LiveChatMessage', {
     type: DataTypes.BOOLEAN,
     defaultValue: false,
   },
+}, {
+  indexes: [
+    {
+      fields: ['guestId'],
+    }
+  ]
 });
 
 module.exports = LiveChatMessage;
