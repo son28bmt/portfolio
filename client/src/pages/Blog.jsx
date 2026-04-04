@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../services/api';
-import { motion } from 'framer-motion';
+import { motion } from 'framer-motion'; // eslint-disable-line no-unused-vars
 import { Search, Calendar, Clock, ArrowUpRight, Hash } from 'lucide-react';
 
 const decodePossibleJson = (value) => {

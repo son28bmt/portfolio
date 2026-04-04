@@ -1,4 +1,5 @@
-import { AnimatePresence } from 'framer-motion';
+import React, { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion'; // eslint-disable-line no-unused-vars
 import { 
   MessageSquare, 
   X, 
@@ -17,7 +18,6 @@ import { io } from 'socket.io-client';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Turnstile } from '@marsidev/react-turnstile';
-import { useState, useEffect, useRef } from 'react';
 
 const AI_CHAT_HISTORY_KEY = 'global_floating_ai_chat_history_v1';
 const MAX_CHAT_HISTORY_MESSAGES = 50;

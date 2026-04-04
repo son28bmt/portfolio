@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion } from 'framer-motion'; // eslint-disable-line no-unused-vars
 import { Gift, QrCode, Clock3, CheckCircle2, AlertCircle, Copy, RefreshCw } from 'lucide-react';
 import api from '../services/api';
 
