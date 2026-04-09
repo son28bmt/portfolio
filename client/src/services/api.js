@@ -21,6 +21,11 @@ const normalizeRequestUrl = (url = '') => {
 
   normalizedPath = normalizedPath.replace(/\/{2,}/g, '/');
 
+  // Trailing slash consistency
+  if (normalizedPath !== '/' && !normalizedPath.endsWith('/')) {
+    normalizedPath += '/';
+  }
+
   return query ? `${normalizedPath}?${query}` : normalizedPath;
 };
 
@@ -28,5 +33,19 @@ api.interceptors.request.use((config) => {
   config.url = normalizeRequestUrl(config.url);
   return config;
 });
+
+// Add error logging
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    console.error('❌ Client API Error:', {
+      url: error.config?.url,
+      method: error.config?.method,
+      status: error.response?.status,
+      data: error.response?.data,
+    });
+    return Promise.reject(error);
+  }
+);
 
 export default api;

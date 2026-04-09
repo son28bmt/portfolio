@@ -85,25 +85,37 @@ const FloatingChat = () => {
 
   // Socket setup
   useEffect(() => {
-    const API_BASE_URL = (
-      import.meta.env.VITE_API_BASE_URL || 
-      (typeof window !== 'undefined' && window.location.hostname !== 'localhost' 
-        ? 'https://api.nguyenquangson.id.vn/api' 
-        : 'http://localhost:5000/api')
-    ).replace(/\/+$/, '');
-    
-    let socketUrl = '';
-    try {
-      const urlObj = new URL(API_BASE_URL);
-      socketUrl = urlObj.origin;
-    } catch {
-      socketUrl = window.location.origin;
-    }
+    const getSocketUrl = () => {
+      const vBaseUrl = import.meta.env.VITE_API_BASE_URL || '';
+      const vSocketUrl = import.meta.env.VITE_SOCKET_URL || '';
 
-    // Fallback logic if socketUrl points to localhost in production
-    if (window.location.hostname !== 'localhost' && socketUrl.includes('localhost')) {
-      socketUrl = 'https://api.nguyenquangson.id.vn';
-    }
+      if (vSocketUrl) return vSocketUrl;
+
+      // Handle common 'https' error or empty
+      if (vBaseUrl === 'https' || !vBaseUrl) {
+        if (window.location.hostname !== 'localhost') {
+          return 'https://api.nguyenquangson.id.vn';
+        }
+        return 'http://localhost:5000';
+      }
+
+      try {
+        const urlObj = new URL(vBaseUrl);
+        // Ensure we handle 'https' as origin which is rare but possible if URL is malformed
+        if (urlObj.origin === 'https' || urlObj.hostname === 'https') {
+             return 'https://api.nguyenquangson.id.vn';
+        }
+        return urlObj.origin;
+      } catch {
+        if (window.location.hostname !== 'localhost') {
+          return 'https://api.nguyenquangson.id.vn';
+        }
+        return window.location.origin;
+      }
+    };
+
+    const socketUrl = getSocketUrl();
+    console.log('[Socket] Connecting to:', socketUrl);
 
     socketRef.current = io(socketUrl, {
       transports: ['websocket', 'polling'],
