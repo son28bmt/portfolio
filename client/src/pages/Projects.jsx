@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion'; // eslint-disable-line no-unused-vars
 import api from '../services/api';
-import { Github, Layers, X, Maximize2, Image as ImageIcon, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Github, Layers, X, Maximize2, Image as ImageIcon, ChevronLeft, ChevronRight, Smartphone, Download } from 'lucide-react';
 
 const parseArrayField = (value, { allowCommaSplit = true } = {}) => {
   if (Array.isArray(value)) {
@@ -46,6 +46,8 @@ const normalizeProject = (project) => {
     tech,
     image: coverImage || 'https://images.unsplash.com/photo-1675271591211-126ad94e495d?q=80&w=2670&auto=format&fit=crop',
     images: mergedImages,
+    apkUrl: project.apkUrl || null,
+    iosUrl: project.iosUrl || null,
   };
 };
 
@@ -197,6 +199,30 @@ const Projects = () => {
                       >
                         <Maximize2 className="w-5 h-5" />
                       </button>
+                    )}
+                    {(project.apkUrl || project.iosUrl) && (
+                      <div className="flex gap-2">
+                        {project.apkUrl && (
+                          <a
+                            href={project.apkUrl}
+                            download
+                            className="p-3 bg-green-500 text-white rounded-full hover:scale-110 transition-transform shadow-xl"
+                            title="Tải APK (Android)"
+                          >
+                            <Smartphone className="w-5 h-5" />
+                          </a>
+                        )}
+                        {project.iosUrl && (
+                          <a
+                            href={project.iosUrl}
+                            download
+                            className="p-3 bg-blue-500 text-white rounded-full hover:scale-110 transition-transform shadow-xl"
+                            title="Tải iOS (IPA)"
+                          >
+                            <Smartphone className="w-5 h-5" />
+                          </a>
+                        )}
+                      </div>
                     )}
                   </div>
                 </div>

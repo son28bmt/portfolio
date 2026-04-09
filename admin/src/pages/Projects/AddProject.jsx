@@ -7,10 +7,14 @@ const AddProject = () => {
   const navigate = useNavigate();
   const coverInputRef = useRef(null);
   const galleryInputRef = useRef(null);
+  const apkInputRef = useRef(null);
+  const iosInputRef = useRef(null);
 
   const [loading, setLoading] = useState(false);
   const [uploadingCover, setUploadingCover] = useState(false);
   const [uploadingGallery, setUploadingGallery] = useState(false);
+  const [uploadingApk, setUploadingApk] = useState(false);
+  const [uploadingIos, setUploadingIos] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -20,6 +24,8 @@ const AddProject = () => {
     demo: '',
     image: '',
     images: [],
+    apkUrl: '',
+    iosUrl: '',
   });
 
   const uploadToCloudflareR2 = async (files, folder) => {
@@ -73,6 +79,28 @@ const AddProject = () => {
       alert('Tải bộ ảnh dự án thất bại: ' + (err.response?.data?.message || err.message));
     } finally {
       setUploadingGallery(false);
+      event.target.value = '';
+    }
+  };
+
+  const handleAppUpload = async (event, type) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (type === 'apk') setUploadingApk(true);
+    else setUploadingIos(true);
+
+    try {
+      const folder = type === 'apk' ? 'projects/apps/android' : 'projects/apps/ios';
+      const [url] = await uploadToCloudflareR2([file], folder);
+      if (url) {
+        setFormData(prev => ({ ...prev, [`${type}Url`]: url }));
+      }
+    } catch (err) {
+      alert(`Tải file ${type.toUpperCase()} thất bại: ` + (err.response?.data?.message || err.message));
+    } finally {
+      if (type === 'apk') setUploadingApk(false);
+      else setUploadingIos(false);
       event.target.value = '';
     }
   };
@@ -296,6 +324,59 @@ const AddProject = () => {
                   className="w-full bg-white/5 border border-white/10 rounded-2xl py-2 px-4 text-xs focus:outline-none focus:border-primary transition-all"
                   placeholder="https://..."
                 />
+              </div>
+
+              {/* Mobile Apps Section */}
+              <div className="pt-4 border-t border-white/5 space-y-4">
+                <h4 className="text-[10px] font-black uppercase text-primary tracking-widest">Mobile Downloads (APK/iOS)</h4>
+                
+                {/* APK */}
+                <div className="space-y-2">
+                   <label className="text-[10px] font-bold text-white/40 uppercase ml-1">Android (APK) URL</label>
+                   <div className="flex gap-2">
+                     <input 
+                       type="text" 
+                       value={formData.apkUrl}
+                       onChange={(e) => setFormData({...formData, apkUrl: e.target.value})}
+                       className="flex-grow bg-white/5 border border-white/10 rounded-2xl py-2 px-4 text-xs focus:outline-none focus:border-primary transition-all"
+                       placeholder="https://...apk"
+                     />
+                     <input ref={apkInputRef} type="file" accept=".apk" className="hidden" onChange={(e) => handleAppUpload(e, 'apk')} />
+                     <button 
+                       type="button" 
+                       onClick={() => apkInputRef.current?.click()}
+                       disabled={uploadingApk}
+                       className="p-2 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 text-white/40 hover:text-white transition-all disabled:opacity-50"
+                     >
+                        <Upload className="w-4 h-4" />
+                     </button>
+                   </div>
+                   {uploadingApk && <div className="text-[10px] text-primary animate-pulse font-bold uppercase">Đang tải APK...</div>}
+                </div>
+
+                {/* ISO/IPA */}
+                <div className="space-y-2">
+                   <label className="text-[10px] font-bold text-white/40 uppercase ml-1">iOS (IPA) URL</label>
+                   <div className="flex gap-2">
+                     <input 
+                       type="text" 
+                       value={formData.iosUrl}
+                       onChange={(e) => setFormData({...formData, iosUrl: e.target.value})}
+                       className="flex-grow bg-white/5 border border-white/10 rounded-2xl py-2 px-4 text-xs focus:outline-none focus:border-primary transition-all"
+                       placeholder="https://...ipa"
+                     />
+                     <input ref={iosInputRef} type="file" accept=".ipa,.ios" className="hidden" onChange={(e) => handleAppUpload(e, 'ios')} />
+                     <button 
+                       type="button" 
+                       onClick={() => iosInputRef.current?.click()}
+                       disabled={uploadingIos}
+                       className="p-2 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 text-white/40 hover:text-white transition-all disabled:opacity-50"
+                     >
+                        <Upload className="w-4 h-4" />
+                     </button>
+                   </div>
+                   {uploadingIos && <div className="text-[10px] text-secondary animate-pulse font-bold uppercase">Đang tải IPA...</div>}
+                </div>
               </div>
             </div>
           </div>

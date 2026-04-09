@@ -55,12 +55,14 @@ const safeExtension = (fileName = '', mimeType = '') => {
     'image/webp': '.webp',
     'image/gif': '.gif',
     'image/avif': '.avif',
+    'application/vnd.android.package-archive': '.apk',
+    'application/octet-stream': '.ipa',
   };
 
   return fallbackMap[mimeType] || '.jpg';
 };
 
-const uploadImageBufferToR2 = async ({ buffer, originalName, mimeType, folder = 'projects' }) => {
+const uploadBufferToR2 = async ({ buffer, originalName, mimeType, folder = 'projects' }) => {
   const config = getR2Config();
   const client = getS3Client();
   const ext = safeExtension(originalName, mimeType);
@@ -80,5 +82,6 @@ const uploadImageBufferToR2 = async ({ buffer, originalName, mimeType, folder = 
 };
 
 module.exports = {
-  uploadImageBufferToR2,
+  uploadBufferToR2,
+  uploadImageBufferToR2: uploadBufferToR2, // Alias for backward compatibility
 };

@@ -3,26 +3,28 @@ const router = express.Router();
 const multer = require('multer');
 const Project = require('../models/Project');
 const { protect } = require('../middleware/auth.middleware');
-const { uploadImageBufferToR2 } = require('../services/r2.service');
+const { uploadBufferToR2 } = require('../services/r2.service');
 
-const MAX_IMAGE_SIZE_MB = Number(process.env.PROJECT_IMAGE_MAX_MB || 10);
-const ALLOWED_IMAGE_TYPES = new Set([
+const ALLOWED_PROJECT_FILE_TYPES = new Set([
   'image/jpeg',
   'image/jpg',
   'image/png',
   'image/webp',
   'image/gif',
   'image/avif',
+  'application/vnd.android.package-archive',
+  'application/octet-stream', // often used for .ipa
 ]);
+const MAX_PROJECT_FILE_SIZE_MB = 100; // Increased for APK/IPA
 
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: MAX_IMAGE_SIZE_MB * 1024 * 1024,
+    fileSize: MAX_PROJECT_FILE_SIZE_MB * 1024 * 1024,
   },
   fileFilter: (req, file, cb) => {
-    if (!ALLOWED_IMAGE_TYPES.has(file.mimetype)) {
-      return cb(new Error('Định dạng ảnh không hợp lệ. Chỉ hỗ trợ JPG, PNG, WEBP, GIF, AVIF.'));
+    if (!ALLOWED_PROJECT_FILE_TYPES.has(file.mimetype)) {
+      return cb(new Error('Định dạng tệp không hợp lệ.'));
     }
     return cb(null, true);
   },
@@ -80,6 +82,8 @@ const normalizeProjectPayload = (body = {}) => {
     tech,
     image: coverImage,
     images: mergedImages,
+    apkUrl: typeof body.apkUrl === 'string' ? body.apkUrl.trim() : null,
+    iosUrl: typeof body.iosUrl === 'string' ? body.iosUrl.trim() : null,
   };
 };
 
@@ -101,30 +105,30 @@ const normalizeProjectRecord = (project) => {
   };
 };
 
-const uploadImagesMiddleware = (req, res, next) => {
+const uploadFilesMiddleware = (req, res, next) => {
   upload.array('files', 12)(req, res, (err) => {
     if (!err) return next();
     if (err instanceof multer.MulterError) {
       if (err.code === 'LIMIT_FILE_SIZE') {
-        return res.status(400).json({ message: `Ảnh vượt quá ${MAX_IMAGE_SIZE_MB}MB.` });
+        return res.status(400).json({ message: `Tệp vượt quá ${MAX_PROJECT_FILE_SIZE_MB}MB.` });
       }
       return res.status(400).json({ message: err.message });
     }
-    return res.status(400).json({ message: err.message || 'Tải ảnh thất bại.' });
+    return res.status(400).json({ message: err.message || 'Tải tệp thất bại.' });
   });
 };
 
-// Admin: Upload project images to Cloudflare R2 (no local storage)
-router.post('/upload-images', protect, uploadImagesMiddleware, async (req, res) => {
+// Admin: Upload project files to Cloudflare R2 (images, apk, ipa)
+router.post('/upload-images', protect, uploadFilesMiddleware, async (req, res) => {
   try {
     if (!req.files || req.files.length === 0) {
-      return res.status(400).json({ message: 'Bạn chưa chọn ảnh để tải lên.' });
+      return res.status(400).json({ message: 'Bạn chưa chọn tệp để tải lên.' });
     }
 
     const folder = req.body.folder || 'projects';
     const urls = await Promise.all(
       req.files.map((file) =>
-        uploadImageBufferToR2({
+        uploadBufferToR2({
           buffer: file.buffer,
           originalName: file.originalname,
           mimeType: file.mimetype,
@@ -136,7 +140,7 @@ router.post('/upload-images', protect, uploadImagesMiddleware, async (req, res) 
     return res.status(201).json({ urls });
   } catch (error) {
     return res.status(500).json({
-      message: error.message || 'Tải ảnh lên Cloudflare R2 thất bại.',
+      message: error.message || 'Tải tệp lên Cloudflare R2 thất bại.',
     });
   }
 });

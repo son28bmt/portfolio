@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { ArrowLeft, Layers } from 'lucide-react';
+import { ArrowLeft, Layers, Smartphone } from 'lucide-react';
 import api from '../services/api';
 
 const ProjectDetail = () => {
@@ -80,16 +80,40 @@ const ProjectDetail = () => {
       <div className="prose prose-invert max-w-none">
         <p className="text-xl text-white/70 leading-relaxed mb-8">{project.description}</p>
         
-        {project.demo && (
-          <a
-            href={project.demo}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center px-8 py-4 bg-primary text-white rounded-2xl font-bold hover:scale-105 transition-transform shadow-xl glow"
-          >
-            Xem trực tiếp (Live Demo)
-          </a>
-        )}
+        <div className="flex flex-wrap gap-4 mt-8">
+          {project.demo && (
+            <a
+              href={project.demo}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center px-8 py-4 bg-primary text-white rounded-2xl font-bold hover:scale-105 transition-transform shadow-xl glow"
+            >
+              Xem trực tiếp (Live Demo)
+            </a>
+          )}
+          
+          {project.apkUrl && (
+            <a
+              href={project.apkUrl}
+              download
+              className="inline-flex items-center gap-2 px-8 py-4 bg-green-600 text-white rounded-2xl font-bold hover:scale-105 transition-transform shadow-xl shadow-green-900/20"
+            >
+              <Smartphone className="w-5 h-5" />
+              Tải APK (Android)
+            </a>
+          )}
+
+          {project.iosUrl && (
+            <a
+              href={project.iosUrl}
+              download
+              className="inline-flex items-center gap-2 px-8 py-4 bg-blue-600 text-white rounded-2xl font-bold hover:scale-105 transition-transform shadow-xl shadow-blue-900/20"
+            >
+              <Smartphone className="w-5 h-5" />
+              Tải iOS (IPA)
+            </a>
+          )}
+        </div>
       </div>
     </div>
   );

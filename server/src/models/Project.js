@@ -37,6 +37,14 @@ const Project = sequelize.define('Project', {
     allowNull: false,
     defaultValue: [],
   },
+  apkUrl: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  iosUrl: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
 });
 
 module.exports = Project;
