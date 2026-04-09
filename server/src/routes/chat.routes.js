@@ -13,7 +13,12 @@ router.get('/history/:guestId', async (req, res) => {
     });
     res.json(messages);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error('❌ Chat History Error:', error);
+    res.status(500).json({ 
+      message: 'Lỗi tải lịch sử chat', 
+      details: error.message,
+      stack: error.stack
+    });
   }
 });
 

@@ -14,6 +14,15 @@ const protect = async (req, res, next) => {
 
       const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret');
       
+      // Support both User (Portfolio) and Admin (Marketplace)
+      if (decoded.adminId) {
+        const { Admin } = require('../models');
+        const admin = await Admin.findByPk(decoded.adminId);
+        if (!admin) throw new Error('Admin not found');
+        req.user = { id: admin.id, username: admin.username, isAdmin: true };
+        return next();
+      }
+
       req.user = await User.findByPk(decoded.id, {
         attributes: { exclude: ['password'] }
       });

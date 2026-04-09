@@ -21,11 +21,6 @@ const normalizeRequestUrl = (url = '') => {
 
   normalizedPath = normalizedPath.replace(/\/{2,}/g, '/');
 
-  // Trailing slash consistency
-  if (normalizedPath !== '/' && !normalizedPath.endsWith('/')) {
-    normalizedPath += '/';
-  }
-
   return query ? `${normalizedPath}?${query}` : normalizedPath;
 };
 
