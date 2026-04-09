@@ -9,6 +9,10 @@ const protectMarketplaceAdmin = async (req, res, next) => {
     }
 
     const token = authHeader.slice(7).trim();
+    if (!token) {
+      return res.status(401).json({ message: 'Lỗi: Thiếu mã token admin.' });
+    }
+
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret');
     if (!decoded?.adminId && !decoded?.id) {
       return res.status(401).json({ message: 'Token không hợp lệ.' });

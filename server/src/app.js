@@ -74,6 +74,15 @@ const captureRawBody = (req, res, buf) => {
 app.use(express.json({ limit: '50mb', verify: captureRawBody }));
 app.use(express.urlencoded({ limit: '50mb', extended: true, verify: captureRawBody }));
 app.use(morgan('dev'));
+ 
+// DEBUG: Log all requests to see which middleware might be blocking
+app.use((req, res, next) => {
+  if (req.url.includes('/api/chat')) {
+    console.log(`[DEBUG] Incoming ${req.method} ${req.url}`);
+    console.log(`[DEBUG] Headers:`, JSON.stringify(req.headers));
+  }
+  next();
+});
 
 const uploadsDir = path.resolve(__dirname, '../uploads');
 if (!fs.existsSync(uploadsDir)) {
@@ -83,6 +92,11 @@ app.use('/uploads', express.static(uploadsDir));
 
 // Routes
 app.use('/', seoRoutes);
+
+// --- PRIORITY ROUTES (Protect against overlap) ---
+app.use('/api/chat', chatRoutes);
+
+// --- OTHER API ROUTES ---
 app.use('/api/auth', authRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/blog', blogRoutes);
@@ -90,9 +104,13 @@ app.use('/api/contact', contactRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/donate', donateRoutes);
 app.use('/api/shop', shopRoutes);
-app.use('/api/chat', chatRoutes);
+
+// Marketplace (Handle both /api and root, but cleanup)
 app.use('/api', marketplaceRoutes);
-app.use('/', marketplaceRoutes);
+app.use('/', (req, res, next) => {
+  if (req.path.startsWith('/api')) return next();
+  marketplaceRoutes(req, res, next);
+});
 
 app.get('/api/ping', (req, res) => {
   res.json({ message: 'CORS and API are working!', timestamp: new Date() });
