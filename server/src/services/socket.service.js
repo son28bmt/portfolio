@@ -8,25 +8,30 @@ const initSocket = (server, corsOptions) => {
   io = new Server(server, { cors: corsOptions });
 
   io.on('connection', (socket) => {
+    console.log(`[Socket] New connection: ${socket.id}`);
+
     // --- ADMIN LOGIC ---
     socket.on('join_admin_room', async () => {
+      console.log(`[Socket] Socket ${socket.id} joining admin_room`);
       socket.join('admin_room');
       socket.isAdmin = true;
       io.emit('admin_status', { online: true });
 
       // Gửi danh sách các phiên chat hiện có cho admin mới vào
       try {
+        console.log(`[Socket] Admin joined. Fetching sessions...`);
         const sessions = await LiveChatMessage.findAll({
           attributes: [
             'guestId', 
-            'name', 
-            'email',
+            [sequelize.fn('MAX', sequelize.col('name')), 'name'],
+            [sequelize.fn('MAX', sequelize.col('email')), 'email'],
             [sequelize.fn('MAX', sequelize.col('createdAt')), 'lastMessageAt'],
             [sequelize.fn('COUNT', sequelize.literal("CASE WHEN isRead = false AND role = 'user' THEN 1 END")), 'unreadCount']
           ],
-          group: ['guestId', 'name', 'email'],
+          group: ['guestId'],
           order: [[sequelize.literal('lastMessageAt'), 'DESC']]
         });
+        console.log(`[Socket] Found ${sessions.length} sessions`);
         socket.emit('init_sessions', sessions);
       } catch (err) {
         console.error('[Socket] Error fetching sessions:', err);
@@ -37,6 +42,7 @@ const initSocket = (server, corsOptions) => {
     socket.on('join_chat', (data) => {
       const { guestId } = data;
       if (guestId) {
+        console.log(`[Socket] Guest ${guestId} joined room_${guestId}`);
         socket.join(`room_${guestId}`);
         socket.guestId = guestId;
         
@@ -49,6 +55,7 @@ const initSocket = (server, corsOptions) => {
     // --- MESSAGING ---
     socket.on('send_to_admin', async (data) => {
       const { guestId, text, name, email } = data;
+      console.log(`[Socket] Incoming message from Guest ${guestId}: "${text}"`);
       
       try {
         // Lưu tin nhắn vào DB
@@ -59,6 +66,12 @@ const initSocket = (server, corsOptions) => {
           name,
           email
         });
+        console.log(`[Socket] Message saved to DB with ID: ${newMessage.id}`);
+
+        // Lấy số lượng Admin thực tế đang ở trong phòng
+        const adminRoom = io.sockets.adapter.rooms.get('admin_room');
+        const adminCount = adminRoom ? adminRoom.size : 0;
+        console.log(`[Socket] Emitting new_user_message to ${adminCount} admin(s) in room`);
 
         // Gửi tới toàn bộ Admin đang online
         io.to('admin_room').emit('new_user_message', {
@@ -70,12 +83,13 @@ const initSocket = (server, corsOptions) => {
           timestamp: newMessage.createdAt
         });
       } catch (err) {
-        console.error('[Socket] Error saving user message:', err);
+        console.error('[Socket] Error saving/sending user message:', err);
       }
     });
 
     socket.on('send_to_user', async (data) => {
       const { guestId, text } = data;
+      console.log(`[Socket] Admin sending to Guest ${guestId}: "${text}"`);
       
       try {
         // Lưu tin nhắn admin vào DB
@@ -83,15 +97,16 @@ const initSocket = (server, corsOptions) => {
           guestId,
           role: 'admin',
           content: text,
-          isRead: true // Tin nhắn từ admin mặc định là đã đọc
+          isRead: true 
         });
 
         io.to(`room_${guestId}`).emit('receive_admin_message', {
           text,
           timestamp: newMessage.createdAt
         });
+        console.log(`[Socket] Admin message emitted to Guest room`);
       } catch (err) {
-        console.error('[Socket] Error saving admin message:', err);
+        console.error('[Socket] Error saving/sending admin message:', err);
       }
     });
 
@@ -108,6 +123,7 @@ const initSocket = (server, corsOptions) => {
     });
 
     socket.on('disconnect', () => {
+      console.log(`[Socket] Disconnected: ${socket.id}`);
       if (socket.isAdmin) {
         const adminRoom = io.sockets.adapter.rooms.get('admin_room');
         const isAdminOnline = adminRoom && adminRoom.size > 0;

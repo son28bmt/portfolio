@@ -29,6 +29,17 @@ const LiveChat = () => {
   
   const socketRef = useRef();
   const messagesEndRef = useRef(null);
+  const activeChatIdRef = useRef(null);
+  const isNotificationsEnabledRef = useRef(true);
+
+  // Keep refs in sync with state
+  useEffect(() => {
+    activeChatIdRef.current = activeChatId;
+  }, [activeChatId]);
+
+  useEffect(() => {
+    isNotificationsEnabledRef.current = isNotificationsEnabled;
+  }, [isNotificationsEnabled]);
 
   useEffect(() => {
     const API_BASE_URL = (
@@ -46,7 +57,6 @@ const LiveChat = () => {
       socketUrl = 'https://api.nguyenquangson.id.vn';
     }
     
-    // Ensure production domains don't fallback to localhost
     if (window.location.hostname !== 'localhost' && socketUrl.includes('localhost')) {
       socketUrl = 'https://api.nguyenquangson.id.vn'; 
     }
@@ -56,9 +66,13 @@ const LiveChat = () => {
       transports: ['websocket', 'polling']
     });
 
-    socketRef.current.emit('join_admin_room');
+    socketRef.current.on('connect', () => {
+      console.log('[AdminSocket] Connected as admin');
+      socketRef.current.emit('join_admin_room');
+    });
 
     socketRef.current.on('init_sessions', (data) => {
+      console.log('[AdminSocket] Received sessions:', data.length);
       setSessions(data.map(s => ({
         ...s,
         unreadCount: parseInt(s.unreadCount) || 0
@@ -67,6 +81,7 @@ const LiveChat = () => {
 
     socketRef.current.on('new_user_message', (data) => {
       const { guestId, text, name, email, timestamp } = data;
+      console.log('[AdminSocket] New user message from:', guestId);
       
       setSessions(prev => {
         const index = prev.findIndex(s => s.guestId === guestId);
@@ -75,9 +90,8 @@ const LiveChat = () => {
           updated[index] = {
             ...updated[index],
             lastMessageAt: timestamp,
-            unreadCount: activeChatId === guestId ? 0 : (updated[index].unreadCount + 1)
+            unreadCount: activeChatIdRef.current === guestId ? 0 : (updated[index].unreadCount + 1)
           };
-          // Move to top
           const session = updated.splice(index, 1)[0];
           return [session, ...updated];
         } else {
@@ -86,27 +100,25 @@ const LiveChat = () => {
             name: name || guestId,
             email: email || 'N/A',
             lastMessageAt: timestamp,
-            unreadCount: activeChatId === guestId ? 0 : 1
+            unreadCount: activeChatIdRef.current === guestId ? 0 : 1
           }, ...prev];
         }
       });
 
-      if (activeChatId === guestId) {
+      if (activeChatIdRef.current === guestId) {
         setMessages(prev => [...prev, { role: 'user', content: text, createdAt: timestamp }]);
         socketRef.current.emit('mark_as_read', { guestId });
       }
 
-      if (isNotificationsEnabled) {
+      if (isNotificationsEnabledRef.current) {
         new Audio('/notification.mp3').play().catch(() => {});
       }
     });
 
-    socketRef.current.on('receive_admin_message', (data) => {
-       // This is for syncing multiple admin tabs if needed
-    });
-
-    return () => socketRef.current.disconnect();
-  }, [activeChatId, isNotificationsEnabled]);
+    return () => {
+      if (socketRef.current) socketRef.current.disconnect();
+    };
+  }, []); // Only connect once on mount
 
   useEffect(() => {
     if (activeChatId) {
@@ -123,11 +135,7 @@ const LiveChat = () => {
     try {
       const { data } = await api.get(`/chat/history/${guestId}`);
       setMessages(data);
-      
-      // Update session unread count to 0 in local state
       setSessions(prev => prev.map(s => s.guestId === guestId ? { ...s, unreadCount: 0 } : s));
-      
-      // Tell server we read it
       socketRef.current.emit('mark_as_read', { guestId });
       await api.put(`/chat/read/${guestId}`);
     } catch (err) {
@@ -144,11 +152,10 @@ const LiveChat = () => {
     const text = input.trim();
     socketRef.current.emit('send_to_user', { guestId: activeChatId, text });
 
-    setMessages(prev => [...prev, { role: 'admin', content: text, createdAt: new Date() }]);
+    const now = new Date();
+    setMessages(prev => [...prev, { role: 'admin', content: text, createdAt: now }]);
     setInput('');
-    
-    // Update last message time in sidebar
-    setSessions(prev => prev.map(s => s.guestId === activeChatId ? { ...s, lastMessageAt: new Date() } : s));
+    setSessions(prev => prev.map(s => s.guestId === activeChatId ? { ...s, lastMessageAt: now } : s));
   };
 
   const filteredSessions = sessions.filter(s => 
@@ -160,7 +167,6 @@ const LiveChat = () => {
 
   return (
     <div className="h-[calc(100vh-120px)] flex flex-col lg:flex-row gap-6 p-4 md:p-0">
-      {/* List Sidebar */}
       <div className="w-full lg:w-96 flex flex-col gap-4 border-r border-white/5 pr-0 lg:pr-6 shrink-0">
         <div className="flex items-center justify-between mb-2">
           <h1 className="text-xl md:text-2xl font-black flex items-center gap-3 uppercase tracking-tighter">
@@ -223,7 +229,6 @@ const LiveChat = () => {
         </div>
       </div>
 
-      {/* Main Chat Area */}
       <div className="flex-grow flex flex-col glass rounded-[48px] border border-white/5 overflow-hidden shadow-2xl relative">
         <AnimatePresence mode="wait">
           {activeSession ? (
@@ -234,7 +239,6 @@ const LiveChat = () => {
               exit={{ opacity: 0, x: -20 }}
               className="flex-grow flex flex-col h-full"
             >
-              {/* Header */}
               <div className="p-6 md:p-8 border-b border-white/5 bg-white/[0.02] flex items-center justify-between backdrop-blur-3xl">
                 <div className="flex items-center gap-5">
                   <div className="w-14 h-14 rounded-[24px] bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-black text-xl shadow-lg">
@@ -258,7 +262,6 @@ const LiveChat = () => {
                 </div>
               </div>
 
-              {/* Messages */}
               <div className="flex-grow p-6 md:p-10 overflow-y-auto space-y-8 custom-scrollbar bg-black/10">
                 {isLoadingHistory && (
                   <div className="flex justify-center py-10">
@@ -276,7 +279,7 @@ const LiveChat = () => {
                         {msg.content}
                       </div>
                       <div className={`text-[9px] text-white/10 font-bold uppercase tracking-widest ${msg.role === 'admin' ? 'text-right' : 'text-left'}`}>
-                        {new Date(msg.createdAt).toLocaleTimeString()} • {new Date(msg.createdAt).toLocaleDateString()}
+                        {msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString() : ''}
                       </div>
                     </div>
                   </div>
@@ -284,7 +287,6 @@ const LiveChat = () => {
                 <div ref={messagesEndRef} />
               </div>
 
-              {/* Input */}
               <div className="p-6 md:p-8 bg-white/[0.03] border-t border-white/5 backdrop-blur-3xl shrink-0">
                 <form onSubmit={handleSend} className="flex gap-4 items-center">
                   <div className="flex-grow bg-black/40 border border-white/10 rounded-[28px] focus-within:border-primary/50 transition-all duration-500 px-2 group">
