@@ -84,7 +84,7 @@ const globalLimiter = rateLimit({
 app.use(globalLimiter);
 
 // Sync Database
-sequelize.sync({ alter: true });
+sequelize.sync();
 
 const captureRawBody = (req, res, buf) => {
   if (buf && buf.length) {
