@@ -1,7 +1,22 @@
-const { DataTypes } = require("sequelize");
-const { sequelize } = require("../config/db");
+const { DataTypes } = require('sequelize');
+const { sequelize } = require('../config/db');
 
-const Project = sequelize.define("Project", {
+const slugify = (text) => {
+  return text
+    .toString()
+    .toLowerCase()
+    .normalize('NFD') // Separate accents from characters
+    .replace(/[\u0300-\u036f]/g, '') // Remove accents
+    .replace(/[đĐ]/g, 'd')
+    .trim()
+    .replace(/\s+/g, '-') // Replace spaces with -
+    .replace(/[^\w-]+/g, '') // Remove remaining non-word chars
+    .replace(/--+/g, '-') // Avoid multiple dashes
+    .replace(/^-+/, '') // Trim dash from start
+    .replace(/-+$/, ''); // Trim dash from end
+};
+
+const Project = sequelize.define('Project', {
   id: {
     type: DataTypes.UUID,
     defaultValue: DataTypes.UUIDV4,
@@ -10,6 +25,10 @@ const Project = sequelize.define("Project", {
   title: {
     type: DataTypes.STRING,
     allowNull: false,
+  },
+  slug: {
+    type: DataTypes.STRING,
+    unique: true,
   },
   description: {
     type: DataTypes.TEXT,
@@ -30,7 +49,7 @@ const Project = sequelize.define("Project", {
     type: DataTypes.STRING,
   },
   image: {
-    type: DataTypes.TEXT("long"),
+    type: DataTypes.TEXT('long'),
   },
   images: {
     type: DataTypes.JSON,
@@ -53,6 +72,12 @@ const Project = sequelize.define("Project", {
     type: DataTypes.INTEGER,
     defaultValue: 0,
   },
+});
+
+Project.beforeValidate((project) => {
+  if (project.title && !project.slug) {
+    project.slug = slugify(project.title);
+  }
 });
 
 module.exports = Project;

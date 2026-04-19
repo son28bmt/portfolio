@@ -171,6 +171,8 @@ const aiLimiter = rateLimit({
   max: 30,
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: (req) => req.ip,
+  validate: { default: false },
   handler: (req, res) => {
     return res.status(429).json({
       error:
