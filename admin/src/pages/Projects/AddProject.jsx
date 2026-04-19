@@ -108,7 +108,8 @@ const AddProject = () => {
       // 2. Upload directly to Cloudflare R2
       await axios.put(uploadUrl, file, {
         headers: {
-          'Content-Type': file.type || (type === 'apk' ? 'application/vnd.android.package-archive' : 'application/octet-stream')
+          'Content-Type': file.type || (type === 'apk' ? 'application/vnd.android.package-archive' : 'application/octet-stream'),
+          'Content-Disposition': `attachment; filename="${file.name}"`
         }
       });
 

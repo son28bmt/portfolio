@@ -98,6 +98,7 @@ const getPresignedUploadUrl = async ({ fileName, mimeType, folder = 'projects' }
     Bucket: config.bucket,
     Key: fileKey,
     ContentType: mimeType,
+    ContentDisposition: `attachment; filename="${fileName}"`,
   });
 
   // URL expires in 1 hour (3600 seconds)
