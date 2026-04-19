@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'; // eslint-disable-line 
 import { Sparkles, MessageSquare, Upload, Play, CheckCircle2, AlertCircle, Wand2, ArrowRight, Download, Send, ImagePlus, X, Trash2, KeyRound } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-// import { Turnstile } from '@marsidev/react-turnstile';
+import { Turnstile } from '@marsidev/react-turnstile';
 
 const PLAYGROUND_TOOLS = [
   { key: 'chat', label: 'AI Chat', icon: MessageSquare, activeClass: 'bg-primary text-white glow', inactiveClass: 'text-white/40 hover:text-white' },
@@ -196,29 +196,6 @@ const AIChatDemoLocalHistory = () => {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isTyping]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    let widgetId = null;
-    const interval = setInterval(() => {
-      if (window.turnstile) {
-        clearInterval(interval);
-        widgetId = window.turnstile.render('#turnstile-playground', {
-          sitekey: import.meta.env.VITE_TURNSTILE_SITE_KEY || '1x00000000000000000000AA',
-          theme: 'dark',
-          callback: (token) => setTurnstileToken(token),
-        });
-      }
-    }, 500);
-
-    return () => {
-      if (widgetId && window.turnstile) {
-        window.turnstile.remove(widgetId);
-      }
-      clearInterval(interval);
-    };
-  }, []);
 
   const handleClearHistory = () => {
     setMessages([AI_WELCOME_MESSAGE]);
@@ -416,7 +393,12 @@ const AIChatDemoLocalHistory = () => {
 
       {/* Cloudflare Turnstile */}
       <div className="px-4 md:px-6 pt-2 pb-2 bg-white/5 flex justify-center">
-        <div id="turnstile-playground" />
+        <Turnstile
+          ref={turnstileRef}
+          siteKey={import.meta.env.VITE_TURNSTILE_SITE_KEY || '1x00000000000000000000AA'}
+          onSuccess={(token) => setTurnstileToken(token)}
+          options={{ theme: 'dark' }}
+        />
       </div>
 
       <form onSubmit={handleSend} className="p-4 md:p-6 bg-white/5 border-t border-white/5 flex gap-2 md:gap-3 items-center">

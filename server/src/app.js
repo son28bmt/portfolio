@@ -1,72 +1,29 @@
-const express = require('express');
-const cors = require('cors');
-const helmet = require('helmet');
-const morgan = require('morgan');
-const fs = require('fs');
-const path = require('path');
-require('dotenv').config();
-const rateLimit = require('express-rate-limit');
-const { connectDB, sequelize } = require('./config/db');
-const authRoutes = require('./routes/auth.routes');
-const projectRoutes = require('./routes/project.routes');
-const blogRoutes = require('./routes/blog.routes');
-const contactRoutes = require('./routes/contact.routes');
-const aiRoutes = require('./routes/ai.routes');
-const seoRoutes = require('./routes/seo.routes');
-const donateRoutes = require('./routes/donate.routes');
-const shopRoutes = require('./routes/shop.routes');
-const marketplaceRoutes = require('./routes/marketplace.routes');
-const chatRoutes = require('./routes/chat.routes');
-const http = require('http');
-const { initSocket } = require('./services/socket.service');
+const express = require("express");
+const cors = require("cors");
+const morgan = require("morgan");
+const fs = require("fs");
+const path = require("path");
+require("dotenv").config();
+const rateLimit = require("express-rate-limit");
+const { connectDB, sequelize } = require("./config/db");
+const authRoutes = require("./routes/auth.routes");
+const projectRoutes = require("./routes/project.routes");
+const blogRoutes = require("./routes/blog.routes");
+const contactRoutes = require("./routes/contact.routes");
+const aiRoutes = require("./routes/ai.routes");
+const seoRoutes = require("./routes/seo.routes");
+const donateRoutes = require("./routes/donate.routes");
+const shopRoutes = require("./routes/shop.routes");
+const marketplaceRoutes = require("./routes/marketplace.routes");
+const chatRoutes = require("./routes/chat.routes");
+const http = require("http");
+const { initSocket } = require("./services/socket.service");
 
 const app = express();
-app.set('trust proxy', 1);
-
-// 1. Security Headers (MUST be first)
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      "default-src": ["'self'"],
-      "script-src": ["'self'", "https://challenges.cloudflare.com", "'unsafe-inline'"],
-      "frame-src": ["'self'", "https://challenges.cloudflare.com"],
-      "connect-src": ["'self'", "https://challenges.cloudflare.com", "wss://api.nguyenquangson.id.vn", "https://api.nguyenquangson.id.vn"],
-      "img-src": ["'self'", "data:", "https:"],
-      "style-src": ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-      "font-src": ["'self'", "data:", "https://fonts.gstatic.com"],
-    },
-  },
-  crossOriginResourcePolicy: { policy: "cross-origin" }
-}));
-
+app.set("trust proxy", 1);
 const PORT = process.env.PORT || 5000;
 
-// 2. CORS & Other Middlewares
-const allowedOrigins = (process.env.CORS_ORIGINS 
-  ? process.env.CORS_ORIGINS.split(',') 
-  : [
-      'https://nguyenquangson.id.vn',
-      'https://admin.nguyenquangson.id.vn',
-      'http://localhost:5173',
-      'http://localhost:5174'
-    ]
-).map((v) => v.trim()).filter(Boolean);
-
-const corsOptions = {
-  origin(origin, callback) {
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin)) return callback(null, true);
-    return callback(new Error(`Not allowed by CORS: ${origin}`));
-  },
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-turnstile-token'],
-  credentials: true,
-  optionsSuccessStatus: 204,
-};
-app.use(cors(corsOptions));
-app.options('*', cors(corsOptions));
-
-// 3. Database Connection
+// Connect to Database
 connectDB();
 
 // Global Rate Limiter: 200 requests per 15 minutes
@@ -76,10 +33,10 @@ const globalLimiter = rateLimit({
   max: 200,
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => req.ip,
-  validate: { default: false },
-  message: { message: 'Hệ thống bảo vệ từ chối: IP của bạn đã gửi quá nhiều yêu cầu. Vui lòng quay lại sau 15 phút.' },
-  skip: (req) => req.method === 'OPTIONS',
+  message: {
+    message:
+      "Hệ thống bảo vệ từ chối: IP của bạn đã gửi quá nhiều yêu cầu. Vui lòng quay lại sau 15 phút.",
+  },
 });
 
 app.use(globalLimiter);
@@ -87,72 +44,94 @@ app.use(globalLimiter);
 // Sync Database (Forcefully for initialization if needed, but usually sequelize.sync() is enough)
 // sequelize.sync();
 
-// CORS moved to top
+// Middleware
+const allowedOrigins = (
+  process.env.CORS_ORIGINS ||
+  [
+    "https://nguyenquangson.id.vn",
+    "https://admin.nguyenquangson.id.vn",
+    "http://localhost:5173",
+    "http://localhost:5174",
+  ].join(",")
+)
+  .split(",")
+  .map((v) => v.trim())
+  .filter(Boolean);
+
+const corsOptions = {
+  origin(origin, callback) {
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    return callback(new Error(`Not allowed by CORS: ${origin}`));
+  },
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "x-turnstile-token"],
+  credentials: true,
+  optionsSuccessStatus: 204,
+};
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions));
 const captureRawBody = (req, res, buf) => {
   if (buf && buf.length) {
-    req.rawBody = buf.toString('utf8');
+    req.rawBody = buf.toString("utf8");
   }
 };
 
-app.use(express.json({ limit: '5mb', verify: captureRawBody }));
-app.use(express.urlencoded({ limit: '5mb', extended: true, verify: captureRawBody }));
-app.use(morgan('dev'));
- 
+app.use(express.json({ limit: "50mb", verify: captureRawBody }));
+app.use(
+  express.urlencoded({ limit: "50mb", extended: true, verify: captureRawBody }),
+);
+app.use(morgan("dev"));
+
 // DEBUG: Log all requests to see which middleware might be blocking
 app.use((req, res, next) => {
-  if (req.url.includes('/api/chat')) {
+  if (req.url.includes("/api/chat")) {
     console.log(`[DEBUG] Incoming ${req.method} ${req.url}`);
     console.log(`[DEBUG] Headers:`, JSON.stringify(req.headers));
   }
   next();
 });
 
-const uploadsDir = path.resolve(__dirname, '../uploads');
+const uploadsDir = path.resolve(__dirname, "../uploads");
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
-app.use('/uploads', express.static(uploadsDir));
+app.use("/uploads", express.static(uploadsDir));
 
 // Routes
-app.use('/', seoRoutes);
+app.use("/", seoRoutes);
 
 // --- PRIORITY ROUTES (Protect against overlap) ---
-app.use('/api/chat', chatRoutes);
+app.use("/api/chat", chatRoutes);
 
 // --- OTHER API ROUTES ---
-app.use('/api/auth', authRoutes);
-app.use('/api/projects', projectRoutes);
-app.use('/api/blog', blogRoutes);
-app.use('/api/contact', contactRoutes);
-app.use('/api/ai', aiRoutes);
-app.use('/api/donate', donateRoutes);
-app.use('/api/shop', shopRoutes);
+app.use("/api/auth", authRoutes);
+app.use("/api/projects", projectRoutes);
+app.use("/api/blog", blogRoutes);
+app.use("/api/contact", contactRoutes);
+app.use("/api/ai", aiRoutes);
+app.use("/api/donate", donateRoutes);
+app.use("/api/shop", shopRoutes);
 
 // Marketplace (Handle both /api and root, but cleanup)
-app.use('/api', marketplaceRoutes);
-app.use('/', (req, res, next) => {
-  if (req.path.startsWith('/api')) return next();
+app.use("/api", marketplaceRoutes);
+app.use("/", (req, res, next) => {
+  if (req.path.startsWith("/api")) return next();
   marketplaceRoutes(req, res, next);
 });
 
-app.get('/api/ping', (req, res) => {
-  res.json({ message: 'CORS and API are working!', timestamp: new Date() });
+app.get("/api/ping", (req, res) => {
+  res.json({ message: "CORS and API are working!", timestamp: new Date() });
 });
 
-app.get('/', (req, res) => {
-  res.json({ message: 'Portfolio AI API is running' });
+app.get("/", (req, res) => {
+  res.json({ message: "Portfolio AI API is running" });
 });
 
 // Error Handler
 app.use((err, req, res, next) => {
   console.error(err.stack);
-  const status = err.status || 500;
-  const message = err.message || 'Đã xảy ra lỗi hệ thống. Vui lòng thử lại sau.';
-  
-  res.status(status).json({ 
-    message,
-    ...(process.env.NODE_ENV !== 'production' && { stack: err.stack })
-  });
+  res.status(500).json({ message: "Something went wrong!" });
 });
 
 // Setup Server and WebSockets
