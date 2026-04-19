@@ -40,6 +40,7 @@ app.use(helmet({
 const PORT = process.env.PORT || 5000;
 
 // 2. CORS & Other Middlewares
+const allowedOrigins = (process.env.CORS_ORIGINS || [
   'https://nguyenquangson.id.vn',
   'https://admin.nguyenquangson.id.vn',
   'http://localhost:5173',
