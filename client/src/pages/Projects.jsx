@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion'; // eslint-disable-line no-unused-vars
+import { Link } from 'react-router-dom';
 import api from '../services/api';
-import { Github, Layers, X, Maximize2, Image as ImageIcon, ChevronLeft, ChevronRight, Smartphone, Download } from 'lucide-react';
+import { Github, Layers, X, Maximize2, Image as ImageIcon, ChevronLeft, ChevronRight, Smartphone, ExternalLink, MoreHorizontal } from 'lucide-react';
 
 const parseArrayField = (value, { allowCommaSplit = true } = {}) => {
   if (Array.isArray(value)) {
@@ -159,18 +160,27 @@ const Projects = () => {
                 className="group glass rounded-3xl overflow-hidden hover:border-primary/30 transition-colors"
               >
                 <div className="relative h-64 overflow-hidden">
-                  <img
-                    src={project.image}
-                    alt={project.title}
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent opacity-60" />
+                  <Link to={`/du-an/${project.slug || project.id}`}>
+                    <img
+                      src={project.image}
+                      alt={project.title}
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                    />
+                  </Link>
+                  <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent opacity-60 pointer-events-none" />
 
                   <div className="absolute top-4 right-4 bg-background/80 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest text-primary border border-primary/20">
                     {project.category}
                   </div>
 
                   <div className="absolute inset-0 flex items-center justify-center gap-4 opacity-0 group-hover:opacity-100 transition-opacity bg-black/40 backdrop-blur-[2px]">
+                    <Link
+                      to={`/du-an/${project.slug || project.id}`}
+                      className="p-3 bg-white text-black rounded-full hover:scale-110 transition-transform"
+                      title="Chi tiết dự án"
+                    >
+                      <MoreHorizontal className="w-5 h-5" />
+                    </Link>
                     {project.github && (
                       <a
                         href={project.github}
@@ -230,7 +240,9 @@ const Projects = () => {
                 </div>
 
                 <div className="p-6 md:p-8">
-                  <h3 className="text-xl md:text-2xl font-bold mb-3 group-hover:text-primary transition-colors">{project.title}</h3>
+                  <Link to={`/du-an/${project.slug || project.id}`}>
+                    <h3 className="text-xl md:text-2xl font-bold mb-3 group-hover:text-primary transition-colors">{project.title}</h3>
+                  </Link>
                   <p className="text-white/50 text-xs md:text-sm leading-relaxed mb-4 line-clamp-3">
                     {project.description}
                   </p>

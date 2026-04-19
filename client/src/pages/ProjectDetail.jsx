@@ -78,9 +78,37 @@ const ProjectDetail = () => {
       </div>
 
       <div className="prose prose-invert max-w-none">
-        <p className="text-xl text-white/70 leading-relaxed mb-8">{project.description}</p>
+        <p className="text-xl text-white/70 leading-relaxed mb-10">{project.description}</p>
         
-        <div className="flex flex-wrap gap-4 mt-8">
+        {/* Tech Stack */}
+        {project.tech && project.tech.length > 0 && (
+          <div className="mb-12">
+            <h3 className="text-sm font-black uppercase tracking-widest text-primary mb-4">Công nghệ sử dụng</h3>
+            <div className="flex flex-wrap gap-2">
+              {project.tech.map((t) => (
+                <span key={t} className="px-4 py-2 bg-white/5 border border-white/10 rounded-xl text-xs font-bold text-white/60 hover:text-white transition-colors">
+                  {t}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Gallery */}
+        {project.images && project.images.length > 1 && (
+          <div className="mb-12">
+            <h3 className="text-sm font-black uppercase tracking-widest text-secondary mb-6">Hình ảnh dự án</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {project.images.slice(1).map((img, idx) => (
+                <div key={idx} className="glass rounded-3xl overflow-hidden border border-white/5 aspect-video hover:border-secondary/30 transition-all group">
+                  <img src={img} alt={`${project.title} - ${idx + 1}`} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        
+        <div className="flex flex-wrap gap-4 mt-8 pt-8 border-t border-white/5">
           {project.demo && (
             <a
               href={project.demo}
