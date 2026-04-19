@@ -185,6 +185,7 @@ const downloadLimiter = rateLimit({
     const projectId = req.params.id || 'unknown';
     return `${ip}-${ua}-${projectId}`;
   },
+  validate: { default: false },
   message: { message: 'Vui lòng đợi 30 giây trước khi tải lại tệp này.' },
   skip: (req) => {
     // Skip limiting for bots - we don't count them anyway, so just let them redirect
