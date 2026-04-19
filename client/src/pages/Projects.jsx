@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion'; // eslint-disable-line no-unused-vars
 import { Link } from 'react-router-dom';
 import api from '../services/api';
-import { Github, Layers, X, Maximize2, Image as ImageIcon, ChevronLeft, ChevronRight, Smartphone, Download } from 'lucide-react';
+import { Github, Layers, X, Maximize2, Image as ImageIcon, ChevronLeft, ChevronRight, Smartphone, Download, Share2 } from 'lucide-react';
 
 const parseArrayField = (value, { allowCommaSplit = true } = {}) => {
   if (Array.isArray(value)) {
