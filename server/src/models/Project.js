@@ -72,6 +72,9 @@ const Project = sequelize.define('Project', {
     type: DataTypes.INTEGER,
     defaultValue: 0,
   },
+}, {
+  freezeTableName: true,
+  tableName: 'projects',
 });
 
 Project.beforeValidate((project) => {
