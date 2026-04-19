@@ -76,6 +76,8 @@ const globalLimiter = rateLimit({
   max: 200,
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: (req) => req.ip,
+  validate: { default: false },
   message: { message: 'Hệ thống bảo vệ từ chối: IP của bạn đã gửi quá nhiều yêu cầu. Vui lòng quay lại sau 15 phút.' },
   skip: (req) => req.method === 'OPTIONS',
 });
