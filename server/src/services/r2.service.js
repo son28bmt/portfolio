@@ -56,7 +56,12 @@ const safeExtension = (fileName = '', mimeType = '') => {
     'image/gif': '.gif',
     'image/avif': '.avif',
     'application/vnd.android.package-archive': '.apk',
+    'application/apk': '.apk',
+    'application/zip': '.apk',
+    'application/x-zip-compressed': '.apk',
     'application/octet-stream': '.ipa',
+    'application/x-itunes-ipa': '.ipa',
+    'application/x-ios-app': '.ipa',
   };
 
   return fallbackMap[mimeType] || '.jpg';

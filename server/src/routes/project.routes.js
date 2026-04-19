@@ -15,8 +15,13 @@ const ALLOWED_PROJECT_FILE_TYPES = new Set([
   'image/avif',
   'application/vnd.android.package-archive',
   'application/octet-stream', // often used for .ipa
+  'application/zip',
+  'application/x-zip-compressed',
+  'application/apk',
+  'application/x-itunes-ipa',
+  'application/x-ios-app',
 ]);
-const MAX_PROJECT_FILE_SIZE_MB = 100; // Increased for APK/IPA
+const MAX_PROJECT_FILE_SIZE_MB = 200; // Increased for larger APK/IPA
 
 const upload = multer({
   storage: multer.memoryStorage(),
