@@ -10,6 +10,10 @@ const sequelize = new Sequelize(
     port: Number(process.env.DB_PORT || 3306),
     dialect: 'mysql',
     logging: false,
+    define: {
+      charset: 'utf8mb4',
+      collate: 'utf8mb4_unicode_ci',
+    },
   }
 );
 

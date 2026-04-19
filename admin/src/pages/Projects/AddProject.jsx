@@ -2,7 +2,7 @@ import React, { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import api from '../../services/api';
-import { ArrowLeft, Save, Image as ImageIcon, Github, Globe, Upload, X } from 'lucide-react';
+import { ArrowLeft, Save, Image as ImageIcon, Github, Globe, Upload, X, Download } from 'lucide-react';
 
 const AddProject = () => {
   const navigate = useNavigate();
