@@ -74,8 +74,8 @@ const captureRawBody = (req, res, buf) => {
   }
 };
 
-app.use(express.json({ limit: '50mb', verify: captureRawBody }));
-app.use(express.urlencoded({ limit: '50mb', extended: true, verify: captureRawBody }));
+app.use(express.json({ limit: '200mb', verify: captureRawBody }));
+app.use(express.urlencoded({ limit: '200mb', extended: true, verify: captureRawBody }));
 app.use(morgan('dev'));
  
 // DEBUG: Log all requests to see which middleware might be blocking
