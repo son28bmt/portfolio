@@ -84,8 +84,8 @@ const globalLimiter = rateLimit({
 
 app.use(globalLimiter);
 
-// Sync Database
-sequelize.sync({ alter: true });
+// Sync Database (Forcefully for initialization if needed, but usually sequelize.sync() is enough)
+// sequelize.sync();
 
 // CORS moved to top
 const captureRawBody = (req, res, buf) => {
@@ -147,9 +147,7 @@ app.get('/', (req, res) => {
 app.use((err, req, res, next) => {
   console.error(err.stack);
   const status = err.status || 500;
-  const message = process.env.NODE_ENV === 'production' 
-    ? 'Đã xảy ra lỗi hệ thống. Vui lòng thử lại sau.' 
-    : err.message;
+  const message = err.message || 'Đã xảy ra lỗi hệ thống. Vui lòng thử lại sau.';
   
   res.status(status).json({ 
     message,
