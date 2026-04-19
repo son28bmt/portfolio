@@ -12,7 +12,12 @@ const protect = async (req, res, next) => {
         throw new Error('No token provided after Bearer');
       }
 
-      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret');
+      if (!process.env.JWT_SECRET) {
+        console.error('❌ Critical Error: JWT_SECRET is not defined in environment.');
+        return res.status(500).json({ message: 'Lỗi cấu hình hệ thống. Vui lòng liên hệ quản trị viên.' });
+      }
+
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
       
       // Support both User (Portfolio) and Admin (Marketplace)
       if (decoded.adminId) {

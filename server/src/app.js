@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
 const morgan = require('morgan');
 const fs = require('fs');
 const path = require('path');
@@ -47,6 +48,18 @@ const corsOptions = {
 };
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
+app.use(helmet());
+// Allow cross-origin images for R2/S3
+app.use(helmet.crossOriginResourcePolicy({ policy: "cross-origin" }));
+app.use(helmet.contentSecurityPolicy({
+  directives: {
+    ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+    "script-src": ["'self'", "'unsafe-inline'", "https://challenges.cloudflare.com"],
+    "frame-src": ["'self'", "https://challenges.cloudflare.com"],
+    "img-src": ["'self'", "data:", "https://*.dev", "https://*.cloudflarestorage.com", "https://*.r2.dev"],
+    "connect-src": ["'self'", "https://challenges.cloudflare.com", "wss://api.nguyenquangson.id.vn", "https://api.nguyenquangson.id.vn", "http://localhost:*", "ws://localhost:*"],
+  }
+}));
 
 // Connect to Database
 connectDB();
@@ -74,8 +87,8 @@ const captureRawBody = (req, res, buf) => {
   }
 };
 
-app.use(express.json({ limit: '200mb', verify: captureRawBody }));
-app.use(express.urlencoded({ limit: '200mb', extended: true, verify: captureRawBody }));
+app.use(express.json({ limit: '5mb', verify: captureRawBody }));
+app.use(express.urlencoded({ limit: '5mb', extended: true, verify: captureRawBody }));
 app.use(morgan('dev'));
  
 // DEBUG: Log all requests to see which middleware might be blocking
@@ -126,7 +139,15 @@ app.get('/', (req, res) => {
 // Error Handler
 app.use((err, req, res, next) => {
   console.error(err.stack);
-  res.status(500).json({ message: 'Something went wrong!' });
+  const status = err.status || 500;
+  const message = process.env.NODE_ENV === 'production' 
+    ? 'Đã xảy ra lỗi hệ thống. Vui lòng thử lại sau.' 
+    : err.message;
+  
+  res.status(status).json({ 
+    message,
+    ...(process.env.NODE_ENV !== 'production' && { stack: err.stack })
+  });
 });
 
 // Setup Server and WebSockets

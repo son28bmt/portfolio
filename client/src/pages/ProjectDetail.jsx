@@ -82,7 +82,7 @@ const ProjectDetail = () => {
   const techStack = Array.isArray(project.tech) ? project.tech : [];
 
   return (
-    <div className="min-h-screen bg-background relative overflow-hidden pb-20">
+    <div className="min-h-screen bg-background relative overflow-hidden pb-32 md:pb-20">
       <Helmet>
         <title>{project.title} | Nguyễn Quang Sơn Project</title>
         <meta name="description" content={project.description} />
