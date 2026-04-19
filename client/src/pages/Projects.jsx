@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion'; // eslint-disable-line no-unused-vars
+import { Link } from 'react-router-dom';
 import api from '../services/api';
 import { Github, Layers, X, Maximize2, Image as ImageIcon, ChevronLeft, ChevronRight, Smartphone, Download } from 'lucide-react';
 
@@ -195,11 +196,18 @@ const Projects = () => {
                       <button
                         onClick={() => setSelectedDemo(project)}
                         className="p-3 bg-primary text-white rounded-full hover:scale-110 transition-transform shadow-xl"
-                        title="Live Demo"
+                        title="Xem nhanh Demo"
                       >
                         <Maximize2 className="w-5 h-5" />
                       </button>
                     )}
+                    <Link
+                      to={`/du-an/${project.slug || project.id}`}
+                      className="p-3 bg-secondary text-white rounded-full hover:scale-110 transition-transform shadow-xl"
+                      title="Xem chi tiết & Lấy link"
+                    >
+                      <Share2 className="w-5 h-5" />
+                    </Link>
                     {(project.apkUrl || project.iosUrl) && (
                       <div className="flex gap-2">
                         {project.apkUrl && (
@@ -229,7 +237,7 @@ const Projects = () => {
                   </div>
                 </div>
 
-                <div className="p-6 md:p-8">
+                <Link to={`/du-an/${project.slug || project.id}`} className="p-6 md:p-8 block">
                   <h3 className="text-xl md:text-2xl font-bold mb-3 group-hover:text-primary transition-colors">{project.title}</h3>
                   <p className="text-white/50 text-xs md:text-sm leading-relaxed mb-4 line-clamp-3">
                     {project.description}
@@ -258,7 +266,7 @@ const Projects = () => {
                       </span>
                     ))}
                   </div>
-                </div>
+                </Link>
               </motion.div>
             ))}
           </AnimatePresence>

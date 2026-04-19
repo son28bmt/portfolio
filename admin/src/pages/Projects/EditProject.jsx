@@ -59,6 +59,7 @@ const EditProject = () => {
     images: [],
     apkUrl: '',
     iosUrl: '',
+    slug: '',
     apkDownloadCount: 0,
     iosDownloadCount: 0,
   });
@@ -84,6 +85,7 @@ const EditProject = () => {
           images: mergedImages,
           apkUrl: data?.apkUrl || '',
           iosUrl: data?.iosUrl || '',
+          slug: data?.slug || '',
           apkDownloadCount: data?.apkDownloadCount || 0,
           iosDownloadCount: data?.iosDownloadCount || 0,
         });
@@ -259,9 +261,30 @@ const EditProject = () => {
               <input
                 type="text"
                 value={formData.title}
-                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  const generatedSlug = val
+                    .toLowerCase()
+                    .trim()
+                    .replace(/\s+/g, '-')
+                    .replace(/[^\w-]+/g, '')
+                    .replace(/--+/g, '-');
+                  setFormData({...formData, title: val, slug: generatedSlug});
+                }}
                 className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 px-4 text-sm focus:outline-none focus:border-primary transition-all"
                 placeholder="Ví dụ: AI Subtitle Gen"
+                required
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-white/40 uppercase ml-1">Đường dẫn (Slug)</label>
+              <input 
+                type="text" 
+                value={formData.slug}
+                onChange={(e) => setFormData({...formData, slug: e.target.value})}
+                className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 px-4 text-sm focus:outline-none focus:border-primary transition-all"
+                placeholder="ai-subtitle-gen"
                 required
               />
             </div>

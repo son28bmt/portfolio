@@ -264,10 +264,21 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Public: Get single project
+// Public: Get single project (By ID or Slug)
 router.get('/:id', async (req, res) => {
   try {
-    const project = await Project.findByPk(req.params.id);
+    const { id } = req.params;
+    let project;
+
+    // Detect if id is a UUID
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
+
+    if (isUUID) {
+      project = await Project.findByPk(id);
+    } else {
+      project = await Project.findOne({ where: { slug: id } });
+    }
+
     if (!project) return res.status(404).json({ message: 'Project not found' });
     res.json(normalizeProjectRecord(project));
   } catch (error) {
