@@ -180,10 +180,10 @@ const downloadLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: (req) => {
-    const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
     const ua = req.headers['user-agent'] || 'unknown';
     const projectId = req.params.id || 'unknown';
-    return `${ip}-${ua}-${projectId}`;
+    // Use req.ip which is already handled by trust-proxy in app.js
+    return `${req.ip}-${ua}-${projectId}`;
   },
   validate: { default: false },
   message: { message: 'Vui lòng đợi 30 giây trước khi tải lại tệp này.' },
