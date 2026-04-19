@@ -28,10 +28,11 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       ...helmet.contentSecurityPolicy.getDefaultDirectives(),
-      "script-src": ["'self'", "'unsafe-inline'", "https://challenges.cloudflare.com"],
+      "script-src": ["'self'", "'unsafe-inline'", "https://challenges.cloudflare.com", "blob:"],
       "frame-src": ["'self'", "https://challenges.cloudflare.com"],
       "img-src": ["'self'", "data:", "https://*.dev", "https://*.cloudflarestorage.com", "https://*.r2.dev", "https://api.nguyenquangson.id.vn", "https://nguyenquangson.id.vn"],
       "connect-src": ["'self'", "https://challenges.cloudflare.com", "wss://api.nguyenquangson.id.vn", "https://api.nguyenquangson.id.vn", "http://localhost:*", "ws://localhost:*"],
+      "worker-src": ["'self'", "blob:", "https://challenges.cloudflare.com"],
     },
   },
   crossOriginResourcePolicy: { policy: "cross-origin" }
