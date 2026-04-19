@@ -48,17 +48,17 @@ const corsOptions = {
 };
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
-app.use(helmet());
-// Allow cross-origin images for R2/S3
-app.use(helmet.crossOriginResourcePolicy({ policy: "cross-origin" }));
-app.use(helmet.contentSecurityPolicy({
-  directives: {
-    ...helmet.contentSecurityPolicy.getDefaultDirectives(),
-    "script-src": ["'self'", "'unsafe-inline'", "https://challenges.cloudflare.com"],
-    "frame-src": ["'self'", "https://challenges.cloudflare.com"],
-    "img-src": ["'self'", "data:", "https://*.dev", "https://*.cloudflarestorage.com", "https://*.r2.dev"],
-    "connect-src": ["'self'", "https://challenges.cloudflare.com", "wss://api.nguyenquangson.id.vn", "https://api.nguyenquangson.id.vn", "http://localhost:*", "ws://localhost:*"],
-  }
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+      "script-src": ["'self'", "'unsafe-inline'", "https://challenges.cloudflare.com"],
+      "frame-src": ["'self'", "https://challenges.cloudflare.com"],
+      "img-src": ["'self'", "data:", "https://*.dev", "https://*.cloudflarestorage.com", "https://*.r2.dev", "https://api.nguyenquangson.id.vn"],
+      "connect-src": ["'self'", "https://challenges.cloudflare.com", "wss://api.nguyenquangson.id.vn", "https://api.nguyenquangson.id.vn", "http://localhost:*", "ws://localhost:*"],
+    },
+  },
+  crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
 
 // Connect to Database
