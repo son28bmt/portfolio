@@ -163,7 +163,8 @@ const downloadLimiter = rateLimit({
     // Skip limiting for bots - we don't count them anyway, so just let them redirect
     const ua = req.headers['user-agent'] || '';
     return /bot|crawl|spider/i.test(ua);
-  }
+  },
+  validate: { xForwardedForHeader: false },
 });
 
 /**
