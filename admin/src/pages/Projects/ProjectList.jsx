@@ -5,9 +5,10 @@ import {
   FolderKanban, 
   Plus, 
   Search, 
-  Edit, 
   Trash2, 
-  ExternalLink 
+  ExternalLink,
+  Download,
+  Smartphone
 } from 'lucide-react';
 
 const parseJsonArray = (value) => {
@@ -115,17 +116,23 @@ const ProjectList = () => {
               <tr className="bg-white/5 text-[10px] uppercase tracking-widest text-white/40 font-bold border-b border-white/5">
                 <th className="px-8 py-4">Tên dự án</th>
                 <th className="px-8 py-4">Danh mục</th>
+                <th className="px-8 py-4">Lượt tải</th>
                 <th className="px-8 py-4">Công nghệ</th>
                 <th className="px-8 py-4 text-right">Thao tác</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
               {loading ? (
-                <tr><td colSpan="4" className="px-8 py-20 text-center text-white/20">Đang tải dữ liệu...</td></tr>
+                <tr><td colSpan="5" className="px-8 py-20 text-center text-white/20">Đang tải dữ liệu...</td></tr>
               ) : projects.length > 0 ? projects.map((project) => {
                 const techList = parseJsonArray(project.tech);
                 const galleryImages = parseJsonArray(project.images);
                 const coverImage = project.image || galleryImages[0];
+                
+                const apkCount = project.apkDownloadCount || 0;
+                const iosCount = project.iosDownloadCount || 0;
+                const totalCount = apkCount + iosCount;
+                const hasMobile = project.apkUrl || project.iosUrl;
 
                 return (
                 <tr key={project.id} className="hover:bg-white/[0.02] transition-colors group">
@@ -151,6 +158,28 @@ const ProjectList = () => {
                     <span className="px-3 py-1 bg-white/5 border border-white/10 rounded-full text-[10px] font-bold uppercase text-white/60">
                       {project.category}
                     </span>
+                  </td>
+                  <td className="px-8 py-6">
+                    {hasMobile ? (
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-1.5 text-[10px] text-white/60">
+                           <Smartphone className="w-3 h-3 text-primary" />
+                           <span className="font-medium">APK:</span>
+                           <span className="font-bold text-white">{apkCount}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 text-[10px] text-white/60">
+                           <Smartphone className="w-3 h-3 text-secondary" />
+                           <span className="font-medium">iOS:</span>
+                           <span className="font-bold text-white">{iosCount}</span>
+                        </div>
+                        <div className="mt-1 pt-1 border-t border-white/5 flex items-center gap-1.5 text-[10px] text-white/40">
+                           <Download className="w-3 h-3" />
+                           <span className="uppercase font-black text-[8px] tracking-widest">Total: {totalCount}</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <span className="text-[10px] text-white/10 uppercase font-bold">—</span>
+                    )}
                   </td>
                   <td className="px-8 py-6">
                     <div className="flex gap-1 flex-wrap">

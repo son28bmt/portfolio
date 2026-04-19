@@ -45,6 +45,14 @@ const Project = sequelize.define('Project', {
     type: DataTypes.STRING,
     allowNull: true,
   },
+  apkDownloadCount: {
+    type: DataTypes.INTEGER,
+    defaultValue: 0,
+  },
+  iosDownloadCount: {
+    type: DataTypes.INTEGER,
+    defaultValue: 0,
+  },
 });
 
 module.exports = Project;

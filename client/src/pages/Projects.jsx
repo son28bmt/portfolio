@@ -204,8 +204,9 @@ const Projects = () => {
                       <div className="flex gap-2">
                         {project.apkUrl && (
                           <a
-                            href={project.apkUrl}
-                            download
+                            href={`${import.meta.env.VITE_API_BASE_URL || 'https://api.nguyenquangson.id.vn/api'}/projects/${project.id}/download/apk`}
+                            target="_blank"
+                            rel="noopener noreferrer"
                             className="p-3 bg-green-500 text-white rounded-full hover:scale-110 transition-transform shadow-xl"
                             title="Tải APK (Android)"
                           >
@@ -214,8 +215,9 @@ const Projects = () => {
                         )}
                         {project.iosUrl && (
                           <a
-                            href={project.iosUrl}
-                            download
+                            href={`${import.meta.env.VITE_API_BASE_URL || 'https://api.nguyenquangson.id.vn/api'}/projects/${project.id}/download/ios`}
+                            target="_blank"
+                            rel="noopener noreferrer"
                             className="p-3 bg-blue-500 text-white rounded-full hover:scale-110 transition-transform shadow-xl"
                             title="Tải iOS (IPA)"
                           >

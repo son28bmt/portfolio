@@ -58,6 +58,8 @@ const EditProject = () => {
     images: [],
     apkUrl: '',
     iosUrl: '',
+    apkDownloadCount: 0,
+    iosDownloadCount: 0,
   });
 
   useEffect(() => {
@@ -81,6 +83,8 @@ const EditProject = () => {
           images: mergedImages,
           apkUrl: data?.apkUrl || '',
           iosUrl: data?.iosUrl || '',
+          apkDownloadCount: data?.apkDownloadCount || 0,
+          iosDownloadCount: data?.iosDownloadCount || 0,
         });
       } catch (err) {
         alert('Lỗi khi tải dự án: ' + (err.response?.data?.message || err.message));
@@ -407,7 +411,12 @@ const EditProject = () => {
                 
                 {/* APK */}
                 <div className="space-y-2">
-                   <label className="text-[10px] font-bold text-white/40 uppercase ml-1">Android (APK) URL</label>
+                   <div className="flex justify-between items-center ml-1">
+                     <label className="text-[10px] font-bold text-white/40 uppercase">Android (APK) URL</label>
+                     <span className="text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-md flex items-center gap-1">
+                       <Download className="w-3 h-3" /> {formData.apkDownloadCount} tải xuống
+                     </span>
+                   </div>
                    <div className="flex gap-2">
                      <input 
                        type="text" 
@@ -431,7 +440,12 @@ const EditProject = () => {
 
                 {/* ISO/IPA */}
                 <div className="space-y-2">
-                   <label className="text-[10px] font-bold text-white/40 uppercase ml-1">iOS (IPA) URL</label>
+                   <div className="flex justify-between items-center ml-1">
+                     <label className="text-[10px] font-bold text-white/40 uppercase">iOS (IPA) URL</label>
+                     <span className="text-[10px] font-bold text-secondary bg-secondary/10 px-2 py-0.5 rounded-md flex items-center gap-1">
+                       <Download className="w-3 h-3" /> {formData.iosDownloadCount} tải xuống
+                     </span>
+                   </div>
                    <div className="flex gap-2">
                      <input 
                        type="text" 

@@ -145,6 +145,71 @@ router.post('/upload-images', protect, uploadFilesMiddleware, async (req, res) =
   }
 });
 
+// Rate limiter for downloads (prevent spam - 1 download per 30s per project/IP/UA)
+const downloadLimiter = rateLimit({
+  windowMs: 30 * 1000, // 30 seconds
+  max: 2, // max 2 requests
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => {
+    const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+    const ua = req.headers['user-agent'] || 'unknown';
+    const projectId = req.params.id || 'unknown';
+    return `${ip}-${ua}-${projectId}`;
+  },
+  message: { message: 'Vui lòng đợi 30 giây trước khi tải lại tệp này.' },
+  skip: (req) => {
+    // Skip limiting for bots - we don't count them anyway, so just let them redirect
+    const ua = req.headers['user-agent'] || '';
+    return /bot|crawl|spider/i.test(ua);
+  }
+});
+
+/**
+ * Public: Track download count and redirect to file
+ * GET /api/projects/:id/download/:type (type: apk | ios)
+ */
+router.get('/:id/download/:type', downloadLimiter, async (req, res) => {
+  try {
+    const { id, type } = req.params;
+    const ua = req.headers['user-agent'] || '';
+
+    if (!['apk', 'ios'].includes(type)) {
+      return res.status(400).json({ message: 'Loại tệp không hợp lệ. Chọn apk hoặc ios.' });
+    }
+
+    const project = await Project.findByPk(id);
+    if (!project) {
+      return res.status(404).json({ message: 'Dự án không tồn tại.' });
+    }
+
+    const fileUrl = type === 'apk' ? project.apkUrl : project.iosUrl;
+    if (!fileUrl) {
+      return res.status(404).json({ message: 'Tệp tải xuống chưa khả dụng cho dự án này.' });
+    }
+
+    // Bot detection - don't increment for bots
+    const isBot = /bot|crawl|spider/i.test(ua);
+    
+    if (!isBot) {
+      // Atomic increment at DB level
+      await Project.increment(
+        type === 'apk' ? 'apkDownloadCount' : 'iosDownloadCount',
+        { by: 1, where: { id } }
+      );
+    }
+
+    // Redirect to the actual file URL (often on Cloudflare R2)
+    // Add ?dl=1 for potentially tracking at CDN layer later
+    const redirectUrl = fileUrl.includes('?') ? `${fileUrl}&dl=1` : `${fileUrl}?dl=1`;
+    return res.redirect(redirectUrl);
+  } catch (error) {
+    console.error('❌ Download Track Error:', error);
+    // In case of error, still try to redirect to file if URL is known, or return error
+    res.status(500).json({ message: 'Lỗi xử lý lượt tải.' });
+  }
+});
+
 // Public: Get all projects (With Pagination)
 router.get('/', async (req, res) => {
   try {

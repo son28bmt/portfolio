@@ -94,8 +94,9 @@ const ProjectDetail = () => {
           
           {project.apkUrl && (
             <a
-              href={project.apkUrl}
-              download
+              href={`${import.meta.env.VITE_API_BASE_URL || 'https://api.nguyenquangson.id.vn/api'}/projects/${project.id}/download/apk`}
+              target="_blank"
+              rel="noopener noreferrer"
               className="inline-flex items-center gap-2 px-8 py-4 bg-green-600 text-white rounded-2xl font-bold hover:scale-105 transition-transform shadow-xl shadow-green-900/20"
             >
               <Smartphone className="w-5 h-5" />
@@ -105,8 +106,9 @@ const ProjectDetail = () => {
 
           {project.iosUrl && (
             <a
-              href={project.iosUrl}
-              download
+              href={`${import.meta.env.VITE_API_BASE_URL || 'https://api.nguyenquangson.id.vn/api'}/projects/${project.id}/download/ios`}
+              target="_blank"
+              rel="noopener noreferrer"
               className="inline-flex items-center gap-2 px-8 py-4 bg-blue-600 text-white rounded-2xl font-bold hover:scale-105 transition-transform shadow-xl shadow-blue-900/20"
             >
               <Smartphone className="w-5 h-5" />
