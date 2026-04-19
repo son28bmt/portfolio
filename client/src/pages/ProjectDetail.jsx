@@ -113,18 +113,20 @@ const ProjectDetail = () => {
             <motion.div 
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="relative group glass rounded-[40px] overflow-hidden border border-white/10 aspect-video shadow-2xl"
+              className={`relative group glass rounded-[40px] overflow-hidden border border-white/10 shadow-2xl flex items-center justify-center bg-black/40 ${
+                project.category === 'Mobile' ? 'aspect-[4/5] md:aspect-[3/4] max-h-[600px] mx-auto' : 'aspect-video'
+              }`}
             >
               <AnimatePresence mode="wait">
                 <motion.img
                   key={activeImage}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.5 }}
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 1.05 }}
+                  transition={{ duration: 0.4 }}
                   src={galleryImages[activeImage]}
                   alt={project.title}
-                  className="w-full h-full object-cover"
+                  className={`w-full h-full ${project.category === 'Mobile' ? 'object-contain p-4' : 'object-cover'}`}
                 />
               </AnimatePresence>
               
