@@ -1,14 +1,35 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Layers, Smartphone, ExternalLink, Download, Globe, Cpu } from 'lucide-react';
+import { motion, AnimatePresence, useScroll, useSpring } from 'framer-motion';
+import { ArrowLeft, Layers, Smartphone, ExternalLink, Download, Globe, Cpu, ChevronRight } from 'lucide-react';
 import api from '../services/api';
+
+// Reusable Section Header to replace manual characters like ━━━━
+const SectionHeader = ({ title, icon: Icon, color = "primary" }) => (
+  <div className="flex items-center gap-4 mb-10 overflow-hidden">
+    <div className={`flex-none p-2 rounded-lg bg-${color}/10 text-${color}`}>
+      {Icon && <Icon className="w-4 h-4" />}
+    </div>
+    <h3 className="flex-none text-xs font-black uppercase tracking-[0.4em] text-[#dee5ff]">
+      {title}
+    </h3>
+    <div className="flex-grow h-[1px] bg-gradient-to-r from-white/10 to-transparent ml-4" />
+  </div>
+);
 
 const ProjectDetail = () => {
   const { id } = useParams();
   const [project, setProject] = useState(null);
   const [loading, setLoading] = useState(true);
+  
+  // Scroll Progress Logic
+  const { scrollYProgress } = useScroll();
+  const scaleX = useSpring(scrollYProgress, {
+    stiffness: 100,
+    damping: 30,
+    restDelta: 0.001
+  });
 
   useEffect(() => {
     const fetchProject = async () => {
@@ -44,16 +65,22 @@ const ProjectDetail = () => {
   if (!project) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-8 text-center bg-[#060e20]">
-        <h2 className="text-4xl font-black mb-6 text-white">Không tìm thấy dự án</h2>
+        <h2 className="text-4xl font-black mb-6 text-white text-glow">Không tìm thấy dự án</h2>
         <Link to="/du-an" className="px-10 py-4 bg-primary text-white rounded-2xl font-black hover:scale-105 transition-transform shadow-2xl shadow-primary/20">
-          QUAY LẠI CỬA HÀNG
+          QUAY LẠI DỰ ÁN
         </Link>
       </div>
     );
   }
 
+  // Helper to clean up the description if it contains manually added horizontal bars
+  const cleanDescription = (text) => {
+    if (!text) return '';
+    return text.replace(/[━─]{3,}/g, '').trim();
+  };
+
   return (
-    <div className="min-h-screen bg-[#060e20] text-[#dee5ff] selection:bg-primary/30">
+    <div className="min-h-screen bg-[#060e20] text-[#dee5ff] selection:bg-primary/30 font-inter">
       <Helmet>
         <title>{pageTitle}</title>
         <meta name="description" content={pageDesc} />
@@ -64,73 +91,91 @@ const ProjectDetail = () => {
         <meta property="og:image" content={project.image} />
       </Helmet>
 
+      {/* Progress Bar */}
+      <motion.div
+        className="fixed top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary to-secondary z-[60] origin-left"
+        style={{ scaleX }}
+      />
+
       {/* Navigation */}
-      <nav className="fixed top-0 left-0 w-full z-50 px-6 py-6 border-b border-white/5 bg-[#060e20]/80 backdrop-blur-xl">
+      <nav className="fixed top-0 left-0 w-full z-50 px-6 py-5 border-b border-white/5 bg-[#060e20]/80 backdrop-blur-2xl">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <Link
             to="/du-an"
-            className="group flex items-center gap-3 text-sm font-bold tracking-widest text-[#a3aac4] hover:text-white transition-colors"
+            className="group flex items-center gap-3 text-sm font-bold tracking-[0.2em] text-[#a3aac4] hover:text-white transition-all"
           >
-            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-            <span className="uppercase">Quay lại dự án</span>
+            <div className="p-2 rounded-lg bg-white/5 group-hover:bg-primary/20 transition-colors">
+              <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+            </div>
+            <span className="uppercase text-[10px] hidden sm:inline">Quay lại dự án</span>
           </Link>
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-            <span className="text-[10px] font-black uppercase tracking-tighter opacity-50">Stable Release</span>
+          
+          <div className="flex items-center gap-6">
+            <div className="hidden sm:flex items-center gap-3">
+              <span className="w-2 h-2 rounded-full bg-primary shadow-[0_0_8px_rgba(189,157,255,1)] animate-pulse" />
+              <span className="text-[10px] font-black uppercase tracking-[0.2em] opacity-60">Status: Active</span>
+            </div>
+            {project.demo && (
+              <a href={project.demo} target="_blank" rel="noreferrer" className="text-xs font-black text-primary hover:text-white transition-colors uppercase tracking-widest hidden md:block">
+                View Live Site
+              </a>
+            )}
           </div>
         </div>
       </nav>
 
       {/* Hero Section */}
-      <section className="relative pt-32 pb-20 px-6 overflow-hidden">
+      <section className="relative pt-40 pb-20 px-6">
         <div className="max-w-7xl mx-auto">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-16 items-center">
             
             <motion.div
-              initial={{ opacity: 0, x: -50 }}
-              animate={{ opacity: 1, x: 0 }}
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8 }}
+              className="lg:col-span-7"
             >
-              <div className="inline-block px-4 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary text-[10px] font-black uppercase tracking-[0.2em] mb-8">
-                {project.category || 'PROJECT CASE STUDY'}
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-[10px] font-black uppercase tracking-[0.3em] mb-8 text-primary/80">
+                <Layers className="w-3 h-3" />
+                <span>{project.category || 'CASE STUDY'}</span>
               </div>
-              <h1 className="text-5xl md:text-7xl font-black mb-8 leading-[1.1] tracking-tight">
+              <h1 className="text-5xl md:text-8xl font-black mb-8 leading-[1.05] tracking-tighter text-glow">
                 {project.title}
               </h1>
-              <p className="text-lg md:text-xl text-[#a3aac4] leading-relaxed mb-10 max-w-xl">
-                {project.description}
+              <p className="text-lg md:text-xl text-[#a3aac4] leading-relaxed mb-10 max-w-2xl border-l-2 border-primary/20 pl-6 italic">
+                {cleanDescription(project.description)}
               </p>
 
-              <div className="flex flex-wrap gap-4">
+              <div className="flex flex-wrap gap-5">
                 {project.demo && (
                   <a
                     href={project.demo}
                     target="_blank"
                     rel="noreferrer"
-                    className="px-8 py-4 bg-primary text-white rounded-2xl font-black text-sm flex items-center gap-2 hover:scale-105 transition-transform shadow-2xl shadow-primary/40 group"
+                    className="px-10 py-5 bg-primary text-white rounded-2xl font-black text-xs flex items-center gap-3 hover:scale-105 active:scale-95 transition-all shadow-[0_20px_40px_-10px_rgba(124,58,237,0.4)] group"
                   >
-                    <span>XEM LIVE DEMO</span>
+                    <span>KHÁM PHÁ NGAY</span>
                     <Globe className="w-4 h-4 group-hover:rotate-12 transition-transform" />
                   </a>
                 )}
                 
-                <div className="flex gap-2">
+                <div className="flex gap-3">
                   {project.apkUrl && (
                     <a
                       href={`${import.meta.env.VITE_API_BASE_URL || 'https://api.nguyenquangson.id.vn/api'}/projects/${project.id}/download/apk`}
-                      className="p-4 bg-white/5 border border-white/10 rounded-2xl text-white hover:bg-white/10 transition-colors"
-                      title="Download APK"
+                      className="p-5 bg-white/5 border border-white/10 rounded-2xl text-white hover:bg-white/10 hover:border-primary/40 transition-all group"
+                      title="Download Android"
                     >
-                      <Smartphone className="w-5 h-5" />
+                      <Smartphone className="w-6 h-6 group-hover:scale-110 transition-transform" />
                     </a>
                   )}
                   {project.iosUrl && (
                     <a
                       href={`${import.meta.env.VITE_API_BASE_URL || 'https://api.nguyenquangson.id.vn/api'}/projects/${project.id}/download/ios`}
-                      className="p-4 bg-white/5 border border-white/10 rounded-2xl text-white hover:bg-white/10 transition-colors"
-                      title="Download IPA"
+                      className="p-5 bg-white/5 border border-white/10 rounded-2xl text-white hover:bg-white/10 hover:border-primary/40 transition-all group"
+                      title="Download iOS"
                     >
-                      <Download className="w-5 h-5" />
+                      <Download className="w-6 h-6 group-hover:scale-110 transition-transform" />
                     </a>
                   )}
                 </div>
@@ -138,130 +183,159 @@ const ProjectDetail = () => {
             </motion.div>
 
             <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
+              initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 1, delay: 0.2 }}
-              className="relative aspect-video rounded-[3rem] overflow-hidden group shadow-[0_0_100px_rgba(189,157,255,0.1)]"
+              transition={{ duration: 1, delay: 0.3 }}
+              className="lg:col-span-5 relative"
             >
-              <img
-                src={project.image}
-                alt={project.title}
-                className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110"
-              />
-              <div className="absolute inset-0 bg-gradient-to-tr from-[#060e20] via-transparent to-transparent opacity-40" />
-              
-              {/* Glassmorphic Badge */}
-              <div className="absolute bottom-6 left-6 p-6 bg-white/5 backdrop-blur-2xl border border-white/10 rounded-[2rem] max-w-[200px]">
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="p-2 bg-primary rounded-lg text-white">
-                    <Layers className="w-4 h-4" />
+              <div className="relative aspect-[4/5] rounded-[4rem] overflow-hidden shadow-2xl group border border-white/5">
+                <img
+                  src={project.image}
+                  alt={project.title}
+                  className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-[#060e20] via-transparent to-transparent opacity-60" />
+                
+                <div className="absolute bottom-8 left-8 right-8 p-8 glass rounded-[2.5rem] border border-white/10 translate-y-4 group-hover:translate-y-0 transition-transform duration-500">
+                  <div className="flex items-center gap-4 mb-3">
+                    <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-white shadow-lg">
+                      <Layout className="w-5 h-5" />
+                    </div>
+                    <span className="text-xs font-black uppercase tracking-widest">Premium UI</span>
                   </div>
-                  <span className="text-[10px] font-black uppercase tracking-widest text-[#dee5ff]">High Quality UI</span>
+                  <p className="text-[10px] text-[#a3aac4] leading-relaxed">Được thiết kế với tư duy tập trung vào trải nghiệm người dùng cuối cùng.</p>
                 </div>
-                <p className="text-[10px] text-[#a3aac4] leading-tight">Mọi dự án đều được chăm chút tới từng pixel.</p>
               </div>
+              
+              {/* Background glow */}
+              <div className="absolute -inset-20 bg-primary/20 rounded-full blur-[120px] -z-10 animate-pulse" />
             </motion.div>
           </div>
         </div>
-
-        {/* Decorative elements */}
-        <div className="absolute top-1/4 -left-20 w-80 h-80 bg-primary/10 rounded-full blur-[120px] -z-10" />
-        <div className="absolute bottom-1/4 -right-20 w-96 h-96 bg-secondary/10 rounded-full blur-[150px] -z-10" />
       </section>
 
-      {/* Content Sections */}
-      <section className="py-20 px-6">
-        <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-16">
-          
-          {/* Tech Stack - Side Column */}
-          <aside className="lg:col-span-3">
-            <div className="sticky top-32">
-              <div className="flex items-center gap-2 mb-6">
-                <Cpu className="w-4 h-4 text-primary" />
-                <h3 className="text-xs font-black uppercase tracking-[0.3em] text-[#dee5ff]">Stack Công Nghệ</h3>
-              </div>
-              <div className="flex flex-wrap lg:flex-col gap-3">
-                {project.tech && project.tech.length > 0 ? project.tech.map((t, i) => (
-                  <motion.div
-                    key={t}
-                    initial={{ opacity: 0, x: -20 }}
-                    whileInView={{ opacity: 1, x: 0 }}
-                    transition={{ delay: i * 0.1 }}
-                    className="px-5 py-3 bg-[#141f38] border border-white/5 rounded-2xl text-xs font-bold text-[#a3aac4] hover:text-white hover:border-primary/30 transition-all cursor-default flex items-center justify-between group"
-                  >
-                    <span>{t}</span>
-                    <div className="w-1 h-1 rounded-full bg-primary opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </motion.div>
-                )) : (
-                  <span className="text-xs text-[#a3aac4]">Đang cập nhật...</span>
-                )}
-              </div>
-            </div>
-          </aside>
-
-          {/* Gallery & Description - Main Column */}
-          <main className="lg:col-span-9">
-            {/* Gallery Grid */}
-            {project.images && project.images.length > 1 && (
-              <div className="mb-20">
-                <div className="flex items-center gap-2 mb-10">
-                  <div className="w-12 h-[1px] bg-white/10" />
-                  <h3 className="text-xs font-black uppercase tracking-[0.3em] text-[#dee5ff]">Bộ sưu tập hình ảnh</h3>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  {project.images.slice(1).map((img, idx) => (
+      {/* Main Content Area */}
+      <section className="py-24 px-6 relative">
+        <div className="max-w-7xl mx-auto">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-20">
+            
+            {/* Sticky Sidebar */}
+            <aside className="lg:col-span-3">
+              <div className="sticky top-32">
+                <SectionHeader title="Stack Công Nghệ" icon={Cpu} />
+                <div className="flex flex-wrap lg:flex-col gap-3">
+                  {project.tech && project.tech.length > 0 ? project.tech.map((t, i) => (
                     <motion.div
-                      key={idx}
-                      whileHover={{ y: -10 }}
-                      className="group relative rounded-[2.5rem] overflow-hidden border border-white/5 bg-[#0f1930] aspect-video"
+                      key={t}
+                      initial={{ opacity: 0, x: -20 }}
+                      whileInView={{ opacity: 1, x: 0 }}
+                      viewport={{ once: true }}
+                      transition={{ delay: i * 0.1 }}
+                      className="px-6 py-4 bg-[#141f38]/50 backdrop-blur-md border border-white/5 rounded-2xl text-[11px] font-black tracking-widest text-[#a3aac4] hover:text-white hover:border-primary/40 transition-all group flex items-center justify-between"
                     >
-                      <img
-                        src={img}
-                        alt={`${project.title} screenshot ${idx + 1}`}
-                        className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-all duration-700 group-hover:scale-105"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-[#060e20] via-transparent to-transparent opacity-0 group-hover:opacity-60 transition-opacity" />
+                      <span className="uppercase">{t}</span>
+                      <ChevronRight className="w-3 h-3 text-primary opacity-0 group-hover:opacity-100 transition-all -translate-x-2 group-hover:translate-x-0" />
                     </motion.div>
-                  ))}
+                  )) : (
+                    <div className="text-xs text-[#a3aac4] italic">Đang cập nhật kỹ thuật...</div>
+                  )}
                 </div>
               </div>
-            )}
+            </aside>
 
-            {/* Final CTA Footer Area */}
-            <div className="glass rounded-[3rem] p-12 border border-white/5 text-center relative overflow-hidden">
-              <div className="absolute inset-0 bg-primary/5 -z-10" />
-              <h2 className="text-3xl font-black mb-6">Sẵn sàng để thử nghiệm?</h2>
-              <p className="text-sm text-[#a3aac4] mb-10 max-w-lg mx-auto leading-relaxed">
-                Tất cả các dự án của tôi đều được đóng gói sẵn sàng để bạn có thể cài đặt và trải nghiệm trực tiếp trên điện thoại hoặc trình duyệt.
-              </p>
-              <div className="flex flex-wrap justify-center gap-4">
-                {project.github && (
-                  <a
-                    href={project.github}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="px-8 py-4 bg-white text-black rounded-2xl font-black text-xs flex items-center gap-2 hover:scale-105 transition-transform"
-                  >
-                    <ExternalLink className="w-4 h-4" />
-                    <span>XEM SOURCE CODE</span>
-                  </a>
+            {/* Detailed Info & Gallery */}
+            <main className="lg:col-span-9 space-y-32">
+              
+              <motion.div
+                initial={{ opacity: 0, y: 40 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: "-100px" }}
+              >
+                <SectionHeader title="Bộ sưu tập dự án" icon={Layers} color="secondary" />
+                {project.images && project.images.length > 1 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                    {project.images.slice(1).map((img, idx) => (
+                      <motion.div
+                        key={idx}
+                        whileHover={{ y: -12, scale: 1.02 }}
+                        className="group relative rounded-[3rem] overflow-hidden border border-white/10 bg-[#0f1930] aspect-[16/10] shadow-2xl"
+                      >
+                        <img
+                          src={img}
+                          alt={`${project.title} screenshot ${idx + 1}`}
+                          className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-all duration-700"
+                        />
+                        <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-[#060e20] to-transparent opacity-0 group-hover:opacity-80 transition-opacity" />
+                        <div className="absolute bottom-8 left-8 opacity-0 group-hover:opacity-100 transition-all translate-y-4 group-hover:translate-y-0 text-[10px] font-black uppercase tracking-widest text-white flex items-center gap-2">
+                          <Maximize2 className="w-3 h-3" />
+                          <span>Mở rộng hình ảnh</span>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="glass rounded-[3rem] p-20 text-center border border-white/5 italic text-[#a3aac4]">
+                    Chưa có thêm hình ảnh mô tả cho dự án này.
+                  </div>
                 )}
-                <Link
-                  to="/lien-he"
-                  className="px-8 py-4 bg-white/5 border border-white/10 text-white rounded-2xl font-black text-xs hover:bg-white/10 transition-all uppercase tracking-widest"
-                >
-                  Liên hệ hợp tác
-                </Link>
-              </div>
-            </div>
-          </main>
+              </motion.div>
+
+              {/* Call to Action Footer */}
+              <motion.div
+                initial={{ opacity: 0, y: 40 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                className="relative glass rounded-[4rem] p-16 md:p-24 border border-white/10 text-center overflow-hidden"
+              >
+                <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-primary/10 via-transparent to-secondary/10 -z-10" />
+                <h2 className="text-4xl md:text-6xl font-black mb-8 tracking-tighter">Bạn thích sản phẩm này chứ?</h2>
+                <p className="text-[#a3aac4] mb-12 max-w-xl mx-auto leading-relaxed text-sm md:text-base">
+                  Hãy kết nối với tôi để thảo luận về các dự án tương tự hoặc đặt hàng thiết kế riêng cho ứng dụng của bạn. 
+                  Mọi sản phẩm của tôi đều được tối ưu hóa cho tốc độ và trải nghiệm.
+                </p>
+                <div className="flex flex-wrap justify-center gap-5">
+                  <Link
+                    to="/lien-he"
+                    className="px-12 py-5 bg-white text-black rounded-2xl font-black text-xs hover:bg-primary hover:text-white transition-all shadow-xl"
+                  >
+                    LIÊN HỆ HỢP TÁC
+                  </Link>
+                  {project.github && (
+                    <a
+                      href={project.github}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="px-12 py-5 bg-white/5 border border-white/20 text-white rounded-2xl font-black text-xs hover:bg-white/10 transition-all flex items-center gap-3"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                      <span>XEM SOURCE CODE</span>
+                    </a>
+                  )}
+                </div>
+              </motion.div>
+            </main>
+          </div>
         </div>
       </section>
 
-      {/* Footer Spacing */}
-      <div className="h-20" />
+      {/* Footer Buffer */}
+      <div className="h-24" />
+      
+      {/* Global CSS for text glow */}
+      <style dangerouslySetInnerHTML={{ __html: `
+        .text-glow {
+          text-shadow: 0 0 30px rgba(189,157,255,0.3);
+        }
+        @media (max-width: 640px) {
+          .text-8xl { font-size: 3.5rem; }
+        }
+      `}} />
     </div>
   );
 };
+
+// Missing Imports and Components for the above code
+const Layout = ({ className }) => <Layers className={className} />;
+const Maximize2 = ({ className }) => <ExternalLink className={className} />;
 
 export default ProjectDetail;
