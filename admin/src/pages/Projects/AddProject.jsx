@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import api from '../../services/api';
 import { ArrowLeft, Save, Image as ImageIcon, Github, Globe, Upload, X } from 'lucide-react';
 
@@ -92,11 +93,28 @@ const AddProject = () => {
 
     try {
       const folder = type === 'apk' ? 'projects/apps/android' : 'projects/apps/ios';
-      const [url] = await uploadToCloudflareR2([file], folder);
-      if (url) {
-        setFormData(prev => ({ ...prev, [`${type}Url`]: url }));
-      }
+      
+      // 1. Get presigned URL from backend
+      const { data } = await api.get('/projects/get-upload-url', {
+        params: {
+          fileName: file.name,
+          mimeType: file.type || (type === 'apk' ? 'application/vnd.android.package-archive' : 'application/octet-stream'),
+          folder
+        }
+      });
+
+      const { uploadUrl, publicUrl } = data;
+
+      // 2. Upload directly to Cloudflare R2
+      await axios.put(uploadUrl, file, {
+        headers: {
+          'Content-Type': file.type || (type === 'apk' ? 'application/vnd.android.package-archive' : 'application/octet-stream')
+        }
+      });
+
+      setFormData(prev => ({ ...prev, [`${type}Url`]: publicUrl }));
     } catch (err) {
+      console.error('❌ App Upload Error:', err);
       alert(`Tải file ${type.toUpperCase()} thất bại: ` + (err.response?.data?.message || err.message));
     } finally {
       if (type === 'apk') setUploadingApk(false);

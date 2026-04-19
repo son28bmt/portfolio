@@ -4,7 +4,7 @@ const multer = require('multer');
 const rateLimit = require('express-rate-limit');
 const Project = require('../models/Project');
 const { protect } = require('../middleware/auth.middleware');
-const { uploadBufferToR2 } = require('../services/r2.service');
+const { uploadBufferToR2, getPresignedUploadUrl } = require('../services/r2.service');
 
 const ALLOWED_PROJECT_FILE_TYPES = new Set([
   'image/jpeg',
@@ -145,9 +145,31 @@ router.post('/upload-images', protect, uploadFilesMiddleware, async (req, res) =
 
     return res.status(201).json({ urls });
   } catch (error) {
-    return res.status(500).json({
+    return res.status(501).json({
       message: error.message || 'Tải tệp lên Cloudflare R2 thất bại.',
     });
+  }
+});
+
+// Admin: Get a presigned URL for direct client-side upload (bypass 413 limits)
+router.get('/get-upload-url', protect, async (req, res) => {
+  try {
+    const { fileName, mimeType, folder } = req.query;
+
+    if (!fileName || !mimeType) {
+      return res.status(400).json({ message: 'Thiếu thông tin fileName hoặc mimeType.' });
+    }
+
+    const { uploadUrl, publicUrl, fileKey } = await getPresignedUploadUrl({
+      fileName,
+      mimeType,
+      folder: folder || 'projects',
+    });
+
+    return res.json({ uploadUrl, publicUrl, fileKey });
+  } catch (error) {
+    console.error('❌ Presigned URL Error:', error);
+    return res.status(500).json({ message: 'Lỗi tạo đường dẫn tải lên.' });
   }
 });
 

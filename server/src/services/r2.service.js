@@ -1,6 +1,7 @@
 const path = require('path');
 const { randomUUID } = require('crypto');
 const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
+const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 
 const getR2Config = () => {
   const accountId = process.env.R2_ACCOUNT_ID;
@@ -86,7 +87,31 @@ const uploadBufferToR2 = async ({ buffer, originalName, mimeType, folder = 'proj
   return `${config.publicBaseUrl}/${fileKey}`;
 };
 
+const getPresignedUploadUrl = async ({ fileName, mimeType, folder = 'projects' }) => {
+  const config = getR2Config();
+  const client = getS3Client();
+  const ext = safeExtension(fileName, mimeType);
+  const cleanFolder = String(folder || 'projects').replace(/[^a-zA-Z0-9/_-]/g, '');
+  const fileKey = `${cleanFolder}/${Date.now()}-${randomUUID()}${ext}`;
+
+  const command = new PutObjectCommand({
+    Bucket: config.bucket,
+    Key: fileKey,
+    ContentType: mimeType,
+  });
+
+  // URL expires in 1 hour (3600 seconds)
+  const signedUrl = await getSignedUrl(client, command, { expiresIn: 3600 });
+
+  return {
+    uploadUrl: signedUrl,
+    publicUrl: `${config.publicBaseUrl}/${fileKey}`,
+    fileKey,
+  };
+};
+
 module.exports = {
   uploadBufferToR2,
   uploadImageBufferToR2: uploadBufferToR2, // Alias for backward compatibility
+  getPresignedUploadUrl,
 };
