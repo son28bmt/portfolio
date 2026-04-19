@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
+const rateLimit = require('express-rate-limit');
 const Project = require('../models/Project');
 const { protect } = require('../middleware/auth.middleware');
 const { uploadBufferToR2 } = require('../services/r2.service');
