@@ -254,7 +254,30 @@ router.get('/', async (req, res) => {
     });
 
     res.json({
-      items: rows.map(normalizeProjectRecord),
+      items: await Promise.all(rows.map(async (project) => {
+        // Lazy slug generation for legacy projects
+        if (!project.slug && project.title) {
+          const generatedSlug = project.title
+            .toLowerCase()
+            .trim()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/[đĐ]/g, 'd')
+            .replace(/\s+/g, '-')
+            .replace(/[^\w-]+/g, '')
+            .replace(/--+/g, '-')
+            .replace(/^-+/, '')
+            .replace(/-+$/, '');
+          
+          try {
+            project.slug = generatedSlug;
+            await project.save();
+          } catch (e) {
+            console.error('Lazy slug failed:', e.message);
+          }
+        }
+        return normalizeProjectRecord(project);
+      })),
       total: count,
       page,
       totalPages: Math.ceil(count / limit)

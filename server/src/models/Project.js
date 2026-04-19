@@ -5,12 +5,15 @@ const slugify = (text) => {
   return text
     .toString()
     .toLowerCase()
+    .normalize('NFD') // Separate accents from characters
+    .replace(/[\u0300-\u036f]/g, '') // Remove accents
+    .replace(/[đĐ]/g, 'd')
     .trim()
     .replace(/\s+/g, '-') // Replace spaces with -
-    .replace(/[^\w-]+/g, '') // Remove all non-word chars
-    .replace(/--+/g, '-') // Replace multiple - with single -
-    .replace(/^-+/, '') // Trim - from start of text
-    .replace(/-+$/, ''); // Trim - from end of text
+    .replace(/[^\w-]+/g, '') // Remove remaining non-word chars
+    .replace(/--+/g, '-') // Avoid multiple dashes
+    .replace(/^-+/, '') // Trim dash from start
+    .replace(/-+$/, ''); // Trim dash from end
 };
 
 const Project = sequelize.define('Project', {
