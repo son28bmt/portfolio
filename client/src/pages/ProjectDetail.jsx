@@ -168,8 +168,8 @@ const ProjectDetail = () => {
             )}
           </div>
 
-          {/* Right Column: Content */}
-          <div className="lg:col-span-5 space-y-8">
+          {/* Right Column: Key Info & Small Stats */}
+          <div className="lg:col-span-5 flex flex-col justify-between">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -179,7 +179,7 @@ const ProjectDetail = () => {
                  <div className="px-3 py-1 bg-primary/10 border border-primary/20 rounded-full text-[10px] font-black uppercase tracking-widest text-primary">
                    {project.category}
                  </div>
-                 <div className="flex items-center gap-1.5 text-white/30 text-xs">
+                 <div className="flex items-center gap-1.5 text-white/30 text-xs text-nowrap">
                    <Calendar className="w-3 h-3" />
                    <span>{new Date(project.updatedAt).toLocaleDateString('vi-VN', { year: 'numeric', month: 'long' })}</span>
                  </div>
@@ -187,7 +187,7 @@ const ProjectDetail = () => {
 
               <h1 className="text-4xl md:text-5xl font-black mb-6 leading-tight">{project.title}</h1>
               
-              <div className="glass p-6 rounded-3xl border border-white/5 space-y-4">
+              <div className="glass p-6 rounded-3xl border border-white/5 space-y-4 mb-8">
                  <div className="flex items-center gap-2 text-white/60 mb-2">
                    <Tag className="w-4 h-4 text-secondary" />
                    <span className="text-xs font-bold uppercase tracking-wider">Tech Stack</span>
@@ -200,103 +200,118 @@ const ProjectDetail = () => {
                    ))}
                  </div>
               </div>
-            </motion.div>
 
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
-              className="prose prose-invert max-w-none"
-            >
-               <h3 className="text-lg font-bold flex items-center gap-2 mb-4">
-                 Chi tiết dự án
-               </h3>
-               <p className="text-white/70 leading-relaxed text-lg mb-8 whitespace-pre-wrap">{project.description}</p>
-            </motion.div>
+              {/* Actions Box */}
+              <div className="space-y-4">
+                <div className="flex flex-wrap gap-4">
+                  {project.demo && (
+                    <a
+                      href={project.demo}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex-grow flex items-center justify-center gap-2 px-8 py-4 bg-primary text-white rounded-2xl font-bold hover:scale-[1.02] active:scale-[0.98] transition-all shadow-xl shadow-primary/20 glow"
+                    >
+                      <Globe className="w-5 h-5" />
+                      Xem Website
+                    </a>
+                  )}
+                  
+                  <button
+                    onClick={handleShare}
+                    className="px-8 py-4 bg-white/5 border border-white/10 text-white rounded-2xl font-bold hover:bg-white/10 transition-all flex items-center gap-2 group"
+                  >
+                    <Share2 className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                    <span>Chia sẻ</span>
+                  </button>
+                </div>
 
-            {/* Actions */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.4 }}
-              className="space-y-4 pt-6"
-            >
-              <div className="flex flex-wrap gap-4">
-                {project.demo && (
+                {project.github && (
                   <a
-                    href={project.demo}
+                    href={project.github}
                     target="_blank"
                     rel="noreferrer"
-                    className="flex-grow flex items-center justify-center gap-2 px-8 py-4 bg-primary text-white rounded-2xl font-bold hover:scale-[1.02] active:scale-[0.98] transition-all shadow-xl shadow-primary/20 glow"
+                    className="flex items-center justify-center gap-3 px-6 py-4 bg-white text-black rounded-2xl font-bold hover:scale-[1.02] transition-all"
                   >
-                    <Globe className="w-5 h-5" />
-                    Xem Website
-                  </a>
-                )}
-                
-                <button
-                  onClick={handleShare}
-                  className="px-8 py-4 bg-white/5 border border-white/10 text-white rounded-2xl font-bold hover:bg-white/10 transition-all flex items-center gap-2 group"
-                >
-                  <Share2 className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                  <span>Chia sẻ link</span>
-                </button>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {project.apkUrl && (
-                  <a
-                    href={`${import.meta.env.VITE_API_BASE_URL || 'https://api.nguyenquangson.id.vn/api'}/projects/${project.id}/download/apk`}
-                    className="flex items-center justify-center gap-3 px-6 py-4 bg-green-600/20 border border-green-500/30 text-green-400 rounded-2xl font-bold hover:bg-green-600/30 transition-all"
-                  >
-                    <Smartphone className="w-5 h-5" />
-                    Tải Android APK
-                  </a>
-                )}
-                {project.iosUrl && (
-                  <a
-                    href={`${import.meta.env.VITE_API_BASE_URL || 'https://api.nguyenquangson.id.vn/api'}/projects/${project.id}/download/ios`}
-                    className="flex items-center justify-center gap-3 px-6 py-4 bg-blue-600/20 border border-blue-500/30 text-blue-400 rounded-2xl font-bold hover:bg-blue-600/30 transition-all"
-                  >
-                    <Smartphone className="w-5 h-5" />
-                    Tải iOS (IPA)
+                    <Github className="w-5 h-5" />
+                    Mã nguồn GitHub
                   </a>
                 )}
               </div>
-
-              {project.github && (
-                <a
-                  href={project.github}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center justify-center gap-3 px-6 py-4 bg-white text-black rounded-2xl font-bold hover:scale-[1.02] transition-all"
-                >
-                  <Github className="w-5 h-5" />
-                  Browse GitHub Source
-                </a>
-              )}
-            </motion.div>
-
-            {/* Quick Link Card */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.5 }}
-              className="p-4 bg-white/[0.02] border border-white/5 rounded-2xl flex items-center justify-between gap-4"
-            >
-              <div className="flex flex-col gap-0.5 truncate">
-                 <span className="text-[10px] font-bold text-white/30 uppercase">Đường dẫn chi tiết</span>
-                 <span className="text-xs text-primary truncate font-mono">{window.location.href}</span>
-              </div>
-              <button 
-                onClick={copyToClipboard}
-                className="shrink-0 p-3 bg-white/5 hover:bg-white/10 rounded-xl transition-all"
-                title="Copy Link"
-              >
-                {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4 text-white/40" />}
-              </button>
             </motion.div>
           </div>
+        </div>
+
+        {/* Full Width Bottom Section: Description & Downloads */}
+        <div className="mt-16 grid grid-cols-1 lg:grid-cols-12 gap-12 pt-16 border-t border-white/5">
+          {/* Main Description */}
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="lg:col-span-8 space-y-6"
+          >
+            <h3 className="text-2xl font-black flex items-center gap-3">
+              <div className="w-8 h-1 bg-primary rounded-full" />
+              Chi tiết dự án
+            </h3>
+            <div className="prose prose-invert max-w-none">
+               <p className="text-white/70 leading-relaxed text-lg whitespace-pre-wrap">{project.description}</p>
+            </div>
+          </motion.div>
+
+          {/* Download & Sidebar Info */}
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+            viewport={{ once: true }}
+            className="lg:col-span-4 space-y-8"
+          >
+            {(project.apkUrl || project.iosUrl) && (
+              <div className="glass p-8 rounded-[40px] border border-white/10 space-y-6">
+                <h4 className="font-black text-sm uppercase tracking-widest text-white/40">Tải ứng dụng</h4>
+                <div className="space-y-4">
+                  {project.apkUrl && (
+                    <a
+                      href={`${import.meta.env.VITE_API_BASE_URL || 'https://api.nguyenquangson.id.vn/api'}/projects/${project.id}/download/apk`}
+                      className="flex items-center justify-between p-4 bg-green-600/10 border border-green-500/20 text-green-400 rounded-2xl hover:bg-green-600/20 transition-all group"
+                    >
+                      <div className="flex items-center gap-3">
+                        <Smartphone className="w-5 h-5" />
+                        <span className="font-bold">Android APK</span>
+                      </div>
+                      <ArrowLeft className="w-4 h-4 rotate-180 opacity-0 group-hover:opacity-100 transition-all" />
+                    </a>
+                  )}
+                  {project.iosUrl && (
+                    <a
+                      href={`${import.meta.env.VITE_API_BASE_URL || 'https://api.nguyenquangson.id.vn/api'}/projects/${project.id}/download/ios`}
+                      className="flex items-center justify-between p-4 bg-blue-600/10 border border-blue-500/20 text-blue-400 rounded-2xl hover:bg-blue-600/20 transition-all group"
+                    >
+                      <div className="flex items-center gap-3">
+                        <Smartphone className="w-5 h-5" />
+                        <span className="font-bold">iOS (IPA)</span>
+                      </div>
+                      <ArrowLeft className="w-4 h-4 rotate-180 opacity-0 group-hover:opacity-100 transition-all" />
+                    </a>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div className="p-6 bg-white/[0.02] border border-white/5 rounded-3xl flex flex-col gap-3">
+               <span className="text-[10px] font-bold text-white/30 uppercase tracking-widest">Đường dẫn chia sẻ</span>
+               <div className="flex items-center justify-between gap-4">
+                 <span className="text-xs text-primary truncate font-mono">{window.location.href}</span>
+                 <button 
+                  onClick={copyToClipboard}
+                  className="shrink-0 p-2 bg-white/5 hover:bg-white/10 rounded-xl transition-all"
+                >
+                  {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4 text-white/40" />}
+                </button>
+               </div>
+            </div>
+          </motion.div>
+        </div>
         </div>
       </div>
     </div>
