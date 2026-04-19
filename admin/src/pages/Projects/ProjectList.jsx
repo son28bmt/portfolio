@@ -5,6 +5,7 @@ import {
   FolderKanban, 
   Plus, 
   Search, 
+  Edit,
   Trash2, 
   ExternalLink,
   Download,
