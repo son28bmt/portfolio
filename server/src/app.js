@@ -84,8 +84,8 @@ const globalLimiter = rateLimit({
 
 app.use(globalLimiter);
 
-// Sync Database (Forcefully for initialization if needed, but usually sequelize.sync() is enough)
-// sequelize.sync();
+// Sync Database
+sequelize.sync({ alter: true });
 
 // CORS moved to top
 const captureRawBody = (req, res, buf) => {

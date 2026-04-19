@@ -10,6 +10,8 @@ const rateLimit = require('express-rate-limit');
 const orderLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, 
   max: 10, 
+  keyGenerator: (req) => req.ip,
+  validate: { default: false },
   message: { message: 'Bạn đã tạo quá nhiều đơn hàng (limit 10/h). Vui lòng thử lại sau!' }
 });
 

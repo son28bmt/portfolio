@@ -8,6 +8,8 @@ const { verifyTurnstile } = require('../middleware/turnstile.middleware');
 const contactLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 giờ
   max: 5, // Tối đa 5 tin nhắn mỗi IP mỗi giờ
+  keyGenerator: (req) => req.ip,
+  validate: { default: false },
   message: { message: 'Bạn đã gửi quá nhiều tin nhắn. Vui lòng đợi 1 tiếng nữa nhé!' }
 });
 

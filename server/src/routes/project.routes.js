@@ -257,20 +257,18 @@ router.get('/', async (req, res) => {
       items: await Promise.all(rows.map(async (project) => {
         // Lazy slug generation for legacy projects
         if (!project.slug && project.title) {
-          const generatedSlug = project.title
-            .toLowerCase()
-            .trim()
-            .normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, '')
-            .replace(/[đĐ]/g, 'd')
-            .replace(/\s+/g, '-')
-            .replace(/[^\w-]+/g, '')
-            .replace(/--+/g, '-')
-            .replace(/^-+/, '')
-            .replace(/-+$/, '');
-          
           try {
-            project.slug = generatedSlug;
+            project.slug = project.title
+              .toLowerCase()
+              .trim()
+              .normalize('NFD')
+              .replace(/[\u0300-\u036f]/g, '')
+              .replace(/[đĐ]/g, 'd')
+              .replace(/\s+/g, '-')
+              .replace(/[^\w-]+/g, '')
+              .replace(/--+/g, '-')
+              .replace(/^-+/, '')
+              .replace(/-+$/, '');
             await project.save();
           } catch (e) {
             console.error('Lazy slug failed:', e.message);
@@ -283,7 +281,8 @@ router.get('/', async (req, res) => {
       totalPages: Math.ceil(count / limit)
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error('❌ CRITICAL ERROR FETCHING PROJECTS:', error);
+    res.status(500).json({ message: error.message || 'Lỗi hệ thống khi tải danh sách dự án.' });
   }
 });
 

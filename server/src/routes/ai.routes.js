@@ -166,6 +166,8 @@ const aiLimiter = rateLimit({
   max: 30, 
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: (req) => req.ip,
+  validate: { default: false },
   handler: (req, res) => {
     return res.status(429).json({
       error: 'Hệ thống AI đang quá tải hoặc bạn đã sử dụng quá mức 30 lượt/giờ. Vui lòng đợi một lát rồi quay lại nhé!',
