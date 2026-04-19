@@ -8,7 +8,7 @@ const api = axios.create({
   baseURL: API_BASE_URL,
 });
 
-const normalizeRequestUrl = (url = '') => {
+const normalizeRequestUrl = (url = '', method = 'get') => {
   if (!url) return url;
   if (/^https?:\/\//i.test(url)) return url;
 
@@ -22,7 +22,8 @@ const normalizeRequestUrl = (url = '') => {
   normalizedPath = normalizedPath.replace(/\/{2,}/g, '/');
 
   // Some proxy rules on production return 301 for non-trailing-slash API paths.
-  if (normalizedPath !== '/' && !normalizedPath.endsWith('/')) {
+  // We ONLY add trailing slash for GET requests to avoid breaking POST/PUT/DELETE multipart uploads.
+  if (method.toLowerCase() === 'get' && normalizedPath !== '/' && !normalizedPath.endsWith('/')) {
     normalizedPath += '/';
   }
 
@@ -36,7 +37,7 @@ api.interceptors.request.use((config) => {
     config.headers.Authorization = `Bearer ${token}`;
   }
 
-  config.url = normalizeRequestUrl(config.url);
+  config.url = normalizeRequestUrl(config.url, config.method);
   return config;
 });
 

@@ -23,24 +23,6 @@ const app = express();
 app.set('trust proxy', 1);
 const PORT = process.env.PORT || 5000;
 
-// Connect to Database
-connectDB();
-
-// Global Rate Limiter: 200 requests per 15 minutes
-// Protects the server against DDoS and excessive auto-polling
-const globalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 200,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { message: 'Hệ thống bảo vệ từ chối: IP của bạn đã gửi quá nhiều yêu cầu. Vui lòng quay lại sau 15 phút.' }
-});
-
-app.use(globalLimiter);
-
-// Sync Database (Forcefully for initialization if needed, but usually sequelize.sync() is enough)
-// sequelize.sync();
-
 // Middleware
 const allowedOrigins = (process.env.CORS_ORIGINS || [
   'https://nguyenquangson.id.vn',
@@ -65,6 +47,27 @@ const corsOptions = {
 };
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
+
+// Connect to Database
+connectDB();
+
+// Global Rate Limiter: 200 requests per 15 minutes
+// Protects the server against DDoS and excessive auto-polling
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 200,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Hệ thống bảo vệ từ chối: IP của bạn đã gửi quá nhiều yêu cầu. Vui lòng quay lại sau 15 phút.' },
+  skip: (req) => req.method === 'OPTIONS',
+});
+
+app.use(globalLimiter);
+
+// Sync Database (Forcefully for initialization if needed, but usually sequelize.sync() is enough)
+// sequelize.sync();
+
+// CORS moved to top
 const captureRawBody = (req, res, buf) => {
   if (buf && buf.length) {
     req.rawBody = buf.toString('utf8');
