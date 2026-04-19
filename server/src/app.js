@@ -27,12 +27,13 @@ app.set('trust proxy', 1);
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
-      ...helmet.contentSecurityPolicy.getDefaultDirectives(),
-      "script-src": ["'self'", "'unsafe-inline'", "https://challenges.cloudflare.com", "blob:"],
+      "default-src": ["'self'"],
+      "script-src": ["'self'", "https://challenges.cloudflare.com", "'unsafe-inline'"],
       "frame-src": ["'self'", "https://challenges.cloudflare.com"],
-      "img-src": ["'self'", "data:", "https://*.dev", "https://*.cloudflarestorage.com", "https://*.r2.dev", "https://api.nguyenquangson.id.vn", "https://nguyenquangson.id.vn"],
-      "connect-src": ["'self'", "https://challenges.cloudflare.com", "wss://api.nguyenquangson.id.vn", "https://api.nguyenquangson.id.vn", "http://localhost:*", "ws://localhost:*"],
-      "worker-src": ["'self'", "blob:", "https://challenges.cloudflare.com"],
+      "connect-src": ["'self'", "https://challenges.cloudflare.com", "wss://api.nguyenquangson.id.vn", "https://api.nguyenquangson.id.vn"],
+      "img-src": ["'self'", "data:", "https:"],
+      "style-src": ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      "font-src": ["'self'", "data:", "https://fonts.gstatic.com"],
     },
   },
   crossOriginResourcePolicy: { policy: "cross-origin" }
@@ -41,15 +42,15 @@ app.use(helmet({
 const PORT = process.env.PORT || 5000;
 
 // 2. CORS & Other Middlewares
-const allowedOrigins = (process.env.CORS_ORIGINS || [
-  'https://nguyenquangson.id.vn',
-  'https://admin.nguyenquangson.id.vn',
-  'http://localhost:5173',
-  'http://localhost:5174'
-].join(','))
-  .split(',')
-  .map((v) => v.trim())
-  .filter(Boolean);
+const allowedOrigins = (process.env.CORS_ORIGINS 
+  ? process.env.CORS_ORIGINS.split(',') 
+  : [
+      'https://nguyenquangson.id.vn',
+      'https://admin.nguyenquangson.id.vn',
+      'http://localhost:5173',
+      'http://localhost:5174'
+    ]
+).map((v) => v.trim()).filter(Boolean);
 
 const corsOptions = {
   origin(origin, callback) {

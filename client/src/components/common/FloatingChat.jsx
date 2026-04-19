@@ -17,7 +17,7 @@ import api from '../../services/api';
 import { io } from 'socket.io-client';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Turnstile } from '@marsidev/react-turnstile';
+// import { Turnstile } from '@marsidev/react-turnstile';
 
 const AI_CHAT_HISTORY_KEY = 'global_floating_ai_chat_history_v1';
 const MAX_CHAT_HISTORY_MESSAGES = 50;
@@ -155,6 +155,32 @@ const FloatingChat = () => {
       if (socketRef.current) socketRef.current.disconnect();
     };
   }, [guestId, activeTab, isOpen]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (!isOpen || activeTab !== 'ai') return;
+
+    let widgetId = null;
+    const interval = setInterval(() => {
+      if (window.turnstile) {
+        clearInterval(interval);
+        // Using a slight delay to ensure the container is in the DOM
+        widgetId = window.turnstile.render('#turnstile-floating', {
+          sitekey: import.meta.env.VITE_TURNSTILE_SITE_KEY || '1x00000000000000000000AA',
+          theme: 'dark',
+          size: 'compact',
+          callback: (token) => setTurnstileToken(token),
+        });
+      }
+    }, 500);
+
+    return () => {
+      if (widgetId && window.turnstile) {
+        window.turnstile.remove(widgetId);
+      }
+      clearInterval(interval);
+    };
+  }, [isOpen, activeTab]);
 
   const handleAiSend = async (e) => {
     e.preventDefault();
@@ -378,11 +404,7 @@ const FloatingChat = () => {
               <div className="p-4 md:p-6 border-t border-white/5 bg-white/[0.03] shrink-0">
                 {activeTab === 'ai' && (
                    <div className="flex justify-center mb-4 scale-[0.7] md:scale-[0.8] origin-bottom opacity-40">
-                      <Turnstile 
-                        ref={turnstileRef}
-                        siteKey={import.meta.env.VITE_TURNSTILE_SITE_KEY || '1x00000000000000000000AA'}
-                        onSuccess={setTurnstileToken}
-                      />
+                      <div id="turnstile-floating" />
                    </div>
                 )}
                 
