@@ -22,10 +22,24 @@ const { initSocket } = require('./services/socket.service');
 
 const app = express();
 app.set('trust proxy', 1);
+
+// 1. Security Headers (MUST be first)
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+      "script-src": ["'self'", "'unsafe-inline'", "https://challenges.cloudflare.com"],
+      "frame-src": ["'self'", "https://challenges.cloudflare.com"],
+      "img-src": ["'self'", "data:", "https://*.dev", "https://*.cloudflarestorage.com", "https://*.r2.dev", "https://api.nguyenquangson.id.vn", "https://nguyenquangson.id.vn"],
+      "connect-src": ["'self'", "https://challenges.cloudflare.com", "wss://api.nguyenquangson.id.vn", "https://api.nguyenquangson.id.vn", "http://localhost:*", "ws://localhost:*"],
+    },
+  },
+  crossOriginResourcePolicy: { policy: "cross-origin" }
+}));
+
 const PORT = process.env.PORT || 5000;
 
-// Middleware
-const allowedOrigins = (process.env.CORS_ORIGINS || [
+// 2. CORS & Other Middlewares
   'https://nguyenquangson.id.vn',
   'https://admin.nguyenquangson.id.vn',
   'http://localhost:5173',
@@ -48,20 +62,8 @@ const corsOptions = {
 };
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      ...helmet.contentSecurityPolicy.getDefaultDirectives(),
-      "script-src": ["'self'", "'unsafe-inline'", "https://challenges.cloudflare.com"],
-      "frame-src": ["'self'", "https://challenges.cloudflare.com"],
-      "img-src": ["'self'", "data:", "https://*.dev", "https://*.cloudflarestorage.com", "https://*.r2.dev", "https://api.nguyenquangson.id.vn"],
-      "connect-src": ["'self'", "https://challenges.cloudflare.com", "wss://api.nguyenquangson.id.vn", "https://api.nguyenquangson.id.vn", "http://localhost:*", "ws://localhost:*"],
-    },
-  },
-  crossOriginResourcePolicy: { policy: "cross-origin" }
-}));
 
-// Connect to Database
+// 3. Database Connection
 connectDB();
 
 // Global Rate Limiter: 200 requests per 15 minutes
