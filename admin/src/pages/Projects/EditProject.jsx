@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '../../services/api';
-import { ArrowLeft, Save, Image as ImageIcon, Github, Globe, Upload, X } from 'lucide-react';
+import { ArrowLeft, Save, Image as ImageIcon, Github, Globe, Upload, X, Download } from 'lucide-react';
 
 const toArray = (value) => {
   if (Array.isArray(value)) {
