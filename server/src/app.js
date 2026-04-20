@@ -92,8 +92,8 @@ const captureRawBody = (req, res, buf) => {
   }
 };
 
-app.use(express.json({ limit: '5mb', verify: captureRawBody }));
-app.use(express.urlencoded({ limit: '5mb', extended: true, verify: captureRawBody }));
+app.use(express.json({ limit: '200mb', verify: captureRawBody }));
+app.use(express.urlencoded({ limit: '200mb', extended: true, verify: captureRawBody }));
 app.use(morgan('dev'));
  
 app.use((req, res, next) => {
