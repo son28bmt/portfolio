@@ -63,8 +63,14 @@ const staticUrlEntries = (siteUrl) => [
   { loc: buildAbsoluteUrl(siteUrl, '/du-an'), changefreq: 'daily', priority: '0.9' },
   { loc: buildAbsoluteUrl(siteUrl, '/blog'), changefreq: 'daily', priority: '0.9' },
   { loc: buildAbsoluteUrl(siteUrl, '/lien-he'), changefreq: 'monthly', priority: '0.7' },
+  { loc: buildAbsoluteUrl(siteUrl, '/cua-hang'), changefreq: 'weekly', priority: '0.8' },
   { loc: buildAbsoluteUrl(siteUrl, '/donate'), changefreq: 'weekly', priority: '0.8' },
+  { loc: buildAbsoluteUrl(siteUrl, '/dieu-khoan'), changefreq: 'yearly', priority: '0.4' },
+  { loc: buildAbsoluteUrl(siteUrl, '/bao-mat'), changefreq: 'yearly', priority: '0.4' },
   { loc: buildAbsoluteUrl(siteUrl, '/playground'), changefreq: 'weekly', priority: '0.8' },
+  { loc: buildAbsoluteUrl(siteUrl, '/playground/chat'), changefreq: 'weekly', priority: '0.8' },
+  { loc: buildAbsoluteUrl(siteUrl, '/playground/subtitle'), changefreq: 'weekly', priority: '0.7' },
+  { loc: buildAbsoluteUrl(siteUrl, '/playground/tts'), changefreq: 'weekly', priority: '0.7' },
 ];
 
 const buildUrlNode = (entry) => {

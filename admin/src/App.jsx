@@ -9,6 +9,7 @@ import EditProject from './pages/Projects/EditProject';
 import BlogList from './pages/Blog/BlogList';
 import AddBlog from './pages/Blog/AddBlog';
 import EditBlog from './pages/Blog/EditBlog';
+import AutomationBlog from './pages/Blog/AutomationBlog';
 import AISettings from './pages/AI/AISettings';
 import Messages from './pages/Contact/Messages';
 import LiveChat from './pages/LiveChat';
@@ -67,6 +68,7 @@ function App() {
       <Route path="/blog" element={<ProtectedRoute><BlogList /></ProtectedRoute>} />
       <Route path="/blog/add" element={<ProtectedRoute><AddBlog /></ProtectedRoute>} />
       <Route path="/blog/edit/:id" element={<ProtectedRoute><EditBlog /></ProtectedRoute>} />
+      <Route path="/blog/automation" element={<ProtectedRoute><AutomationBlog /></ProtectedRoute>} />
       <Route path="/ai-settings" element={<ProtectedRoute><AISettings /></ProtectedRoute>} />
       <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
       <Route path="/live-chat" element={<ProtectedRoute><LiveChat /></ProtectedRoute>} />

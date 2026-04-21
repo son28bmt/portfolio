@@ -6,10 +6,11 @@ const fs = require('fs');
 const path = require('path');
 require('dotenv').config();
 const rateLimit = require('express-rate-limit');
-const { connectDB, sequelize } = require('./config/db');
+const { connectDB } = require('./config/db');
 const authRoutes = require('./routes/auth.routes');
 const projectRoutes = require('./routes/project.routes');
 const blogRoutes = require('./routes/blog.routes');
+const blogAutomationRoutes = require('./routes/blog-automation.routes');
 const contactRoutes = require('./routes/contact.routes');
 const aiRoutes = require('./routes/ai.routes');
 const seoRoutes = require('./routes/seo.routes');
@@ -19,6 +20,7 @@ const marketplaceRoutes = require('./routes/marketplace.routes');
 const chatRoutes = require('./routes/chat.routes');
 const http = require('http');
 const { initSocket } = require('./services/socket.service');
+const { startBlogAutomationScheduler } = require('./services/blog-automation.service');
 
 const app = express();
 app.set('trust proxy', 1);
@@ -83,9 +85,6 @@ const globalLimiter = rateLimit({
 
 app.use(globalLimiter);
 
-// Sync Database
-sequelize.sync();
-
 const captureRawBody = (req, res, buf) => {
   if (buf && buf.length) {
     req.rawBody = buf.toString('utf8');
@@ -116,6 +115,7 @@ app.use('/api/chat', chatRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/blog', blogRoutes);
+app.use('/api/blog-auto', blogAutomationRoutes);
 app.use('/api/contact', contactRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/donate', donateRoutes);
@@ -151,6 +151,7 @@ app.use((err, req, res, next) => {
 // Setup Server and WebSockets
 const server = http.createServer(app);
 initSocket(server, corsOptions);
+startBlogAutomationScheduler();
 
 // Start Server
 server.listen(PORT, () => {

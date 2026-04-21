@@ -2,3 +2,4 @@ User-agent: *
 Allow: /
 
 Sitemap: https://nguyenquangson.id.vn/sitemap.xml
+Sitemap: https://api.nguyenquangson.id.vn/sitemap.xml

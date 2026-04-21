@@ -225,6 +225,7 @@ router.post("/config", protect, async (req, res) => {
     modelClaude,
     modelGrok,
     modelDeepseek,
+    imageModel,
     systemPrompt,
   } = req.body;
   console.log("--- [ADMIN] SAVING AI CONFIG ---");
@@ -234,13 +235,14 @@ router.post("/config", protect, async (req, res) => {
 
     const configs = [
       { key: "ai_apiKey", value: apiKey },
-      { key: "ai_baseUrl", value: baseUrl || "https://api.openai.com/v1" },
+      { key: "ai_baseUrl", value: String(baseUrl || "").trim() },
       { key: "ai_model", value: safeChatgptModel },
       { key: "ai_model_chatgpt", value: safeChatgptModel },
       { key: "ai_model_gemini", value: modelGemini || "" },
       { key: "ai_model_claude", value: modelClaude || "" },
       { key: "ai_model_grok", value: modelGrok || "" },
       { key: "ai_model_deepseek", value: modelDeepseek || "" },
+      { key: "ai_image_model", value: imageModel || "gpt-image-1" },
       { key: "ai_systemPrompt", value: systemPrompt },
     ];
 

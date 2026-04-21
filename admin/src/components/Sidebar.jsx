@@ -11,7 +11,8 @@ import {
   Gift,
   ShoppingBag,
   Headphones,
-  X
+  X,
+  Bot,
 } from 'lucide-react';
 
 const Sidebar = ({ isOpen, onClose }) => {
@@ -28,6 +29,7 @@ const Sidebar = ({ isOpen, onClose }) => {
     { icon: Headphones, label: 'Hỗ trợ trực tuyến', path: '/live-chat' },
     { icon: FolderKanban, label: 'Dự án', path: '/projects' },
     { icon: FileText, label: 'Blog', path: '/blog' },
+    { icon: Bot, label: 'Blog tự động', path: '/blog/automation' },
     { icon: MessageSquare, label: 'Tin nhắn', path: '/messages' },
     { icon: Gift, label: 'Donate', path: '/donate' },
     { icon: ShoppingBag, label: 'Chợ số', path: '/marketplace' },
@@ -35,13 +37,13 @@ const Sidebar = ({ isOpen, onClose }) => {
   ];
 
   return (
-    <div 
+    <div
       className={`fixed inset-y-0 left-0 z-50 w-64 h-screen bg-surface border-r border-white/5 flex flex-col p-6 transition-transform duration-300 transform 
       ${isOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'} 
       lg:translate-x-0 lg:static lg:shadow-none`}
     >
-      <button 
-        onClick={onClose} 
+      <button
+        onClick={onClose}
         className="lg:hidden absolute top-4 right-4 p-2 text-white/50 hover:text-white rounded-lg hover:bg-white/5"
       >
         <X className="w-5 h-5" />
@@ -57,12 +59,16 @@ const Sidebar = ({ isOpen, onClose }) => {
           <NavLink
             key={item.path}
             to={item.path}
-            onClick={() => { if (onClose) onClose(); }}
+            onClick={() => {
+              if (onClose) onClose();
+            }}
             className={({ isActive }) => `
               flex items-center gap-4 px-4 py-3 rounded-xl text-sm font-medium transition-all
-              ${isActive
-                ? 'bg-primary/10 text-primary border border-primary/20'
-                : 'text-white/40 hover:text-white hover:bg-white/5'}
+              ${
+                isActive
+                  ? 'bg-primary/10 text-primary border border-primary/20'
+                  : 'text-white/40 hover:text-white hover:bg-white/5'
+              }
             `}
           >
             <item.icon className="w-5 h-5" />

@@ -40,16 +40,25 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Add error logging
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    console.error("❌ Admin API Error:", {
+    const detailMessage =
+      error?.response?.data?.message ||
+      error?.response?.data?.error ||
+      error?.message;
+
+    console.error("Admin API Error:", {
       url: error.config?.url,
       method: error.config?.method,
       status: error.response?.status,
       data: error.response?.data,
     });
+
+    if (detailMessage) {
+      console.error("Admin API Message:", detailMessage);
+    }
+
     return Promise.reject(error);
   },
 );

@@ -10,6 +10,8 @@ const Message = require('./Message');
 const Setting = require('./Setting');
 const Donation = require('./Donation');
 const LiveChatMessage = require('./LiveChatMessage');
+const BlogAutomationRule = require('./BlogAutomationRule');
+const BlogAutomationJob = require('./BlogAutomationJob');
 
 // Associations
 Category.hasMany(Product, { foreignKey: 'categoryId', as: 'products' });
@@ -24,6 +26,27 @@ Order.belongsTo(Product, { foreignKey: 'productId', as: 'product' });
 StockItem.hasMany(Order, { foreignKey: 'stockItemId', as: 'orders' });
 Order.belongsTo(StockItem, { foreignKey: 'stockItemId', as: 'stockItem' });
 
+BlogAutomationRule.hasMany(BlogAutomationJob, {
+  foreignKey: 'ruleId',
+  as: 'jobs',
+  constraints: false,
+});
+BlogAutomationJob.belongsTo(BlogAutomationRule, {
+  foreignKey: 'ruleId',
+  as: 'rule',
+  constraints: false,
+});
+Blog.hasMany(BlogAutomationJob, {
+  foreignKey: 'blogId',
+  as: 'automationJobs',
+  constraints: false,
+});
+BlogAutomationJob.belongsTo(Blog, {
+  foreignKey: 'blogId',
+  as: 'blog',
+  constraints: false,
+});
+
 module.exports = {
   Category,
   Product,
@@ -36,5 +59,7 @@ module.exports = {
   Message,
   Setting,
   Donation,
-  LiveChatMessage
+  LiveChatMessage,
+  BlogAutomationRule,
+  BlogAutomationJob,
 };
