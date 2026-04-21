@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const rateLimit = require('express-rate-limit');
+const axios = require('axios');
+const path = require('path');
 const Project = require('../models/Project');
 const { protect } = require('../middleware/auth.middleware');
 const { uploadBufferToR2, getPresignedUploadUrl } = require('../services/r2.service');
@@ -102,6 +104,75 @@ const normalizeProjectRecord = (project) => {
   };
 };
 
+const sanitizeExtension = (ext, fallback = '') => {
+  const value = String(ext || '').toLowerCase();
+  if (/^\.[a-z0-9]{1,8}$/.test(value)) return value;
+  return fallback;
+};
+
+const inferFileExtension = (fileUrl, fallbackExt) => {
+  const fallback = sanitizeExtension(fallbackExt, '.bin');
+  const raw = String(fileUrl || '').trim();
+  if (!raw) return fallback;
+
+  try {
+    const parsedUrl = new URL(raw, 'http://localhost');
+    const ext = sanitizeExtension(path.extname(parsedUrl.pathname));
+    return ext || fallback;
+  } catch {
+    const ext = sanitizeExtension(path.extname(raw.split('?')[0] || ''));
+    return ext || fallback;
+  }
+};
+
+const sanitizeBaseName = (value, fallback = 'download') => {
+  const base = String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9._-]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^[-._]+|[-._]+$/g, '');
+
+  const safe = (base || fallback).slice(0, 96);
+  return safe || fallback;
+};
+
+const getDownloadNameFromUrl = (fileUrl) => {
+  const raw = String(fileUrl || '').trim();
+  if (!raw) return '';
+  try {
+    const parsedUrl = new URL(raw, 'http://localhost');
+    return String(parsedUrl.searchParams.get('downloadName') || '').trim();
+  } catch {
+    return '';
+  }
+};
+
+const resolveDownloadUrl = (req, fileUrl) => {
+  const raw = String(fileUrl || '').trim();
+  if (!raw) return '';
+  if (/^https?:\/\//i.test(raw)) return raw;
+  if (raw.startsWith('//')) return `${req.protocol}:${raw}`;
+  const origin = `${req.protocol}://${req.get('host')}`;
+  return `${origin}${raw.startsWith('/') ? '' : '/'}${raw}`;
+};
+
+const buildDownloadFileName = ({ project, type, fileUrl }) => {
+  const defaultExt = type === 'apk' ? '.apk' : '.ipa';
+  const fromUrl = getDownloadNameFromUrl(fileUrl);
+
+  if (fromUrl) {
+    const parsed = path.parse(fromUrl);
+    const ext = sanitizeExtension(parsed.ext) || inferFileExtension(fileUrl, defaultExt);
+    const base = sanitizeBaseName(parsed.name, type === 'apk' ? 'android-app' : 'ios-app');
+    return `${base}${ext}`;
+  }
+
+  const ext = inferFileExtension(fileUrl, defaultExt);
+  const base = sanitizeBaseName(project?.title, type === 'apk' ? 'android-app' : 'ios-app');
+  return `${base}${ext}`;
+};
+
 const uploadFilesMiddleware = (req, res, next) => {
   upload.array('files', 12)(req, res, (err) => {
     if (!err) return next();
@@ -119,7 +190,27 @@ router.post('/upload-images', protect, uploadFilesMiddleware, async (req, res) =
   try {
     if (!req.files || req.files.length === 0) return res.status(400).json({ message: 'Bạn chưa chọn tệp để tải lên.' });
     const folder = req.body.folder || 'projects';
-    const urls = await Promise.all(req.files.map((file) => uploadBufferToR2({ buffer: file.buffer, originalName: file.originalname, mimeType: file.mimetype, folder })));
+    const isAppUpload = /^projects\/apps\//i.test(String(folder));
+    const urls = await Promise.all(
+      req.files.map(async (file) => {
+        const uploadedUrl = await uploadBufferToR2({
+          buffer: file.buffer,
+          originalName: file.originalname,
+          mimeType: file.mimetype,
+          folder,
+        });
+
+        if (!isAppUpload) return uploadedUrl;
+
+        try {
+          const urlObj = new URL(uploadedUrl);
+          urlObj.searchParams.set('downloadName', String(file.originalname || '').trim());
+          return urlObj.toString();
+        } catch {
+          return uploadedUrl;
+        }
+      })
+    );
     return res.status(201).json({ urls });
   } catch (error) {
     return res.status(501).json({ message: error.message || 'Tải tệp lên Cloudflare R2 thất bại.' });
@@ -160,7 +251,50 @@ router.get('/:id/download/:type', downloadLimiter, async (req, res) => {
     if (!/bot|crawl|spider/i.test(req.headers['user-agent'] || '')) {
       await Project.increment(type === 'apk' ? 'apkDownloadCount' : 'iosDownloadCount', { by: 1, where: { id } });
     }
-    return res.redirect(fileUrl.includes('?') ? `${fileUrl}&dl=1` : `${fileUrl}?dl=1`);
+    const targetUrl = resolveDownloadUrl(req, fileUrl);
+    if (!/^https?:\/\//i.test(targetUrl)) {
+      return res.status(400).json({ message: 'Link tải xuống không hợp lệ.' });
+    }
+
+    const downloadFileName = buildDownloadFileName({ project, type, fileUrl });
+    const encodedFileName = encodeURIComponent(downloadFileName)
+      .replace(/['()]/g, escape)
+      .replace(/\*/g, '%2A');
+
+    const upstream = await axios.get(targetUrl, {
+      responseType: 'stream',
+      timeout: 5 * 60 * 1000,
+      maxRedirects: 5,
+    });
+
+    const contentType = String(upstream.headers['content-type'] || '').trim() || 'application/octet-stream';
+    const contentLength = String(upstream.headers['content-length'] || '').trim();
+
+    res.setHeader('Content-Type', contentType);
+    if (contentLength) {
+      res.setHeader('Content-Length', contentLength);
+    }
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${downloadFileName}"; filename*=UTF-8''${encodedFileName}`
+    );
+    res.setHeader('Cache-Control', 'no-store');
+
+    upstream.data.on('error', (streamError) => {
+      console.error('❌ Download stream error:', streamError?.message || streamError);
+      if (!res.headersSent) {
+        return res.status(502).json({ message: 'Lỗi truy xuất file tải xuống.' });
+      }
+      res.destroy(streamError);
+    });
+
+    req.on('close', () => {
+      if (!req.complete) {
+        upstream.data.destroy();
+      }
+    });
+
+    return upstream.data.pipe(res);
   } catch (error) {
     console.error('❌ Download Track Error:', error);
     res.status(500).json({ message: 'Lỗi xử lý lượt tải.' });
