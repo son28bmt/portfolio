@@ -1,6 +1,7 @@
 const path = require("path");
 const { randomUUID } = require("crypto");
 const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
+const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
 
 const getR2Config = () => {
   const accountId = process.env.R2_ACCOUNT_ID;
@@ -72,6 +73,15 @@ const safeExtension = (fileName = "", mimeType = "") => {
   return fallbackMap[mimeType] || ".jpg";
 };
 
+const safeFolder = (folder = "projects") => {
+  const cleaned = String(folder || "projects")
+    .replace(/[^a-zA-Z0-9/_-]/g, "")
+    .replace(/\/{2,}/g, "/")
+    .replace(/^\/+|\/+$/g, "");
+
+  return cleaned || "projects";
+};
+
 const uploadBufferToR2 = async ({
   buffer,
   originalName,
@@ -81,10 +91,7 @@ const uploadBufferToR2 = async ({
   const config = getR2Config();
   const client = getS3Client();
   const ext = safeExtension(originalName, mimeType);
-  const cleanFolder = String(folder || "projects").replace(
-    /[^a-zA-Z0-9/_-]/g,
-    "",
-  );
+  const cleanFolder = safeFolder(folder);
   const fileKey = `${cleanFolder}/${Date.now()}-${randomUUID()}${ext}`;
 
   await client.send(
@@ -99,7 +106,40 @@ const uploadBufferToR2 = async ({
   return `${config.publicBaseUrl}/${fileKey}`;
 };
 
+const getPresignedUploadUrl = async ({
+  fileName,
+  mimeType,
+  folder = "projects",
+}) => {
+  const config = getR2Config();
+  const client = getS3Client();
+  const cleanFolder = safeFolder(folder);
+  const ext = safeExtension(fileName, mimeType);
+  const fileKey = `${cleanFolder}/${Date.now()}-${randomUUID()}${ext}`;
+  const expiresIn = Math.max(
+    60,
+    Number(process.env.R2_PRESIGN_EXPIRES_SECONDS || 900),
+  );
+
+  const uploadUrl = await getSignedUrl(
+    client,
+    new PutObjectCommand({
+      Bucket: config.bucket,
+      Key: fileKey,
+      ContentType: mimeType,
+    }),
+    { expiresIn },
+  );
+
+  return {
+    uploadUrl,
+    publicUrl: `${config.publicBaseUrl}/${fileKey}`,
+    fileKey,
+  };
+};
+
 module.exports = {
   uploadBufferToR2,
+  getPresignedUploadUrl,
   uploadImageBufferToR2: uploadBufferToR2, // Alias for backward compatibility
 };

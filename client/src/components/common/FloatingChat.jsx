@@ -22,6 +22,7 @@ import { Turnstile } from '@marsidev/react-turnstile';
 const AI_CHAT_HISTORY_KEY = 'global_floating_ai_chat_history_v1';
 const MAX_CHAT_HISTORY_MESSAGES = 50;
 const GUEST_ID_KEY = 'chat_guest_id';
+const GUEST_TOKEN_KEY = 'chat_guest_token_v1';
 
 const AI_WELCOME = {
   role: 'ai',
@@ -43,6 +44,7 @@ const FloatingChat = () => {
   const [activeTab, setActiveTab] = useState('ai'); // 'ai' or 'staff'
   const [isAdminOnline, setIsAdminOnline] = useState(false);
   const [guestId] = useState(getGuestId);
+  const [guestToken, setGuestToken] = useState(() => localStorage.getItem(GUEST_TOKEN_KEY) || '');
   
   // --- AI State ---
   const [aiMessages, setAiMessages] = useState(() => {
@@ -75,6 +77,12 @@ const FloatingChat = () => {
   useEffect(() => {
     localStorage.setItem(AI_CHAT_HISTORY_KEY, JSON.stringify(aiMessages.slice(-MAX_CHAT_HISTORY_MESSAGES)));
   }, [aiMessages]);
+
+  useEffect(() => {
+    if (guestToken) {
+      localStorage.setItem(GUEST_TOKEN_KEY, guestToken);
+    }
+  }, [guestToken]);
 
   // Scroll to bottom
   useEffect(() => {
@@ -122,21 +130,14 @@ const FloatingChat = () => {
       withCredentials: true
     });
 
-    socketRef.current.on('connect', () => {
-      socketRef.current.emit('join_chat', { guestId });
-    });
+    const loadStaffHistory = async (tokenOverride = '') => {
+      const token = tokenOverride || guestToken || localStorage.getItem(GUEST_TOKEN_KEY) || '';
+      if (!token) return;
 
-    socketRef.current.on('admin_status', ({ online }) => {
-      setIsAdminOnline(online);
-    });
-
-    socketRef.current.on('receive_admin_message', (data) => {
-      setStaffMessages(prev => [...prev, { role: 'admin', content: data.text, timestamp: data.timestamp || new Date() }]);
-    });
-
-    const loadStaffHistory = async () => {
       try {
-        const { data } = await api.get(`/chat/history/${guestId}`);
+        const { data } = await api.get(`/chat/history/${guestId}`, {
+          headers: { 'x-guest-token': token }
+        });
         setStaffMessages(data.map(m => ({ 
           role: m.role, 
           content: m.content, 
@@ -146,6 +147,28 @@ const FloatingChat = () => {
         console.error('Failed to load staff history:', err);
       }
     };
+
+    socketRef.current.on('connect', () => {
+      socketRef.current.emit('join_chat', { guestId });
+    });
+
+    socketRef.current.on('guest_session_token', (payload) => {
+      const token = String(payload?.token || '').trim();
+      if (!token) return;
+      setGuestToken(token);
+
+      if (isOpen && activeTab === 'staff') {
+        loadStaffHistory(token);
+      }
+    });
+
+    socketRef.current.on('admin_status', ({ online }) => {
+      setIsAdminOnline(online);
+    });
+
+    socketRef.current.on('receive_admin_message', (data) => {
+      setStaffMessages(prev => [...prev, { role: 'admin', content: data.text, timestamp: data.timestamp || new Date() }]);
+    });
 
     if (isOpen && activeTab === 'staff') {
       loadStaffHistory();

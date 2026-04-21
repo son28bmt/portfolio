@@ -33,7 +33,7 @@ router.get('/', protect, async (req, res) => {
     const messages = await Message.findAll({ order: [['createdAt', 'DESC']] });
     res.json(messages);
   } catch (error) {
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ message: error.message });
   }
 });
 

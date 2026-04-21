@@ -1,7 +1,16 @@
 const { LiveChatMessage } = require('../models');
 const { sequelize } = require('../config/db');
+const jwt = require('jsonwebtoken');
 
 let io = null;
+
+const signGuestChatToken = (guestId) => {
+  return jwt.sign(
+    { guestId, scope: 'guest_chat' },
+    process.env.JWT_SECRET || 'secret',
+    { expiresIn: process.env.GUEST_CHAT_TOKEN_EXPIRES || '30d' }
+  );
+};
 
 const initSocket = (server, corsOptions) => {
   const { Server } = require('socket.io');
@@ -45,6 +54,13 @@ const initSocket = (server, corsOptions) => {
         console.log(`[Socket] Guest ${guestId} joined room_${guestId}`);
         socket.join(`room_${guestId}`);
         socket.guestId = guestId;
+
+        try {
+          const guestToken = signGuestChatToken(guestId);
+          socket.emit('guest_session_token', { token: guestToken, guestId });
+        } catch (tokenError) {
+          console.error('[Socket] Error issuing guest chat token:', tokenError);
+        }
         
         const adminRoom = io.sockets.adapter.rooms.get('admin_room');
         const isAdminOnline = adminRoom && adminRoom.size > 0;

@@ -1,12 +1,45 @@
 const express = require('express');
 const router = express.Router();
+const jwt = require('jsonwebtoken');
 const { LiveChatMessage } = require('../models');
 const { protect } = require('../middleware/auth.middleware');
 
-// Public: Get chat history for a specific guest (No protect needed for guests to see their own history)
-router.get('/history/:guestId', async (req, res) => {
+const optionalProtect = async (req, res, next) => {
+  const authHeader = String(req.headers.authorization || '');
+  if (!authHeader.startsWith('Bearer ')) return next();
+  return protect(req, res, next);
+};
+
+const isValidGuestToken = (token, guestId) => {
+  if (!token || !guestId) return false;
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret');
+    return (
+      decoded?.scope === 'guest_chat' &&
+      String(decoded?.guestId || '') === String(guestId)
+    );
+  } catch {
+    return false;
+  }
+};
+
+router.get('/history/:guestId', optionalProtect, async (req, res) => {
   try {
     const { guestId } = req.params;
+    const isAdminRequest = Boolean(req.user);
+
+    if (!isAdminRequest) {
+      const guestToken = String(
+        req.headers['x-guest-token'] || req.query.guest_token || ''
+      ).trim();
+
+      if (!isValidGuestToken(guestToken, guestId)) {
+        return res.status(401).json({
+          message: 'Unauthorized guest chat history access.',
+        });
+      }
+    }
+
     const messages = await LiveChatMessage.findAll({
       where: { guestId },
       order: [['createdAt', 'ASC']]

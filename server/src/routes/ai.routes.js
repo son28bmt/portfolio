@@ -6,11 +6,22 @@ const Setting = require("../models/Setting");
 const Product = require("../models/Product");
 const Project = require("../models/Project");
 const Blog = require("../models/Blog");
-const { protect } = require("../middleware/auth.middleware");
+const authMiddleware = require("../middleware/auth.middleware");
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
 const FormData = require("form-data");
+
+const protect =
+  typeof authMiddleware === "function"
+    ? authMiddleware
+    : authMiddleware?.protect;
+
+if (typeof protect !== "function") {
+  throw new Error(
+    "Invalid auth middleware export. Expected `protect` function from auth.middleware.",
+  );
+}
 
 const UPLOAD_DIR = path.resolve(__dirname, "../../uploads");
 if (!fs.existsSync(UPLOAD_DIR)) {
@@ -105,6 +116,92 @@ const sanitizeErrorForLog = (error) => {
   return { status, code, method, url, providerMessage };
 };
 
+const isPrivateIPv4 = (hostname) => {
+  if (!/^\d{1,3}(\.\d{1,3}){3}$/.test(hostname)) return false;
+  const parts = hostname.split(".").map(Number);
+  if (parts.some((n) => Number.isNaN(n) || n < 0 || n > 255)) return false;
+
+  return (
+    parts[0] === 10 ||
+    parts[0] === 127 ||
+    (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) ||
+    (parts[0] === 192 && parts[1] === 168) ||
+    (parts[0] === 169 && parts[1] === 254)
+  );
+};
+
+const isUnsafeHostname = (hostname) => {
+  const host = String(hostname || "").trim().toLowerCase();
+  if (!host) return true;
+  if (host === "localhost" || host === "::1" || host.endsWith(".local")) {
+    return true;
+  }
+  return isPrivateIPv4(host);
+};
+
+const sanitizeBaseUrl = (value) => {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  return raw.endsWith("/") ? raw.slice(0, -1) : raw;
+};
+
+const resolveUpstreamCredentials = ({
+  userApiKey,
+  userBaseUrl,
+  serverApiKey,
+  serverBaseUrl,
+  defaultBaseUrl = "https://api.openai.com/v1",
+}) => {
+  const hasUserApiKey = String(userApiKey || "").trim().length > 0;
+  const hasUserBaseUrl = String(userBaseUrl || "").trim().length > 0;
+
+  if (hasUserBaseUrl && !hasUserApiKey) {
+    return {
+      ok: false,
+      status: 400,
+      message:
+        "Nếu dùng Base URL tùy chỉnh, bạn phải cung cấp userApiKey để tránh lộ API key của server.",
+    };
+  }
+
+  if (hasUserBaseUrl) {
+    let parsed;
+    try {
+      parsed = new URL(String(userBaseUrl).trim());
+    } catch {
+      return { ok: false, status: 400, message: "userBaseUrl không hợp lệ." };
+    }
+
+    if (parsed.protocol !== "https:") {
+      return {
+        ok: false,
+        status: 400,
+        message: "userBaseUrl phải dùng HTTPS.",
+      };
+    }
+
+    if (isUnsafeHostname(parsed.hostname)) {
+      return {
+        ok: false,
+        status: 400,
+        message: "userBaseUrl không được trỏ tới host nội bộ hoặc localhost.",
+      };
+    }
+  }
+
+  const apiKey = hasUserApiKey
+    ? String(userApiKey).trim()
+    : String(serverApiKey || "").trim();
+
+  const baseUrl = sanitizeBaseUrl(
+    hasUserApiKey
+      ? userBaseUrl || serverBaseUrl || defaultBaseUrl
+      : serverBaseUrl || defaultBaseUrl,
+  );
+
+  return { ok: true, apiKey, baseUrl };
+};
+
 // GET AI Config (Admin only)
 router.get("/config", protect, async (req, res) => {
   try {
@@ -184,7 +281,17 @@ const aiLimiter = rateLimit({
 });
 
 // Middleware verifyTurnstile đã được chuyển sang server/src/middleware/turnstile.middleware.js
-const { verifyTurnstile } = require("../middleware/turnstile.middleware");
+const turnstileMiddleware = require("../middleware/turnstile.middleware");
+const verifyTurnstile =
+  typeof turnstileMiddleware === "function"
+    ? turnstileMiddleware
+    : turnstileMiddleware?.verifyTurnstile;
+
+if (typeof verifyTurnstile !== "function") {
+  throw new Error(
+    "Invalid turnstile middleware export. Expected `verifyTurnstile` function.",
+  );
+}
 
 // Real Chat logic
 router.post("/chat", aiLimiter, verifyTurnstile, async (req, res) => {
@@ -218,9 +325,19 @@ router.post("/chat", aiLimiter, verifyTurnstile, async (req, res) => {
       configData[s.key] = s.value;
     });
 
-    const apiKey = userApiKey || configData.ai_apiKey;
-    let baseUrl =
-      userBaseUrl || configData.ai_baseUrl || "https://api.openai.com/v1";
+    const upstream = resolveUpstreamCredentials({
+      userApiKey,
+      userBaseUrl,
+      serverApiKey: configData.ai_apiKey,
+      serverBaseUrl: configData.ai_baseUrl,
+      defaultBaseUrl: "https://api.openai.com/v1",
+    });
+    if (!upstream.ok) {
+      return res.status(upstream.status).json({ reply: upstream.message });
+    }
+
+    const apiKey = upstream.apiKey;
+    const baseUrl = upstream.baseUrl;
     const normalizedModelProvider = normalizeModelProvider(
       modelProvider,
       "chatgpt",
@@ -299,8 +416,6 @@ router.post("/chat", aiLimiter, verifyTurnstile, async (req, res) => {
       console.error("Lỗi lấy dữ liệu RAG AI:", err.message);
     }
     // ------------------------
-
-    if (baseUrl.endsWith("/")) baseUrl = baseUrl.slice(0, -1);
 
     if (!apiKey) {
       return res.json({ reply: "Admin chưa cấu hình API Key cho Chatbot." });
@@ -413,10 +528,20 @@ router.post(
       const configData = {};
       settings.forEach((s) => (configData[s.key] = s.value));
 
-      let apiKey = userApiKey || configData.ai_apiKey;
-      let baseUrl = userBaseUrl || configData.ai_baseUrl;
+      const upstream = resolveUpstreamCredentials({
+        userApiKey,
+        userBaseUrl,
+        serverApiKey: configData.ai_apiKey,
+        serverBaseUrl: configData.ai_baseUrl,
+        defaultBaseUrl: "https://api.openai.com/v1",
+      });
+      if (!upstream.ok) {
+        if (filePath && fs.existsSync(filePath)) fs.unlinkSync(filePath);
+        return res.status(upstream.status).json({ message: upstream.message });
+      }
 
-      if (baseUrl && baseUrl.endsWith("/")) baseUrl = baseUrl.slice(0, -1);
+      const apiKey = upstream.apiKey;
+      const baseUrl = upstream.baseUrl;
 
       const normalizedTranslationProvider = String(
         translationProvider || "gemini",

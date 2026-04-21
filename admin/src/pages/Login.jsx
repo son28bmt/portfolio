@@ -16,9 +16,9 @@ const Login = () => {
     setError('');
 
     try {
-      const { data } = await api.post('/auth/login', { username, password });
+      const { data } = await api.post('/admin/login', { username, password });
       localStorage.setItem('adminToken', data.token);
-      localStorage.setItem('adminUser', JSON.stringify({ username: data.username }));
+      localStorage.setItem('adminUser', JSON.stringify({ username: data?.admin?.username || username }));
       navigate('/');
     } catch (err) {
       setError(err.response?.data?.message || 'Đăng nhập thất bại');
