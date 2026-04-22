@@ -35,7 +35,7 @@ const initialRuleForm = {
   targetAudience: '',
   keywords: '',
   wordCount: 1000,
-  postingTime: '08:00',
+  postingTimes: '08:00',
   timezone: 'Asia/Ho_Chi_Minh',
   publishMode: 'publish',
   modelProvider: 'chatgpt',
@@ -57,6 +57,14 @@ const toKeywords = (raw) =>
     .split(',')
     .map((item) => item.trim())
     .filter(Boolean);
+
+const toPostingTimes = (raw) =>
+  [...new Set(
+    String(raw || '')
+      .split(/[,\n;|]/)
+      .map((item) => item.trim())
+      .filter((item) => /^([01]\d|2[0-3]):([0-5]\d)$/.test(item)),
+  )];
 
 const fmtDateTime = (value) => {
   if (!value) return '--';
@@ -161,9 +169,12 @@ const AutomationBlog = () => {
     }
     setIsCreatingRule(true);
     try {
+      const postingTimes = toPostingTimes(ruleForm.postingTimes);
       await api.post('/blog-auto/rules', {
         ...ruleForm,
         keywords: toKeywords(ruleForm.keywords),
+        postingTimes,
+        postingTime: postingTimes[0] || '08:00',
       });
       alert('Đã tạo rule hằng ngày.');
       setRuleForm(initialRuleForm);
@@ -461,10 +472,11 @@ const AutomationBlog = () => {
               onChange={(e) => setRuleForm((prev) => ({ ...prev, wordCount: e.target.value }))}
             />
             <input
-              type="time"
+              type="text"
               className="w-full bg-white/5 border border-white/10 rounded-2xl px-3 py-3 text-sm"
-              value={ruleForm.postingTime}
-              onChange={(e) => setRuleForm((prev) => ({ ...prev, postingTime: e.target.value }))}
+              placeholder="08:00, 12:30, 20:00"
+              value={ruleForm.postingTimes}
+              onChange={(e) => setRuleForm((prev) => ({ ...prev, postingTimes: e.target.value }))}
             />
             <input
               type="text"
@@ -514,7 +526,9 @@ const AutomationBlog = () => {
                   <div>
                     <p className="font-semibold">{rule.name}</p>
                     <p className="text-xs text-white/50 mt-1">
-                      {rule.postingTime} ({rule.timezone}) | {rule.wordCount} từ | mode:{' '}
+                      {(Array.isArray(rule.postingTimes) && rule.postingTimes.length
+                        ? rule.postingTimes.join(', ')
+                        : rule.postingTime)} ({rule.timezone}) | {rule.wordCount} từ | mode:{' '}
                       {rule.publishMode || 'publish'} | provider: {rule.modelProvider || 'chatgpt'} | chạy gần nhất:{' '}
                       {rule.lastRunDate || '--'}
                     </p>

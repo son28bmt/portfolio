@@ -8,6 +8,7 @@ const AISettings = () => {
   const [formData, setFormData] = useState({
     apiKey: '',
     baseUrl: '',
+    imageBaseUrl: '',
     model: 'gpt-4o',
     modelChatgpt: 'gpt-4o',
     modelGemini: '',
@@ -26,6 +27,7 @@ const AISettings = () => {
         const hasAnyConfig =
           data.ai_apiKey ||
           data.ai_baseUrl ||
+          data.ai_image_baseUrl ||
           data.ai_model ||
           data.ai_model_chatgpt ||
           data.ai_model_gemini ||
@@ -41,6 +43,7 @@ const AISettings = () => {
         setFormData({
           apiKey: data.ai_apiKey || '',
           baseUrl: data.ai_baseUrl || '',
+          imageBaseUrl: data.ai_image_baseUrl || '',
           model: chatgptModel,
           modelChatgpt: chatgptModel,
           modelGemini: data.ai_model_gemini || '',
@@ -111,6 +114,21 @@ const AISettings = () => {
                 onChange={handleChange}
                 className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 pl-12 pr-4 text-sm focus:outline-none focus:border-primary transition-all"
                 placeholder="Ví dụ: https://proxy.của-bạn/v1 (để trống = fallback mặc định)"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-white/40 uppercase ml-1">Image Base URL (Tạo ảnh)</label>
+            <div className="relative">
+              <Globe className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/20" />
+              <input
+                type="text"
+                name="imageBaseUrl"
+                value={formData.imageBaseUrl}
+                onChange={handleChange}
+                className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 pl-12 pr-4 text-sm focus:outline-none focus:border-primary transition-all"
+                placeholder="Ví dụ: https://v98store.com/v1/images/generations"
               />
             </div>
           </div>

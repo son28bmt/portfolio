@@ -80,7 +80,7 @@ const Blog = () => {
   }, [posts, searchQuery]);
 
   return (
-    <div className="py-12 max-w-6xl mx-auto px-4 md:px-0">
+    <div className="py-12 max-w-6xl mx-auto px-4 md:px-0 blog-page-shell">
       <div className="flex flex-col md:flex-row justify-between items-end mb-16 gap-8">
         <motion.div
           initial={{ opacity: 0, x: -20 }}
@@ -88,7 +88,7 @@ const Blog = () => {
           viewport={{ once: true }}
           className="max-w-xl text-center md:text-left"
         >
-          <h1 className="text-3xl md:text-4xl font-bold mb-4">Blog & Chia sẻ</h1>
+          <h1 className="text-3xl md:text-4xl font-bold mb-4 blog-display-font">Blog & Chia sẻ</h1>
           <p className="text-white/50 text-base md:text-lg">
             Nơi tôi chia sẻ về hành trình lập trình, các bài học kinh nghiệm và những phát hiện thú vị trong thế giới công nghệ.
           </p>
@@ -150,7 +150,7 @@ const Blog = () => {
                     </span>
                   </div>
 
-                  <h3 className="text-xl font-bold mb-3 group-hover:text-secondary transition-colors line-clamp-2">
+                  <h3 className="text-xl font-bold mb-3 group-hover:text-secondary transition-colors line-clamp-2 blog-display-font">
                     {post.title}
                   </h3>
 

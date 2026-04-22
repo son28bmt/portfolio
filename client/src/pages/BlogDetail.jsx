@@ -152,7 +152,7 @@ const BlogDetail = () => {
   }
 
   return (
-    <div className="py-6 sm:py-10 md:py-12 max-w-4xl mx-auto px-3 sm:px-4">
+    <div className="py-6 sm:py-10 md:py-12 max-w-4xl mx-auto px-3 sm:px-4 blog-page-shell">
       <Helmet>
         <title>{pageTitle}</title>
         <meta name="description" content={pageDesc} />
@@ -184,7 +184,7 @@ const BlogDetail = () => {
           ))}
         </div>
 
-        <h1 className="text-[1.85rem] sm:text-4xl md:text-5xl lg:text-6xl font-black mb-5 sm:mb-8 leading-tight">
+        <h1 className="text-[1.85rem] sm:text-4xl md:text-5xl lg:text-6xl font-extrabold mb-5 sm:mb-8 leading-tight blog-display-font">
           {post.title}
         </h1>
 

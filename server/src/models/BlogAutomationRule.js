@@ -45,7 +45,7 @@ const BlogAutomationRule = sequelize.define(
       defaultValue: 'chuyen nghiep, than thien',
     },
     targetAudience: {
-      type: DataTypes.STRING,
+      type: DataTypes.TEXT,
       allowNull: true,
     },
     keywords: {
@@ -66,6 +66,11 @@ const BlogAutomationRule = sequelize.define(
       type: DataTypes.STRING,
       allowNull: false,
       defaultValue: '08:00',
+    },
+    postingTimes: {
+      type: DataTypes.JSON,
+      allowNull: true,
+      defaultValue: ['08:00'],
     },
     timezone: {
       type: DataTypes.STRING,

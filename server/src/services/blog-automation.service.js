@@ -24,6 +24,8 @@ let schedulerTimer = null;
 let isSchedulerRunning = false;
 let schemaEnsured = false;
 let schemaEnsuringPromise = null;
+let imageRequestChain = Promise.resolve();
+let lastImageRequestAt = 0;
 
 const decodePossibleJson = (value) => {
   let current = value;
@@ -73,9 +75,144 @@ const clampInt = (value, min, max, fallback) => {
   return Math.min(max, Math.max(min, Math.round(n)));
 };
 
+const waitMs = (ms) =>
+  new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+
+const IMAGE_RETRYABLE_STATUSES = new Set([429, 500, 502, 503, 504]);
+
+const getImageMinIntervalMs = () =>
+  clampInt(process.env.BLOG_AUTOMATION_IMAGE_MIN_INTERVAL_MS, 0, 120000, 3500);
+
+const getImageRetryAttempts = () =>
+  clampInt(process.env.BLOG_AUTOMATION_IMAGE_RETRY_ATTEMPTS, 1, 8, 5);
+
+const parseDurationTokenMs = (raw) => {
+  const text = String(raw || '').trim().toLowerCase();
+  if (!text) return 0;
+
+  // Support formats such as: "90", "15s", "2m", "1m30s", "500ms"
+  if (/^\d+(\.\d+)?$/.test(text)) {
+    const seconds = Number(text);
+    if (Number.isFinite(seconds) && seconds > 0) return Math.round(seconds * 1000);
+  }
+
+  const unitRegex = /(\d+(?:\.\d+)?)(ms|s|m|h)/g;
+  let match;
+  let total = 0;
+  while ((match = unitRegex.exec(text)) !== null) {
+    const value = Number(match[1]);
+    const unit = match[2];
+    if (!Number.isFinite(value)) continue;
+    if (unit === 'ms') total += value;
+    if (unit === 's') total += value * 1000;
+    if (unit === 'm') total += value * 60 * 1000;
+    if (unit === 'h') total += value * 60 * 60 * 1000;
+  }
+  return Math.round(total);
+};
+
+const parseRetryAfterMs = (retryAfterHeader) => {
+  const raw = Array.isArray(retryAfterHeader)
+    ? String(retryAfterHeader[0] || '').trim()
+    : String(retryAfterHeader || '').trim();
+  if (!raw) return 0;
+
+  const asNumber = Number(raw);
+  if (Number.isFinite(asNumber) && asNumber > 0) {
+    return Math.round(asNumber * 1000);
+  }
+
+  const asDateMs = Date.parse(raw);
+  if (Number.isFinite(asDateMs)) {
+    const delta = asDateMs - Date.now();
+    if (delta > 0) return delta;
+  }
+
+  return 0;
+};
+
+const readHeaderValue = (headers = {}, key = '') => {
+  if (!headers || !key) return '';
+  const direct = headers[key];
+  if (direct !== undefined && direct !== null) return String(direct);
+
+  const lowerKey = key.toLowerCase();
+  for (const [headerKey, value] of Object.entries(headers)) {
+    if (String(headerKey || '').toLowerCase() === lowerKey) {
+      return String(value ?? '');
+    }
+  }
+  return '';
+};
+
+const parseRateLimitResetMs = (headers = {}) => {
+  const candidates = [
+    readHeaderValue(headers, 'x-ratelimit-reset-requests'),
+    readHeaderValue(headers, 'x-ratelimit-reset-tokens'),
+    readHeaderValue(headers, 'x-ratelimit-reset'),
+    readHeaderValue(headers, 'ratelimit-reset'),
+    readHeaderValue(headers, 'retry-after'),
+  ]
+    .map((v) => String(v || '').trim())
+    .filter(Boolean);
+
+  if (!candidates.length) return 0;
+  const parsed = candidates
+    .map((raw) => parseDurationTokenMs(raw) || parseRetryAfterMs(raw))
+    .filter((ms) => Number.isFinite(ms) && ms > 0);
+  if (!parsed.length) return 0;
+  return Math.max(...parsed);
+};
+
+const getRetryDelayMs = (error, attemptIndex = 0) => {
+  const headers = error?.response?.headers || {};
+  const retryAfterMs = parseRetryAfterMs(readHeaderValue(headers, 'retry-after'));
+  const rateLimitResetMs = parseRateLimitResetMs(headers);
+  const headerDelayMs = Math.max(retryAfterMs, rateLimitResetMs);
+  if (headerDelayMs > 0) {
+    return clampInt(headerDelayMs, 500, 5 * 60 * 1000, 5000);
+  }
+
+  const baseMs = clampInt(process.env.BLOG_AUTOMATION_IMAGE_RETRY_BASE_MS, 500, 30000, 2500);
+  const maxMs = clampInt(process.env.BLOG_AUTOMATION_IMAGE_RETRY_MAX_MS, 1000, 10 * 60 * 1000, 120000);
+  const jitter = Math.floor(Math.random() * 500);
+  return Math.min(maxMs, baseMs * 2 ** attemptIndex + jitter);
+};
+
+const executeRateLimitedImageRequest = async (requestFn) => {
+  const prev = imageRequestChain;
+  let releaseQueue = () => {};
+  imageRequestChain = new Promise((resolve) => {
+    releaseQueue = resolve;
+  });
+
+  await prev.catch(() => {});
+  try {
+    const minInterval = getImageMinIntervalMs();
+    const elapsed = Date.now() - lastImageRequestAt;
+    const waitFor = Math.max(0, minInterval - elapsed);
+    if (waitFor > 0) {
+      await waitMs(waitFor);
+    }
+    lastImageRequestAt = Date.now();
+    const result = await requestFn();
+    return result;
+  } finally {
+    releaseQueue();
+  }
+};
+
 const sanitizeBaseUrl = (value) => {
   const raw = String(value || '').trim();
   if (!raw) return DEFAULT_BASE_URL;
+  return raw.endsWith('/') ? raw.slice(0, -1) : raw;
+};
+
+const sanitizeOptionalBaseUrl = (value) => {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
   return raw.endsWith('/') ? raw.slice(0, -1) : raw;
 };
 
@@ -230,6 +367,27 @@ const hhmmToMinutes = (value) => {
   return h * 60 + m;
 };
 
+const normalizePostingTimes = (value, fallback = '08:00') => {
+  const candidates = Array.isArray(value)
+    ? value
+    : String(value || '')
+        .split(/[,\n;|]/)
+        .map((item) => item.trim())
+        .filter(Boolean);
+
+  const normalized = [];
+  for (const raw of candidates) {
+    const time = String(raw || '').trim();
+    if (!time) continue;
+    if (!/^([01]\d|2[0-3]):([0-5]\d)$/.test(time)) continue;
+    normalized.push(time);
+  }
+
+  const unique = [...new Set(normalized)].sort((a, b) => hhmmToMinutes(a) - hhmmToMinutes(b));
+  if (unique.length > 0) return unique;
+  return [normalizePostingTime(fallback)];
+};
+
 const normalizePublishMode = (value) =>
   String(value || '').trim().toLowerCase() === 'draft' ? 'draft' : 'publish';
 
@@ -279,6 +437,23 @@ const ensureMissingColumns = async (tableName, columns) => {
   }
 };
 
+const ensureTextColumn = async (tableName, columnName) => {
+  const queryInterface = sequelize.getQueryInterface();
+  const desc = await queryInterface.describeTable(tableName);
+  const col = desc[columnName];
+  if (!col) return;
+
+  const type = String(col.type || '').toLowerCase();
+  if (type.includes('text')) return;
+
+  if (type.includes('char')) {
+    await queryInterface.changeColumn(tableName, columnName, {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    });
+  }
+};
+
 const ensureBlogAutomationSchema = async () => {
   if (schemaEnsured) return;
   if (schemaEnsuringPromise) {
@@ -321,6 +496,13 @@ const ensureBlogAutomationSchema = async () => {
           allowNull: true,
         },
       },
+      {
+        name: 'postingTimes',
+        definition: {
+          type: DataTypes.JSON,
+          allowNull: true,
+        },
+      },
     ]);
 
     await ensureMissingColumns('blog_automation_jobs', [
@@ -355,6 +537,9 @@ const ensureBlogAutomationSchema = async () => {
         },
       },
     ]);
+
+    await ensureTextColumn('blog_automation_rules', 'targetAudience');
+    await ensureTextColumn('blog_automation_jobs', 'targetAudience');
 
     schemaEnsured = true;
     console.log('[BlogAutomation] Schema checked and upgraded.');
@@ -534,6 +719,7 @@ const getAiConfig = async () => {
       key: [
         'ai_apiKey',
         'ai_baseUrl',
+        'ai_image_baseUrl',
         'ai_model',
         'ai_model_chatgpt',
         'ai_model_gemini',
@@ -551,11 +737,12 @@ const getAiConfig = async () => {
   });
 
   const apiKey = String(map.ai_apiKey || '').trim();
-  const baseUrl = sanitizeBaseUrl(map.ai_baseUrl || '');
+  const baseUrl = sanitizeOptionalBaseUrl(map.ai_baseUrl || '');
+  const imageBaseUrl = sanitizeOptionalBaseUrl(map.ai_image_baseUrl || '');
   const textModel = String(map.ai_model_chatgpt || map.ai_model || DEFAULT_TEXT_MODEL).trim();
   const imageModel = String(map.ai_image_model || DEFAULT_IMAGE_MODEL).trim();
 
-  return { ...map, apiKey, baseUrl, textModel, imageModel };
+  return { ...map, apiKey, baseUrl, imageBaseUrl, textModel, imageModel };
 };
 
 const sanitizeArticlePayload = (raw = {}, fallbackTopic = 'Bai viet moi') => {
@@ -678,23 +865,39 @@ const buildCoverImagePrompt = ({
   aiHint = '',
 }) => {
   const safeTags = uniqueTrimmed(toStringArray(tags)).slice(0, 8);
-  const focus = [shortenForPrompt(title, 180), shortenForPrompt(topic, 220)]
+  const focus = [shortenForPrompt(topic, 180), shortenForPrompt(title, 180)]
     .filter(Boolean)
     .join(' | ');
 
+  // Nâng cấp Prompt để ép AI tạo ảnh bìa tech chuyên nghiệp
+// Nâng cấp Prompt để ép AI tạo ảnh bìa tech CỰC KỲ TRỰC QUAN, ĐẲNG CẤP SẢN PHẨM, KHÔNG CHỮ
+  const hint = shortenForPrompt(aiHint, 180);
   const lines = [
-    'Create a high-quality blog cover image that is strictly relevant to the article topic.',
-    `Main topic: ${focus || 'technology article'}`,
-    objective ? `Objective: ${shortenForPrompt(objective, 220)}` : null,
-    excerpt ? `Summary context: ${shortenForPrompt(excerpt, 260)}` : null,
-    safeTags.length ? `Keywords to represent visually: ${safeTags.join(', ')}` : null,
-    aiHint ? `Additional hint: ${shortenForPrompt(aiHint, 260)}` : null,
-    'Visual style: modern technology, product-grade hero image, clean composition, cinematic lighting, no text overlay, no watermark.',
-    'Important: avoid unrelated subjects such as flowers, random nature shots, animals, or generic abstract art not tied to the topic.',
-    'Prioritize UI/device/dev-tool elements that match the article context when applicable.',
+    'Create a premium editorial cover image for a technology article.',
+    focus ? `Core topic: ${focus}.` : '',
+    objective ? `Article goal: ${shortenForPrompt(objective, 180)}.` : '',
+    excerpt ? `Context: ${shortenForPrompt(excerpt, 220)}.` : '',
+    safeTags.length ? `Keywords: ${safeTags.join(', ')}.` : '',
+    hint ? `Visual hint: ${hint}.` : '',
+    'Style: modern technology, cinematic lighting, high detail, professional composition.',
+    'Strictly no text, no letters, no logos, no watermark, no UI screenshot.',
+    'Avoid unrelated subjects such as flowers, random nature, animals, or cartoons.',
   ];
 
   return lines.filter(Boolean).join('\n');
+};
+
+const buildCompactCoverPrompt = ({ topic, title, tags = [] }) => {
+  const safeTags = uniqueTrimmed(toStringArray(tags)).slice(0, 6);
+  const subject = shortenForPrompt(topic || title, 120) || 'technology article';
+  const tagText = safeTags.length ? `Keywords: ${safeTags.join(', ')}.` : '';
+  return [
+    `Create a clean, realistic tech cover image about: ${subject}.`,
+    tagText,
+    'No text or watermark.',
+  ]
+    .filter(Boolean)
+    .join(' ');
 };
 
 const toSvgSafeText = (value, max = 120) =>
@@ -734,67 +937,151 @@ const requestCoverImage = async ({
   baseUrl,
   imageModel,
   prompt,
+  promptVariants = [],
   fallbackSeed = 'portfolio-blog',
 }) => {
-  if (!prompt) {
+  const allPrompts = uniqueTrimmed([
+    String(prompt || '').trim(),
+    ...(Array.isArray(promptVariants) ? promptVariants : []),
+  ]);
+  if (allPrompts.length === 0) {
     return buildFallbackCoverDataUrl(fallbackSeed);
   }
 
-  try {
-    // Try URL response first to avoid storing very large base64 blobs in DB.
-    const sent = await postWithProtocolFallback({
-      baseUrl,
-      path: '/images/generations',
-      payload: {
-        model: imageModel,
-        prompt,
-        size: '1536x1024',
-        response_format: 'url',
-      },
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      timeout: 120000,
-    });
-    const response = sent.response;
+  const modelCandidates = uniqueTrimmed([imageModel, DEFAULT_IMAGE_MODEL]);
+  const payloadVariants = [
+    { size: '1536x1024', response_format: 'url', n: 1 },
+    { size: '1536x1024', response_format: 'b64_json', n: 1 },
+    { size: '1024x1024', response_format: 'url', n: 1 },
+    { size: '1024x1024', response_format: 'b64_json', n: 1 },
+    { size: '1024x1024', n: 1 },
+    { size: '512x512', n: 1 },
+  ];
 
-    const firstImage = response?.data?.data?.[0];
-    if (firstImage?.url) return firstImage.url;
-    if (firstImage?.b64_json) {
-      return `data:image/png;base64,${firstImage.b64_json}`;
+  const extractImageFromResponse = (response) => {
+    const responseData = response?.data;
+    const contentType = String(response?.headers?.['content-type'] || '').toLowerCase();
+
+    if (typeof responseData === 'string') {
+      const text = responseData.trim();
+      if (/^https?:\/\//i.test(text) || /^data:image\//i.test(text)) return text;
     }
-  } catch (error) {
-    // Fallback for gateways that only support base64 response.
-    try {
-      const sent = await postWithProtocolFallback({
-        baseUrl,
-        path: '/images/generations',
-        payload: {
-          model: imageModel,
-          prompt,
-          size: '1536x1024',
-          response_format: 'b64_json',
-        },
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        timeout: 120000,
-      });
-      const response = sent.response;
-      const firstImage = response?.data?.data?.[0];
-      if (firstImage?.b64_json) {
-        return `data:image/png;base64,${firstImage.b64_json}`;
+
+    if (Buffer.isBuffer(responseData) && contentType.startsWith('image/')) {
+      return `data:${contentType};base64,${responseData.toString('base64')}`;
+    }
+
+    const list = Array.isArray(responseData?.data) ? responseData.data : [];
+    for (const item of list) {
+      if (typeof item === 'string') {
+        if (/^https?:\/\//i.test(item) || /^data:image\//i.test(item)) return item;
+        continue;
       }
-      if (firstImage?.url) return firstImage.url;
-    } catch (innerError) {
-      console.warn('[BlogAutomation] image generation fallback:', innerError?.message || innerError);
-      return buildFallbackCoverDataUrl(fallbackSeed);
+      if (item?.url) return item.url;
+      if (item?.image_url) return item.image_url;
+      if (item?.b64_json) return `data:image/png;base64,${item.b64_json}`;
+      if (item?.base64) return `data:image/png;base64,${item.base64}`;
     }
-    console.warn('[BlogAutomation] image generation fallback:', error?.message || error);
+
+    if (responseData?.url) return responseData.url;
+    if (responseData?.image_url) return responseData.image_url;
+    if (responseData?.b64_json) return `data:image/png;base64,${responseData.b64_json}`;
+    if (responseData?.base64) return `data:image/png;base64,${responseData.base64}`;
+    return '';
+  };
+
+  let lastError = null;
+  const maxRetries = getImageRetryAttempts();
+  for (const modelName of modelCandidates) {
+    for (const promptText of allPrompts) {
+      for (const variant of payloadVariants) {
+        for (let retryAttempt = 0; retryAttempt < maxRetries; retryAttempt += 1) {
+          const payload = {
+            model: modelName,
+            prompt: promptText,
+            size: variant.size,
+            n: variant.n || 1,
+          };
+          if (variant.response_format) payload.response_format = variant.response_format;
+
+          try {
+            const sent = await executeRateLimitedImageRequest(() =>
+              postWithProtocolFallback({
+                baseUrl,
+                path: '/images/generations',
+                payload,
+                headers: {
+                  Authorization: `Bearer ${apiKey}`,
+                  'Content-Type': 'application/json',
+                },
+                timeout: 120000,
+              }),
+            );
+            const image = extractImageFromResponse(sent.response);
+            if (image) return image;
+            throw new Error('Image response does not contain url or base64 data.');
+          } catch (error) {
+            lastError = error;
+            const statusCode = Number(error?.response?.status || 0);
+            const responseHeaders = error?.response?.headers || {};
+            const retryAfterHeader = readHeaderValue(responseHeaders, 'retry-after');
+            const resetRequestsHeader = readHeaderValue(
+              responseHeaders,
+              'x-ratelimit-reset-requests',
+            );
+            const resetTokensHeader = readHeaderValue(
+              responseHeaders,
+              'x-ratelimit-reset-tokens',
+            );
+            const providerMessage = String(
+              error?.response?.data?.error?.message ||
+                error?.response?.data?.message ||
+                error?.message ||
+                '',
+            )
+              .replace(/\s+/g, ' ')
+              .trim();
+            const attemptLabel = `${retryAttempt + 1}/${maxRetries}`;
+            console.warn(
+              '[BlogAutomation] image generation attempt failed:',
+              modelName,
+              variant.size,
+              variant.response_format || 'plain',
+              statusCode || error?.code || 'unknown',
+              providerMessage || 'no provider message',
+              `attempt=${attemptLabel}`,
+            );
+            if (statusCode === 429) {
+              console.warn(
+                '[BlogAutomation] image rate-limit headers:',
+                `retry-after=${retryAfterHeader || '-'}`,
+                `x-ratelimit-reset-requests=${resetRequestsHeader || '-'}`,
+                `x-ratelimit-reset-tokens=${resetTokensHeader || '-'}`,
+              );
+            }
+
+            const canRetry =
+              IMAGE_RETRYABLE_STATUSES.has(statusCode) && retryAttempt < maxRetries - 1;
+            if (canRetry) {
+              const retryDelayMs = getRetryDelayMs(error, retryAttempt);
+              console.warn(
+                '[BlogAutomation] image generation retry wait:',
+                `${retryDelayMs}ms`,
+                `status=${statusCode}`,
+              );
+              await waitMs(retryDelayMs);
+              continue;
+            }
+            break;
+          }
+        }
+      }
+    }
   }
 
+  if (lastError) {
+    console.warn('[BlogAutomation] image generation fallback:', lastError?.message || lastError);
+  }
   return buildFallbackCoverDataUrl(fallbackSeed);
 };
 
@@ -820,7 +1107,7 @@ const normalizeAutomationInput = (payload = {}) => {
     topic,
     objective: String(payload.objective || '').trim() || null,
     tone: String(payload.tone || '').trim() || 'chuyen nghiep, than thien',
-    targetAudience: String(payload.targetAudience || '').trim() || null,
+    targetAudience: String(payload.targetAudience || '').trim().slice(0, 5000) || null,
     keywords: uniqueTrimmed(toStringArray(payload.keywords)).slice(0, 12),
     wordCount: clampInt(payload.wordCount, 300, 5000, 1200),
     modelProvider: normalizeModelProvider(payload.modelProvider),
@@ -903,6 +1190,9 @@ const generateDraftForJob = async (job) => {
   const baseUrl = normalizeAndValidateBaseUrl(
     job.baseUrl || config.baseUrl || DEFAULT_BASE_URL,
   );
+  const imageBaseUrl = normalizeAndValidateBaseUrl(
+    config.imageBaseUrl || job.baseUrl || config.baseUrl || DEFAULT_BASE_URL,
+  );
   if (!textModel) {
     throw new Error(`Chua cau hinh model cho nhom '${modelProvider}'.`);
   }
@@ -932,12 +1222,18 @@ const generateDraftForJob = async (job) => {
     tags: mergedTags,
     aiHint: article.coverImagePrompt,
   });
+  const compactCoverPrompt = buildCompactCoverPrompt({
+    topic: job.topic,
+    title: article.title,
+    tags: mergedTags,
+  });
 
   const imageUrl = await requestCoverImage({
     apiKey: config.apiKey,
-    baseUrl,
+    baseUrl: imageBaseUrl,
     imageModel: config.imageModel || DEFAULT_IMAGE_MODEL,
     prompt: coverPrompt,
+    promptVariants: [compactCoverPrompt],
     fallbackSeed: article.title || job.topic,
   });
 
@@ -952,7 +1248,16 @@ const generateDraftForJob = async (job) => {
     image: safeImageUrl,
   };
 
-  return { draftPayload, article, imageUrl: safeImageUrl, config, textModel, modelProvider, baseUrl };
+  return {
+    draftPayload,
+    article,
+    imageUrl: safeImageUrl,
+    config,
+    textModel,
+    modelProvider,
+    baseUrl,
+    imageBaseUrl,
+  };
 };
 
 const publishBlogFromDraft = async (draftPayload = {}) => {
@@ -991,7 +1296,16 @@ const runAutomationJob = async (jobId, { throwOnError = false } = {}) => {
   });
 
   try {
-    const { draftPayload, article, imageUrl, config, textModel, modelProvider, baseUrl } =
+    const {
+      draftPayload,
+      article,
+      imageUrl,
+      config,
+      textModel,
+      modelProvider,
+      baseUrl,
+      imageBaseUrl,
+    } =
       await generateDraftForJob(job);
     const publishMode = normalizePublishMode(job.publishMode);
     let blog = null;
@@ -1009,6 +1323,7 @@ const runAutomationJob = async (jobId, { throwOnError = false } = {}) => {
         modelProvider,
         textModel,
         baseUrl,
+        imageBaseUrl,
         imageModel: config.imageModel,
         publishMode,
         draftReady: publishMode === 'draft',
@@ -1114,63 +1429,72 @@ const enqueueJobsFromRules = async () => {
   const now = new Date();
 
   for (const rule of rules) {
-    const normalizedTime = normalizePostingTime(rule.postingTime);
     const { date, time } = getTimezoneParts(rule.timezone || 'Asia/Ho_Chi_Minh', now);
-    if (hhmmToMinutes(time) < hhmmToMinutes(normalizedTime)) continue;
-    if (String(rule.lastRunDate || '') === date) continue;
-
-    const latestRuleJob = await BlogAutomationJob.findOne({
-      where: { ruleId: rule.id },
-      attributes: ['id', 'status', 'createdAt', 'updatedAt', 'finishedAt'],
+    const timeSlots = normalizePostingTimes(rule.postingTimes, rule.postingTime);
+    const existingJobs = await BlogAutomationJob.findAll({
+      where: { ruleId: rule.id, sourceType: 'rule' },
+      attributes: ['id', 'status', 'createdAt', 'updatedAt', 'finishedAt', 'meta'],
       order: [['createdAt', 'DESC']],
+      limit: 400,
     });
 
-    if (latestRuleJob?.status === 'pending' || latestRuleJob?.status === 'running') {
-      continue;
-    }
+    for (const slot of timeSlots) {
+      if (hhmmToMinutes(time) < hhmmToMinutes(slot)) continue;
 
-    if (latestRuleJob?.status === 'failed') {
-      const cooldownMinutes = clampInt(
-        process.env.BLOG_AUTOMATION_RULE_RETRY_MINUTES,
-        5,
-        24 * 60,
-        30,
+      const sameSlotJob = existingJobs.find(
+        (job) =>
+          String(job.meta?.ruleRunDate || '') === date &&
+          String(job.meta?.scheduledSlot || '') === slot,
       );
-      const lastAttemptAt = new Date(
-        latestRuleJob.finishedAt || latestRuleJob.updatedAt || latestRuleJob.createdAt,
-      );
-      if (
-        !Number.isNaN(lastAttemptAt.getTime()) &&
-        Date.now() - lastAttemptAt.getTime() < cooldownMinutes * 60 * 1000
-      ) {
+
+      if (sameSlotJob?.status === 'pending' || sameSlotJob?.status === 'running' || sameSlotJob?.status === 'succeeded') {
         continue;
       }
-    }
 
-    await createAutomationJob({
-      sourceType: 'rule',
-      publishMode: normalizePublishMode(rule.publishMode),
-      ruleId: rule.id,
-      scheduledFor: now,
-      payload: {
-        topic: rule.topic,
-        objective: rule.objective,
-        tone: rule.tone,
-        targetAudience: rule.targetAudience,
-        keywords: rule.keywords,
-        wordCount: rule.wordCount,
-        modelProvider: rule.modelProvider,
-        modelName: rule.modelName,
-        baseUrl: rule.baseUrl,
-      },
-      meta: {
-        ruleName: rule.name,
-        timezone: rule.timezone || 'Asia/Ho_Chi_Minh',
-        ruleRunDate: date,
-      },
-      checkDuplicate: false,
-    });
-    created += 1;
+      if (sameSlotJob?.status === 'failed') {
+        const cooldownMinutes = clampInt(
+          process.env.BLOG_AUTOMATION_RULE_RETRY_MINUTES,
+          5,
+          24 * 60,
+          30,
+        );
+        const lastAttemptAt = new Date(
+          sameSlotJob.finishedAt || sameSlotJob.updatedAt || sameSlotJob.createdAt,
+        );
+        if (
+          !Number.isNaN(lastAttemptAt.getTime()) &&
+          Date.now() - lastAttemptAt.getTime() < cooldownMinutes * 60 * 1000
+        ) {
+          continue;
+        }
+      }
+
+      await createAutomationJob({
+        sourceType: 'rule',
+        publishMode: normalizePublishMode(rule.publishMode),
+        ruleId: rule.id,
+        scheduledFor: now,
+        payload: {
+          topic: rule.topic,
+          objective: rule.objective,
+          tone: rule.tone,
+          targetAudience: rule.targetAudience,
+          keywords: rule.keywords,
+          wordCount: rule.wordCount,
+          modelProvider: rule.modelProvider,
+          modelName: rule.modelName,
+          baseUrl: rule.baseUrl,
+        },
+        meta: {
+          ruleName: rule.name,
+          timezone: rule.timezone || 'Asia/Ho_Chi_Minh',
+          ruleRunDate: date,
+          scheduledSlot: slot,
+        },
+        checkDuplicate: false,
+      });
+      created += 1;
+    }
   }
 
   return created;

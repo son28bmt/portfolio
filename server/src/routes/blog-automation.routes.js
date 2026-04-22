@@ -24,6 +24,26 @@ const normalizePostingTime = (value) => {
   return /^([01]\d|2[0-3]):([0-5]\d)$/.test(raw) ? raw : null;
 };
 
+const normalizePostingTimes = (value, fallback = '08:00') => {
+  const rawItems = Array.isArray(value)
+    ? value
+    : String(value || '')
+        .split(/[,\n;|]/)
+        .map((item) => item.trim())
+        .filter(Boolean);
+
+  const valid = rawItems
+    .map((item) => normalizePostingTime(item))
+    .filter(Boolean);
+
+  const unique = [...new Set(valid)];
+  if (unique.length > 0) return unique;
+  if (rawItems.length > 0) return [];
+
+  const fb = normalizePostingTime(fallback);
+  return fb ? [fb] : ['08:00'];
+};
+
 const toDateOrNull = (value) => {
   if (!value) return null;
   const d = new Date(value);
@@ -250,8 +270,11 @@ router.post('/rules', async (req, res) => {
     if (!name) return res.status(400).json({ message: 'Ten rule la bat buoc.' });
 
     const normalized = normalizeAutomationInput(req.body || {});
-    const postingTime = normalizePostingTime(req.body?.postingTime);
-    if (!postingTime) return res.status(400).json({ message: 'postingTime phai dang HH:mm.' });
+    const postingTimes = normalizePostingTimes(
+      req.body?.postingTimes !== undefined ? req.body.postingTimes : req.body?.postingTime,
+      req.body?.postingTime || '08:00',
+    );
+    if (!postingTimes.length) return res.status(400).json({ message: 'postingTime phai dang HH:mm.' });
 
     const timezone = String(req.body?.timezone || 'Asia/Ho_Chi_Minh').trim() || 'Asia/Ho_Chi_Minh';
     const isActive = req.body?.isActive !== false;
@@ -269,7 +292,8 @@ router.post('/rules', async (req, res) => {
       targetAudience: normalized.targetAudience,
       keywords: normalized.keywords,
       wordCount: normalized.wordCount,
-      postingTime,
+      postingTime: postingTimes[0],
+      postingTimes,
       timezone,
       isActive,
     });
@@ -320,10 +344,14 @@ router.put('/rules/:id', async (req, res) => {
       Object.assign(updates, normalized);
     }
 
-    if (req.body?.postingTime !== undefined) {
-      const postingTime = normalizePostingTime(req.body.postingTime);
-      if (!postingTime) return res.status(400).json({ message: 'postingTime phai dang HH:mm.' });
-      updates.postingTime = postingTime;
+    if (req.body?.postingTime !== undefined || req.body?.postingTimes !== undefined) {
+      const postingTimes = normalizePostingTimes(
+        req.body?.postingTimes !== undefined ? req.body.postingTimes : req.body.postingTime,
+        req.body?.postingTime || rule.postingTime || '08:00',
+      );
+      if (!postingTimes.length) return res.status(400).json({ message: 'postingTime phai dang HH:mm.' });
+      updates.postingTimes = postingTimes;
+      updates.postingTime = postingTimes[0];
     }
 
     if (req.body?.timezone !== undefined) {

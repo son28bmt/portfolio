@@ -49,7 +49,7 @@ const BlogAutomationJob = sequelize.define(
       allowNull: true,
     },
     targetAudience: {
-      type: DataTypes.STRING,
+      type: DataTypes.TEXT,
       allowNull: true,
     },
     keywords: {

@@ -219,6 +219,7 @@ router.post("/config", protect, async (req, res) => {
   const {
     apiKey,
     baseUrl,
+    imageBaseUrl,
     model,
     modelChatgpt,
     modelGemini,
@@ -236,6 +237,7 @@ router.post("/config", protect, async (req, res) => {
     const configs = [
       { key: "ai_apiKey", value: apiKey },
       { key: "ai_baseUrl", value: String(baseUrl || "").trim() },
+      { key: "ai_image_baseUrl", value: String(imageBaseUrl || "").trim() },
       { key: "ai_model", value: safeChatgptModel },
       { key: "ai_model_chatgpt", value: safeChatgptModel },
       { key: "ai_model_gemini", value: modelGemini || "" },
