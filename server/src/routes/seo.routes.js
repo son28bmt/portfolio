@@ -71,6 +71,7 @@ const staticUrlEntries = (siteUrl) => [
   { loc: buildAbsoluteUrl(siteUrl, '/playground/chat'), changefreq: 'weekly', priority: '0.8' },
   { loc: buildAbsoluteUrl(siteUrl, '/playground/subtitle'), changefreq: 'weekly', priority: '0.7' },
   { loc: buildAbsoluteUrl(siteUrl, '/playground/tts'), changefreq: 'weekly', priority: '0.7' },
+  { loc: buildAbsoluteUrl(siteUrl, '/playground/mail'), changefreq: 'weekly', priority: '0.7' },
 ];
 
 const buildUrlNode = (entry) => {

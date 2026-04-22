@@ -2,35 +2,43 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { motion, AnimatePresence } from 'framer-motion'; // eslint-disable-line no-unused-vars
-import { Sparkles, MessageSquare, Upload, Play, CheckCircle2, AlertCircle, Wand2, ArrowRight, Download, Send, ImagePlus, X, Trash2, KeyRound } from 'lucide-react';
+import { Sparkles, MessageSquare, Upload, Play, CheckCircle2, AlertCircle, Wand2, ArrowRight, Download, Send, ImagePlus, X, Trash2, KeyRound, Mail } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Turnstile } from '@marsidev/react-turnstile';
+import TempMailDemo from '../components/playground/TempMailDemo';
 
 const PLAYGROUND_TOOLS = [
   { key: 'chat', label: 'AI Chat', icon: MessageSquare, activeClass: 'bg-primary text-white glow', inactiveClass: 'text-white/40 hover:text-white' },
   { key: 'subtitle', label: 'Dịch Phụ đề', icon: Wand2, activeClass: 'bg-secondary text-white glow-blue', inactiveClass: 'text-white/40 hover:text-white' },
   { key: 'tts', label: 'TTS & Lồng tiếng', icon: Play, activeClass: 'bg-purple-600 text-white shadow-[0_0_20px_rgba(147,51,234,0.4)]', inactiveClass: 'text-white/40 hover:text-white' },
+  { key: 'mail', label: 'Mail ảo', icon: Mail, activeClass: 'bg-emerald-600 text-white shadow-[0_0_20px_rgba(16,185,129,0.35)]', inactiveClass: 'text-white/40 hover:text-white' },
 ];
 
-const PlaygroundTabs = ({ activeTool, onChangeTool }) => (
-  <div className="flex bg-surface p-1 rounded-2xl border border-white/5 gap-1 overflow-x-auto no-scrollbar max-[400px]:flex-col w-full md:w-auto">
-    {PLAYGROUND_TOOLS.map((tool) => {
-      const Icon = tool.icon;
-      return (
-        <button
-          key={tool.key}
-          onClick={() => onChangeTool(tool.key)}
-          className={`px-4 md:px-5 py-2.5 md:py-3 rounded-xl text-xs md:text-sm font-bold flex items-center justify-center gap-2 transition-all whitespace-nowrap ${
-            activeTool === tool.key ? tool.activeClass : tool.inactiveClass
-          }`}
+const PlaygroundTabs = ({ activeTool, onChangeTool }) => {
+  const activeToolMeta = PLAYGROUND_TOOLS.find((tool) => tool.key === activeTool);
+  const ActiveIcon = activeToolMeta?.icon || Sparkles;
+
+  return (
+    <div className="w-full md:w-[360px] lg:w-[420px]">
+      <label className="text-[10px] uppercase tracking-widest text-white/40 font-bold ml-1">Chọn công cụ</label>
+      <div className="mt-2 relative">
+        <ActiveIcon className="w-4 h-4 text-white/60 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+        <select
+          value={activeTool}
+          onChange={(e) => onChangeTool(e.target.value)}
+          className="w-full bg-surface border border-white/10 rounded-2xl py-3 pl-10 pr-4 text-sm font-semibold text-white focus:outline-none focus:border-primary"
         >
-          <Icon className="w-4 h-4" /> {tool.label}
-        </button>
-      );
-    })}
-  </div>
-);
+          {PLAYGROUND_TOOLS.map((tool) => (
+            <option key={tool.key} value={tool.key}>
+              {tool.label}
+            </option>
+          ))}
+        </select>
+      </div>
+    </div>
+  );
+};
 
 const PlaygroundLanding = ({ onOpenTool }) => (
   <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-12">
@@ -112,6 +120,8 @@ const Playground = () => {
         <Route path="subtitle" element={<PlaygroundToolShell activeTool="subtitle" onChangeTool={handleOpenTool}><SubTranslatorDemo /></PlaygroundToolShell>} />
         <Route path="sub" element={<Navigate to="/playground/subtitle" replace />} />
         <Route path="tts" element={<PlaygroundToolShell activeTool="tts" onChangeTool={handleOpenTool}><TTSDemo /></PlaygroundToolShell>} />
+        <Route path="mail" element={<PlaygroundToolShell activeTool="mail" onChangeTool={handleOpenTool}><TempMailDemo /></PlaygroundToolShell>} />
+        <Route path="tempmail" element={<Navigate to="/playground/mail" replace />} />
         <Route path="*" element={<Navigate to="/playground" replace />} />
       </Routes>
 

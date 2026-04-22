@@ -56,7 +56,10 @@ const getS3Client = () => {
 };
 
 const safeExtension = (fileName = "", mimeType = "") => {
-  const extFromName = path.extname(fileName).toLowerCase();
+  const normalizedFileName = typeof fileName === "string" ? fileName : "";
+  const normalizedMimeType =
+    typeof mimeType === "string" ? mimeType.toLowerCase() : "";
+  const extFromName = path.extname(normalizedFileName).toLowerCase();
   if (extFromName) return extFromName;
 
   const fallbackMap = {
@@ -70,7 +73,7 @@ const safeExtension = (fileName = "", mimeType = "") => {
     "application/octet-stream": ".ipa",
   };
 
-  return fallbackMap[mimeType] || ".jpg";
+  return fallbackMap[normalizedMimeType] || ".jpg";
 };
 
 const safeFolder = (folder = "projects") => {
@@ -116,10 +119,10 @@ const getPresignedUploadUrl = async ({
   const cleanFolder = safeFolder(folder);
   const ext = safeExtension(fileName, mimeType);
   const fileKey = `${cleanFolder}/${Date.now()}-${randomUUID()}${ext}`;
-  const expiresIn = Math.max(
-    60,
-    Number(process.env.R2_PRESIGN_EXPIRES_SECONDS || 900),
-  );
+  const rawExpires = Number(process.env.R2_PRESIGN_EXPIRES_SECONDS || 900);
+  const expiresIn = Number.isFinite(rawExpires)
+    ? Math.min(3600, Math.max(60, rawExpires))
+    : 900;
 
   const uploadUrl = await getSignedUrl(
     client,

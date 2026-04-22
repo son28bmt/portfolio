@@ -64,7 +64,7 @@ const Privacy = () => {
       </section>
 
       <div className="text-center py-12">
-        <p className="text-white/40 mb-6 italic">Cảm ơn bạn đã tin tưởng sử dụng dịch vụ của Tạp hoá AI và Nguyễn Quang Sơn.</p>
+        <p className="text-white/40 mb-6 italic">Cảm ơn bạn đã tin tưởng sử dụng dịch vụ của Nguyễn Quang Sơn.</p>
         <Link 
           to="/" 
           className="px-10 py-4 bg-white/5 border border-white/10 text-white rounded-2xl font-bold hover:bg-white/10 transition-all shadow-xl"

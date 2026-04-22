@@ -186,6 +186,14 @@ const uploadFilesMiddleware = (req, res, next) => {
   });
 };
 
+const readSingleQueryValue = (value) => {
+  if (Array.isArray(value)) {
+    const first = value.find((item) => typeof item === 'string');
+    return typeof first === 'string' ? first.trim() : '';
+  }
+  return typeof value === 'string' ? value.trim() : '';
+};
+
 router.post('/upload-images', protect, uploadFilesMiddleware, async (req, res) => {
   try {
     if (!req.files || req.files.length === 0) return res.status(400).json({ message: 'Bạn chưa chọn tệp để tải lên.' });
@@ -219,9 +227,12 @@ router.post('/upload-images', protect, uploadFilesMiddleware, async (req, res) =
 
 router.get('/get-upload-url', protect, async (req, res) => {
   try {
-    const { fileName, mimeType, folder } = req.query;
+    const fileName = readSingleQueryValue(req.query.fileName);
+    const mimeType = readSingleQueryValue(req.query.mimeType).toLowerCase();
+    const folder = readSingleQueryValue(req.query.folder) || 'projects';
     if (!fileName || !mimeType) return res.status(400).json({ message: 'Thiếu thông tin fileName hoặc mimeType.' });
-    const { uploadUrl, publicUrl, fileKey } = await getPresignedUploadUrl({ fileName, mimeType, folder: folder || 'projects' });
+    if (!ALLOWED_PROJECT_FILE_TYPES.has(mimeType)) return res.status(400).json({ message: 'Dinh dang tep khong hop le.' });
+    const { uploadUrl, publicUrl, fileKey } = await getPresignedUploadUrl({ fileName, mimeType, folder });
     return res.json({ uploadUrl, publicUrl, fileKey });
   } catch (error) {
     console.error('❌ Presigned URL Error:', error);
