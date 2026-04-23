@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { protect } = require('../middleware/auth.middleware');
+const { requireAdmin } = require('../middleware/require-admin.middleware');
 const { BlogAutomationRule, BlogAutomationJob, Blog } = require('../models');
 const {
   normalizeAutomationInput,
@@ -63,6 +64,7 @@ const resolveErrorHttpStatus = (message, fallback = 400) =>
   extractUpstreamStatus(message) || fallback;
 
 router.use(protect);
+router.use(requireAdmin);
 router.use(async (req, res, next) => {
   try {
     await ensureBlogAutomationSchema();

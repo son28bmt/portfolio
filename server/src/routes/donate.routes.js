@@ -2,6 +2,7 @@ const express = require('express');
 const { Op } = require('sequelize');
 const Donation = require('../models/Donation');
 const { protect } = require('../middleware/auth.middleware');
+const { requireAdmin } = require('../middleware/require-admin.middleware');
 const { processSepayWebhook: processMarketplaceWebhook } = require('../services/marketplace.service');
 const {
   DONATION_STATUS,
@@ -234,7 +235,7 @@ router.post('/webhook/sepay', async (req, res) => {
   }
 });
 
-router.get('/admin/donations', protect, async (req, res) => {
+router.get('/admin/donations', protect, requireAdmin, async (req, res) => {
   try {
     await expirePendingDonations();
 
@@ -275,7 +276,7 @@ router.get('/admin/donations', protect, async (req, res) => {
   }
 });
 
-router.patch('/admin/donations/:id/visibility', protect, async (req, res) => {
+router.patch('/admin/donations/:id/visibility', protect, requireAdmin, async (req, res) => {
   try {
     const donation = await Donation.findByPk(req.params.id);
     if (!donation) {

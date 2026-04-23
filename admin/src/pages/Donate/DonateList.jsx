@@ -91,7 +91,8 @@ const DonateList = () => {
     });
 
     socket.on('connect', () => {
-      socket.emit('join_admin_room');
+      const adminToken = localStorage.getItem('adminToken') || '';
+      socket.emit('join_admin_room', { token: adminToken });
     });
 
     socket.on('admin_donate_refresh', () => {

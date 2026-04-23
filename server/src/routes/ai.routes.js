@@ -7,6 +7,7 @@ const Product = require("../models/Product");
 const Project = require("../models/Project");
 const Blog = require("../models/Blog");
 const authMiddleware = require("../middleware/auth.middleware");
+const { requireAdmin } = require("../middleware/require-admin.middleware");
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
@@ -203,7 +204,7 @@ const resolveUpstreamCredentials = ({
 };
 
 // GET AI Config (Admin only)
-router.get("/config", protect, async (req, res) => {
+router.get("/config", protect, requireAdmin, async (req, res) => {
   try {
     const settings = await Setting.findAll();
     const config = {};
@@ -215,7 +216,7 @@ router.get("/config", protect, async (req, res) => {
 });
 
 // POST AI Config (Admin only)
-router.post("/config", protect, async (req, res) => {
+router.post("/config", protect, requireAdmin, async (req, res) => {
   const {
     apiKey,
     baseUrl,

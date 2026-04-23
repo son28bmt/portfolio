@@ -1,5 +1,14 @@
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
+const { getJwtSecret } = require("../utils/jwt.util");
+
+const resolveAdminUsernames = () => {
+  const raw = String(process.env.ADMIN_USERNAMES || "admin");
+  return raw
+    .split(",")
+    .map((item) => item.trim().toLowerCase())
+    .filter(Boolean);
+};
 
 const protect = async (req, res, next) => {
   let token;
@@ -10,18 +19,16 @@ const protect = async (req, res, next) => {
   ) {
     try {
       token = req.headers.authorization.split(" ")[1];
+      if (!token) throw new Error("No token provided after Bearer");
 
-      if (!token) {
-        throw new Error("No token provided after Bearer");
-      }
+      const decoded = jwt.verify(token, getJwtSecret());
 
-      const decoded = jwt.verify(token, process.env.JWT_SECRET || "secret");
-
-      // Support both User (Portfolio) and Admin (Marketplace)
+      // Hỗ trợ cả token của marketplace admin.
       if (decoded.adminId) {
         const { Admin } = require("../models");
         const admin = await Admin.findByPk(decoded.adminId);
         if (!admin) throw new Error("Admin not found");
+
         req.user = { id: admin.id, username: admin.username, isAdmin: true };
         return next();
       }
@@ -31,25 +38,29 @@ const protect = async (req, res, next) => {
       });
 
       if (!req.user) {
-        return res
-          .status(401)
-          .json({ message: "Tài khoản không tồn tại trên hệ thống." });
+        return res.status(401).json({
+          message: "Tài khoản không tồn tại trên hệ thống.",
+        });
       }
 
+      const adminUsernames = resolveAdminUsernames();
+      const username = String(req.user.username || "").trim().toLowerCase();
+      req.user.isAdmin = adminUsernames.includes(username);
       return next();
     } catch (error) {
-      console.error("❌ Auth Middleware Error:", error.message);
-      return res
-        .status(401)
-        .json({ message: "Phiên đăng nhập hết hạn hoặc không hợp lệ." });
+      const status = /JWT_SECRET/.test(String(error?.message || "")) ? 500 : 401;
+      return res.status(status).json({
+        message:
+          status === 500
+            ? "Máy chủ thiếu cấu hình bảo mật JWT_SECRET."
+            : "Phiên đăng nhập hết hạn hoặc không hợp lệ.",
+      });
     }
   }
 
-  if (!token) {
-    return res
-      .status(401)
-      .json({ message: "Bạn chưa đăng nhập. Vui lòng đăng nhập lại." });
-  }
+  return res.status(401).json({
+    message: "Bạn chưa đăng nhập. Vui lòng đăng nhập lại.",
+  });
 };
 
 module.exports = { protect };

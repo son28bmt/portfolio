@@ -80,7 +80,8 @@ const LiveChat = () => {
 
     socketRef.current.on('connect', () => {
       console.log('[AdminSocket] Connected as admin');
-      socketRef.current.emit('join_admin_room');
+      const adminToken = localStorage.getItem('adminToken') || '';
+      socketRef.current.emit('join_admin_room', { token: adminToken });
     });
 
     socketRef.current.on('init_sessions', (data) => {

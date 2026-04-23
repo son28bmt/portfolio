@@ -1,5 +1,6 @@
 const jwt = require("jsonwebtoken");
 const { Admin } = require("../models");
+const { getJwtSecret } = require("../utils/jwt.util");
 
 const protectMarketplaceAdmin = async (req, res, next) => {
   try {
@@ -13,7 +14,7 @@ const protectMarketplaceAdmin = async (req, res, next) => {
       return res.status(401).json({ message: "Thieu token admin." });
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || "secret");
+    const decoded = jwt.verify(token, getJwtSecret());
     if (!decoded?.adminId) {
       return res.status(401).json({ message: "Token admin khong hop le." });
     }
@@ -30,9 +31,15 @@ const protectMarketplaceAdmin = async (req, res, next) => {
     };
     return next();
   } catch (error) {
+    const status = /JWT_SECRET/.test(String(error?.message || "")) ? 500 : 401;
     return res
-      .status(401)
-      .json({ message: "Phien dang nhap admin het han hoac khong hop le." });
+      .status(status)
+      .json({
+        message:
+          status === 500
+            ? "Máy chủ thiếu cấu hình bảo mật JWT_SECRET."
+            : "Phien dang nhap admin het han hoac khong hop le.",
+      });
   }
 };
 

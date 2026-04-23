@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 const { sequelize } = require('../config/db');
 const { Admin, Product, StockItem, Category, Order } = require('../models');
+const { getJwtSecret } = require('../utils/jwt.util');
 const {
   listPublicProducts,
   createOrderIntent,
@@ -13,7 +14,7 @@ const {
 const { addClient } = require('../services/sse.service');
 
 const signAdminToken = (adminId) =>
-  jwt.sign({ adminId, role: 'marketplace_admin' }, process.env.JWT_SECRET || 'secret', {
+  jwt.sign({ adminId, role: 'marketplace_admin' }, getJwtSecret(), {
     expiresIn: process.env.ADMIN_JWT_EXPIRES || '7d',
   });
 

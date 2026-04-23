@@ -1,8 +1,9 @@
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
+const { getJwtSecret } = require('../utils/jwt.util');
 
 const generateToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET || 'secret', {
+  return jwt.sign({ id }, getJwtSecret(), {
     expiresIn: '30d',
   });
 };
@@ -25,7 +26,12 @@ exports.register = async (req, res) => {
       token: generateToken(user.id),
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    const isSecretError = /JWT_SECRET/.test(String(error?.message || ''));
+    res.status(500).json({
+      message: isSecretError
+        ? 'Máy chủ thiếu cấu hình bảo mật JWT_SECRET.'
+        : error.message,
+    });
   }
 };
 
@@ -44,6 +50,11 @@ exports.login = async (req, res) => {
       res.status(401).json({ message: 'Invalid username or password' });
     }
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    const isSecretError = /JWT_SECRET/.test(String(error?.message || ''));
+    res.status(500).json({
+      message: isSecretError
+        ? 'Máy chủ thiếu cấu hình bảo mật JWT_SECRET.'
+        : error.message,
+    });
   }
 };

@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const Blog = require('../models/Blog');
 const { protect } = require('../middleware/auth.middleware');
+const { requireAdmin } = require('../middleware/require-admin.middleware');
 const { Op } = require('sequelize');
 
 const decodePossibleJson = (value) => {
@@ -115,7 +116,7 @@ router.get('/:idOrSlug', async (req, res) => {
 });
 
 // Admin: Create post
-router.post('/', protect, async (req, res) => {
+router.post('/', protect, requireAdmin, async (req, res) => {
   try {
     const payload = normalizeBlogPayload(req.body);
     const post = await Blog.create(payload);
@@ -126,7 +127,7 @@ router.post('/', protect, async (req, res) => {
 });
 
 // Admin: Update post
-router.put('/:idOrSlug', protect, async (req, res) => {
+router.put('/:idOrSlug', protect, requireAdmin, async (req, res) => {
   try {
     const post = await findBlog(req.params.idOrSlug);
     if (!post) return res.status(404).json({ message: 'Blog post not found' });
@@ -140,7 +141,7 @@ router.put('/:idOrSlug', protect, async (req, res) => {
 });
 
 // Admin: Delete post
-router.delete('/:idOrSlug', protect, async (req, res) => {
+router.delete('/:idOrSlug', protect, requireAdmin, async (req, res) => {
   try {
     const post = await findBlog(req.params.idOrSlug);
     if (!post) return res.status(404).json({ message: 'Blog post not found' });

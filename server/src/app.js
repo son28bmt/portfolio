@@ -99,9 +99,8 @@ app.use(express.urlencoded({ limit: '200mb', extended: true, verify: captureRawB
 app.use(morgan('dev'));
  
 app.use((req, res, next) => {
-  if (req.url.includes('/api/chat')) {
+  if (process.env.NODE_ENV !== 'production' && req.url.includes('/api/chat')) {
     console.log(`[DEBUG] Incoming ${req.method} ${req.url}`);
-    console.log(`[DEBUG] Headers:`, JSON.stringify(req.headers));
   }
   next();
 });

@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const Message = require('../models/Message');
 const { protect } = require('../middleware/auth.middleware');
+const { requireAdmin } = require('../middleware/require-admin.middleware');
 const rateLimit = require('express-rate-limit');
 const { verifyTurnstile } = require('../middleware/turnstile.middleware');
 
@@ -28,7 +29,7 @@ router.post('/', contactLimiter, verifyTurnstile, async (req, res) => {
 });
 
 // Admin: Get all messages
-router.get('/', protect, async (req, res) => {
+router.get('/', protect, requireAdmin, async (req, res) => {
   try {
     const messages = await Message.findAll({ order: [['createdAt', 'DESC']] });
     res.json(messages);
@@ -38,7 +39,7 @@ router.get('/', protect, async (req, res) => {
 });
 
 // Admin: Update message status (mark as read)
-router.put('/:id', protect, async (req, res) => {
+router.put('/:id', protect, requireAdmin, async (req, res) => {
   try {
     const message = await Message.findByPk(req.params.id);
     if (!message) return res.status(404).json({ message: 'Message not found' });

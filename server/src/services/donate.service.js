@@ -99,7 +99,16 @@ const readHeader = (req, headerName) => {
 
 const verifySepayWebhook = (req) => {
   const secret = sanitizeText(process.env.SEPAY_WEBHOOK_SECRET);
-  if (!secret) return { ok: true, reason: 'no-secret-configured' };
+  const allowInsecureWebhook =
+    String(process.env.ALLOW_INSECURE_WEBHOOK || '').trim().toLowerCase() ===
+      'true' && process.env.NODE_ENV !== 'production';
+
+  if (!secret) {
+    if (allowInsecureWebhook) {
+      return { ok: true, reason: 'insecure-dev-mode' };
+    }
+    return { ok: false, reason: 'missing-secret' };
+  }
 
   const authorizationHeader = readHeader(req, 'authorization');
   const authorizationToken = authorizationHeader

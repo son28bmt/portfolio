@@ -3,6 +3,7 @@ const router = express.Router();
 const jwt = require('jsonwebtoken');
 const { LiveChatMessage } = require('../models');
 const { protect } = require('../middleware/auth.middleware');
+const { getJwtSecret } = require('../utils/jwt.util');
 
 const optionalProtect = async (req, res, next) => {
   const authHeader = String(req.headers.authorization || '');
@@ -13,7 +14,7 @@ const optionalProtect = async (req, res, next) => {
 const isValidGuestToken = (token, guestId) => {
   if (!token || !guestId) return false;
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret');
+    const decoded = jwt.verify(token, getJwtSecret());
     return (
       decoded?.scope === 'guest_chat' &&
       String(decoded?.guestId || '') === String(guestId)

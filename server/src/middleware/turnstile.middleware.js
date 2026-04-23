@@ -9,8 +9,14 @@ const verifyTurnstile = async (req, res, next) => {
   const turnstileToken =
     req.body?.turnstileToken || req.headers?.["x-turnstile-token"];
 
-  // Development convenience: skip when secret is not configured.
+  // Development convenience: cho phép bỏ qua chỉ ở môi trường non-production.
   if (!configuredSecret) {
+    if (process.env.NODE_ENV === "production") {
+      return res.status(503).json({
+        error: "Turnstile secret is not configured on server.",
+        reply: "Máy chủ thiếu TURNSTILE_SECRET_KEY nên đang tạm khóa endpoint bảo vệ.",
+      });
+    }
     return next();
   }
 

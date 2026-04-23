@@ -33,7 +33,8 @@ const MarketplaceManager = () => {
     });
 
     socket.on('connect', () => {
-      socket.emit('join_admin_room');
+      const adminToken = localStorage.getItem('adminToken') || '';
+      socket.emit('join_admin_room', { token: adminToken });
     });
 
     // Khi có biến động Mua Hàng, Nạp Thẻ -> Kích hoạt tăng refreshKey

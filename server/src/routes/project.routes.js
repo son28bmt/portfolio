@@ -6,6 +6,7 @@ const axios = require('axios');
 const path = require('path');
 const Project = require('../models/Project');
 const { protect } = require('../middleware/auth.middleware');
+const { requireAdmin } = require('../middleware/require-admin.middleware');
 const { uploadBufferToR2, getPresignedUploadUrl } = require('../services/r2.service');
 
 const ALLOWED_PROJECT_FILE_TYPES = new Set([
@@ -194,7 +195,7 @@ const readSingleQueryValue = (value) => {
   return typeof value === 'string' ? value.trim() : '';
 };
 
-router.post('/upload-images', protect, uploadFilesMiddleware, async (req, res) => {
+router.post('/upload-images', protect, requireAdmin, uploadFilesMiddleware, async (req, res) => {
   try {
     if (!req.files || req.files.length === 0) return res.status(400).json({ message: 'Bạn chưa chọn tệp để tải lên.' });
     const folder = req.body.folder || 'projects';
@@ -225,7 +226,7 @@ router.post('/upload-images', protect, uploadFilesMiddleware, async (req, res) =
   }
 });
 
-router.get('/get-upload-url', protect, async (req, res) => {
+router.get('/get-upload-url', protect, requireAdmin, async (req, res) => {
   try {
     const fileName = readSingleQueryValue(req.query.fileName);
     const mimeType = readSingleQueryValue(req.query.mimeType).toLowerCase();
@@ -352,7 +353,7 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-router.post('/', protect, async (req, res) => {
+router.post('/', protect, requireAdmin, async (req, res) => {
   try {
     const project = await Project.create(normalizeProjectPayload(req.body));
     res.status(201).json(normalizeProjectRecord(project));
@@ -361,7 +362,7 @@ router.post('/', protect, async (req, res) => {
   }
 });
 
-router.put('/:id', protect, async (req, res) => {
+router.put('/:id', protect, requireAdmin, async (req, res) => {
   try {
     const project = await Project.findByPk(req.params.id);
     if (!project) return res.status(404).json({ message: 'Project not found' });
@@ -372,7 +373,7 @@ router.put('/:id', protect, async (req, res) => {
   }
 });
 
-router.delete('/:id', protect, async (req, res) => {
+router.delete('/:id', protect, requireAdmin, async (req, res) => {
   try {
     const project = await Project.findByPk(req.params.id);
     if (!project) return res.status(404).json({ message: 'Project not found' });

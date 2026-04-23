@@ -46,6 +46,13 @@ const webhookLogPath = () => {
   return path.resolve(__dirname, '../../logs/webhook-sepay.log');
 };
 
+const maskSecret = (value) => {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  if (raw.length <= 8) return '*'.repeat(raw.length);
+  return `${raw.slice(0, 4)}***${raw.slice(-2)}`;
+};
+
 const logWebhookRequest = async (req) => {
   try {
     const logPath = webhookLogPath();
@@ -58,9 +65,9 @@ const logWebhookRequest = async (req) => {
       time: new Date().toISOString(),
       ip: req.ip,
       headers: {
-        authorization: req.headers?.authorization || '',
-        'x-secret-key': req.headers?.['x-secret-key'] || '',
-        'x-sepay-signature': req.headers?.['x-sepay-signature'] || '',
+        authorization_masked: maskSecret(req.headers?.authorization || ''),
+        'x-secret-key_masked': maskSecret(req.headers?.['x-secret-key'] || ''),
+        'x-sepay-signature_masked': maskSecret(req.headers?.['x-sepay-signature'] || ''),
       },
       body: req.body || {},
     });
