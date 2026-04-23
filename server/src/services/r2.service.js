@@ -33,7 +33,7 @@ const getR2Config = () => {
     secretAccessKey,
     bucket,
     endpoint,
-    publicBaseUrl: publicBaseUrl.replace(/\/+$/, ""),
+    publicBaseUrl: String(publicBaseUrl).replace(/\/+$/, ""),
   };
 };
 
