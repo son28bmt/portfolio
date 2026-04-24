@@ -8,6 +8,18 @@ const { buildVietQrUrl, verifySepayWebhook, normalizeSepayPayload } = require('.
 const { sendMarketplaceDeliveryEmail } = require('./email.service');
 const { sendEvent } = require('./sse.service');
 const { notifyAdmin } = require('./socket.service');
+const { ensureMarketplaceSchema } = require('./marketplace-schema.service');
+const { applySupplierStatusRefresh } = require('./marketplace-supplier-sync.service');
+const {
+  FULFILLMENT_STATUSES,
+  normalizeFulfillmentSource,
+  normalizeSourceConfig,
+  buildProductSnapshot,
+  buildSourceSnapshot,
+  extractDeliveryText,
+  normalizeOrderInput,
+  getFulfillmentProvider,
+} = require('./marketplace-fulfillment.service');
 
 const raise = (status, message) => {
   const error = new Error(message);
@@ -74,7 +86,7 @@ const logWebhookRequest = async (req) => {
 
     await fs.promises.appendFile(logPath, `${logLine}\n`, 'utf8');
   } catch (error) {
-    console.error('[Marketplace] Không ghi được log webhook:', error.message);
+    console.error('[Marketplace] Khong ghi duoc log webhook:', error.message);
   }
 };
 
@@ -86,41 +98,85 @@ const extractPaymentRef = (text) => {
   return raw.slice(0, 120);
 };
 
-const listPublicProducts = async () => {
-  return Product.findAll({
-    include: [{ model: Category, as: 'category', attributes: ['id', 'name'] }],
-    attributes: ['id', 'name', 'description', 'price', 'quantity', 'createdAt', 'categoryId'],
-    order: [['id', 'DESC']],
-  });
+const normalizeProductRecord = (product) => {
+  const plain = product?.toJSON ? product.toJSON() : product;
+  if (!plain) return plain;
+  return {
+    ...plain,
+    sourceType: normalizeFulfillmentSource(plain.sourceType),
+    sourceConfig: normalizeSourceConfig(plain.sourceConfig),
+  };
 };
 
-const createOrderIntent = async ({ email, productId }) => {
+const normalizeOrderRecord = (order) => {
+  const plain = order?.toJSON ? order.toJSON() : order;
+  if (!plain) return plain;
+  return {
+    ...plain,
+    fulfillmentSource: normalizeFulfillmentSource(
+      plain.fulfillmentSource || plain.product?.sourceType,
+    ),
+    fulfillmentStatus:
+      String(plain.fulfillmentStatus || '').trim() ||
+      (plain.status === 'paid' ? FULFILLMENT_STATUSES.DELIVERED : FULFILLMENT_STATUSES.PENDING),
+    fulfillmentPayload: plain.fulfillmentPayload || null,
+    productSnapshot: plain.productSnapshot || null,
+    sourceSnapshot: plain.sourceSnapshot || null,
+    product: plain.product ? normalizeProductRecord(plain.product) : plain.product,
+  };
+};
+
+const listPublicProducts = async () => {
+  await ensureMarketplaceSchema();
+  const rows = await Product.findAll({
+    include: [{ model: Category, as: 'category', attributes: ['id', 'name'] }],
+    attributes: [
+      'id',
+      'name',
+      'description',
+      'price',
+      'quantity',
+      'createdAt',
+      'categoryId',
+      'sourceType',
+      'sourceConfig',
+    ],
+    order: [['id', 'DESC']],
+  });
+  return rows.map(normalizeProductRecord);
+};
+
+const createOrderIntent = async ({ email, productId, orderInput = {} }) => {
+  await ensureMarketplaceSchema();
+
   const cleanEmail = String(email || '').trim().toLowerCase();
   const cleanProductId = toInt(productId);
 
   if (!isEmail(cleanEmail)) {
-    raise(400, 'Email không hợp lệ.');
+    raise(400, 'Email khong hop le.');
   }
   if (!cleanProductId || cleanProductId <= 0) {
-    raise(400, 'product_id không hợp lệ.');
+    raise(400, 'product_id khong hop le.');
   }
 
   const product = await Product.findByPk(cleanProductId);
   if (!product) {
-    raise(404, 'Sản phẩm không tồn tại.');
-  }
-  if (Number(product.quantity) <= 0) {
-    raise(409, 'Sản phẩm đã hết hàng.');
+    raise(404, 'San pham khong ton tai.');
   }
 
-  const amount = toAmount(product.price);
-  if (!amount || amount <= 0) {
-    raise(400, 'Sản phẩm chưa có giá hợp lệ.');
-  }
+  const sourceType = normalizeFulfillmentSource(product.sourceType);
+  const provider = getFulfillmentProvider(sourceType);
+  await provider.assertProductReady({ product });
+  const preparedOrder = await provider.prepareOrderIntent({
+    product,
+    orderInput: normalizeOrderInput(orderInput),
+  });
+  const amount = toAmount(preparedOrder?.amount);
+  if (!amount || amount <= 0) raise(400, 'San pham chua co gia hop le.');
 
   const { bankBin, accountNo, accountName } = getPaymentConfig();
   if (!bankBin || !accountNo || !accountName) {
-    raise(500, 'Thiếu cấu hình tài khoản nhận tiền cho SePay/VietQR.');
+    raise(500, 'Thieu cau hinh tai khoan nhan tien cho SePay/VietQR.');
   }
 
   let paymentRef = '';
@@ -130,13 +186,23 @@ const createOrderIntent = async ({ email, productId }) => {
     if (!existed) break;
   }
   if (!paymentRef) {
-    raise(500, 'Không thể tạo mã thanh toán, vui lòng thử lại.');
+    raise(500, 'Khong the tao ma thanh toan, vui long thu lai.');
   }
 
   const order = await Order.create({
     email: cleanEmail,
     productId: product.id,
     status: 'pending',
+    fulfillmentStatus: FULFILLMENT_STATUSES.PENDING,
+    fulfillmentSource: sourceType,
+    fulfillmentPayload: preparedOrder?.requestInput
+      ? {
+          requestInput: preparedOrder.requestInput,
+          lifecycle: 'pending_payment',
+        }
+      : null,
+    productSnapshot: buildProductSnapshot(product),
+    sourceSnapshot: buildSourceSnapshot(product),
     payment_ref: paymentRef,
     amount,
   });
@@ -152,7 +218,7 @@ const createOrderIntent = async ({ email, productId }) => {
   });
 
   return {
-    order,
+    order: normalizeOrderRecord(order),
     qrUrl,
     paymentRef,
     amount,
@@ -161,6 +227,8 @@ const createOrderIntent = async ({ email, productId }) => {
 };
 
 const applyPaymentWithLock = async ({ paymentRef, providerTxnId, amount }) => {
+  await ensureMarketplaceSchema();
+
   return sequelize.transaction(async (transaction) => {
     if (providerTxnId) {
       const paidByTxn = await Order.findOne({
@@ -169,7 +237,7 @@ const applyPaymentWithLock = async ({ paymentRef, providerTxnId, amount }) => {
         lock: transaction.LOCK.UPDATE,
       });
       if (paidByTxn) {
-        return { type: 'duplicate', order: paidByTxn };
+        return { type: 'duplicate', order: normalizeOrderRecord(paidByTxn) };
       }
     }
 
@@ -185,66 +253,87 @@ const applyPaymentWithLock = async ({ paymentRef, providerTxnId, amount }) => {
     }
 
     if (order.status === 'paid') {
-      return { type: 'already_paid', order };
+      return { type: 'already_paid', order: normalizeOrderRecord(order) };
     }
 
     if (order.status !== 'pending') {
-      return { type: 'ignored', order };
+      return { type: 'ignored', order: normalizeOrderRecord(order) };
     }
 
     const expectedAmount = toAmount(order.amount);
     if (amount && expectedAmount && Number(amount) < Number(expectedAmount)) {
-      return { type: 'amount_mismatch', order, expectedAmount, amount };
+      return {
+        type: 'amount_mismatch',
+        order: normalizeOrderRecord(order),
+        expectedAmount,
+        amount,
+      };
     }
 
-    const stockItem = await StockItem.findOne({
-      where: { productId: order.productId, status: 'available' },
-      order: [['id', 'ASC']],
-      transaction,
-      lock: transaction.LOCK.UPDATE,
-      skipLocked: true,
-    });
+    const sourceType = normalizeFulfillmentSource(
+      order.fulfillmentSource || order.product?.sourceType,
+    );
+    const provider = getFulfillmentProvider(sourceType);
+    const fulfillment = await provider.fulfillPaidOrder({ order, transaction });
 
-    if (!stockItem) {
-      order.status = 'failed';
-      await order.save({ transaction });
-      return { type: 'out_of_stock', order };
-    }
-
-    stockItem.status = 'sold';
-    await stockItem.save({ transaction });
-
-    order.stockItemId = stockItem.id;
-    order.status = 'paid';
     order.payment_txn_id = providerTxnId || order.payment_txn_id;
     order.paid_at = new Date();
+    order.fulfillmentSource = sourceType;
+    if (!order.productSnapshot) order.productSnapshot = buildProductSnapshot(order.product);
+    if (!order.sourceSnapshot) order.sourceSnapshot = buildSourceSnapshot(order.product);
+
+    if (!fulfillment?.ok) {
+      order.status = 'failed';
+      order.fulfillmentStatus =
+        fulfillment?.fulfillmentStatus || FULFILLMENT_STATUSES.FAILED;
+      order.fulfillmentPayload = {
+        ...(order.fulfillmentPayload || {}),
+        lastError: fulfillment?.message || 'Fulfillment failed.',
+        code: fulfillment?.code || 'fulfillment_failed',
+      };
+      await order.save({ transaction });
+      return {
+        type: fulfillment?.code || 'failed',
+        order: normalizeOrderRecord(order),
+        fulfillment,
+      };
+    }
+
+    order.status = 'paid';
+    order.fulfillmentStatus =
+      fulfillment.fulfillmentStatus || FULFILLMENT_STATUSES.DELIVERED;
+    order.stockItemId = fulfillment.stockItemId || order.stockItemId;
+    order.fulfillmentPayload = fulfillment.deliveryPayload || order.fulfillmentPayload || null;
     await order.save({ transaction });
 
-    await Product.update(
-      { quantity: sequelize.literal('GREATEST(quantity - 1, 0)') },
-      { where: { id: order.productId }, transaction }
-    );
-
-    return { type: 'paid', order, stockItem };
+    return {
+      type:
+        order.fulfillmentStatus === FULFILLMENT_STATUSES.PROCESSING ? 'processing' : 'paid',
+      order: normalizeOrderRecord(order),
+      stockItem: fulfillment.stockItem || null,
+      fulfillment,
+      deliveryText: extractDeliveryText(fulfillment.deliveryPayload),
+    };
   });
 };
 
 const processSepayWebhook = async (req) => {
+  await ensureMarketplaceSchema();
   await logWebhookRequest(req);
 
   const verification = verifySepayWebhook(req);
   if (!verification.ok) {
-    raise(401, 'Webhook SePay không hợp lệ.');
+    raise(401, 'Webhook SePay khong hop le.');
   }
 
   const payload = normalizeSepayPayload(req.body);
   if (!payload.isSuccess) {
-    return { ok: true, type: 'ignored', message: 'Bỏ qua webhook không phải giao dịch thành công.' };
+    return { ok: true, type: 'ignored', message: 'Bo qua webhook khong phai giao dich thanh cong.' };
   }
 
   const paymentRef = extractPaymentRef(payload.transferContent);
   if (!paymentRef) {
-    return { ok: true, type: 'ignored', message: 'Không tìm thấy payment_ref trong nội dung chuyển khoản.' };
+    return { ok: true, type: 'ignored', message: 'Khong tim thay payment_ref trong noi dung chuyen khoan.' };
   }
 
   const result = await applyPaymentWithLock({
@@ -253,18 +342,32 @@ const processSepayWebhook = async (req) => {
     amount: payload.amount,
   });
 
-  if (result.type === 'paid') {
-    sendEvent('market', paymentRef, { status: 'paid' });
+  if (result.type === 'paid' || result.type === 'processing') {
+    sendEvent('market', paymentRef, {
+      status: result.order?.status || 'paid',
+      fulfillmentStatus: result.order?.fulfillmentStatus || null,
+    });
     notifyAdmin('admin_market_refresh');
-    try {
-      await sendMarketplaceDeliveryEmail({
-        to: result.order.email,
-        productName: result.order.product?.name || 'Sản phẩm số',
-        productData: result.stockItem.data,
-        orderId: result.order.id,
-      });
-    } catch (emailError) {
-      console.error(`[Marketplace] Gửi email thất bại cho đơn #${result.order.id}:`, emailError.message);
+
+    if (result.type === 'paid') {
+      const deliveryText =
+        result.deliveryText || extractDeliveryText(result.order?.fulfillmentPayload);
+
+      if (deliveryText) {
+        try {
+          await sendMarketplaceDeliveryEmail({
+            to: result.order.email,
+            productName: result.order.product?.name || 'San pham so',
+            productData: deliveryText,
+            orderId: result.order.id,
+          });
+        } catch (emailError) {
+          console.error(
+            `[Marketplace] Gui email that bai cho don #${result.order.id}:`,
+            emailError.message,
+          );
+        }
+      }
     }
   }
 
@@ -272,10 +375,12 @@ const processSepayWebhook = async (req) => {
 };
 
 const getAdminProducts = async () => {
-  return Product.findAll({
-    include: [{ model: Category, as: 'category', attributes: ['id', 'name'] }],
+  await ensureMarketplaceSchema();
+  const rows = await Product.findAll({
+    include: [{ model: Category, as: 'category', attributes: ['id', 'name', 'storeSection'] }],
     order: [['id', 'DESC']],
   });
+  return rows.map(normalizeProductRecord);
 };
 
 const getAdminCategories = async () => {
@@ -283,10 +388,12 @@ const getAdminCategories = async () => {
 };
 
 const getAdminStockItems = async ({ page = 1, limit = 20, status, productId } = {}) => {
-  const CleanPage = Number(page) || 1;
-  const CleanLimit = Number(limit) || 20;
-  const offset = (CleanPage - 1) * CleanLimit;
-  
+  await ensureMarketplaceSchema();
+
+  const cleanPage = Number(page) || 1;
+  const cleanLimit = Number(limit) || 20;
+  const offset = (cleanPage - 1) * cleanLimit;
+
   const where = {};
   if (status && status !== 'all') where.status = status;
   if (productId) where.productId = productId;
@@ -295,55 +402,147 @@ const getAdminStockItems = async ({ page = 1, limit = 20, status, productId } = 
     where,
     include: [{ model: Product, as: 'product', attributes: ['id', 'name', 'price'] }],
     order: [['id', 'DESC']],
-    limit: CleanLimit,
+    limit: cleanLimit,
     offset,
   });
-  
-  // Calculate stats
+
   const totalAvailableStock = await StockItem.count({ where: { status: 'available' } });
   let selectedAvailableStock = 0;
   if (productId) {
-    selectedAvailableStock = await StockItem.count({ where: { status: 'available', productId } });
+    selectedAvailableStock = await StockItem.count({
+      where: { status: 'available', productId },
+    });
   }
 
   return {
     items: result.rows,
     total: result.count,
-    page: CleanPage,
-    totalPages: Math.ceil(result.count / CleanLimit),
+    page: cleanPage,
+    totalPages: Math.ceil(result.count / cleanLimit),
     totalAvailableStock,
-    selectedAvailableStock
+    selectedAvailableStock,
   };
 };
 
-const getAdminOrders = async ({ status, email, page = 1, limit = 20 }) => {
-  const CleanPage = Number(page) || 1;
-  const CleanLimit = Number(limit) || 20;
-  const offset = (CleanPage - 1) * CleanLimit;
+const getAdminOrders = async ({
+  status,
+  email,
+  fulfillmentStatus,
+  sourceType,
+  page = 1,
+  limit = 20,
+} = {}) => {
+  await ensureMarketplaceSchema();
+
+  const cleanPage = Number(page) || 1;
+  const cleanLimit = Number(limit) || 20;
+  const offset = (cleanPage - 1) * cleanLimit;
 
   const where = {};
   const cleanStatus = String(status || '').trim();
   const cleanEmail = String(email || '').trim().toLowerCase();
+  const cleanFulfillmentStatus = String(fulfillmentStatus || '').trim();
+  const cleanSourceType = String(sourceType || '').trim();
   if (cleanStatus && cleanStatus !== 'all') where.status = cleanStatus;
   if (cleanEmail) where.email = { [Op.like]: `%${cleanEmail}%` };
+  if (cleanFulfillmentStatus && cleanFulfillmentStatus !== 'all') {
+    where.fulfillmentStatus = cleanFulfillmentStatus;
+  }
+  if (cleanSourceType && cleanSourceType !== 'all') {
+    where.fulfillmentSource = normalizeFulfillmentSource(cleanSourceType);
+  }
 
   const result = await Order.findAndCountAll({
     where,
     include: [
-      { model: Product, as: 'product', attributes: ['id', 'name', 'price'] },
+      { model: Product, as: 'product', attributes: ['id', 'name', 'price', 'sourceType'] },
       { model: StockItem, as: 'stockItem', attributes: ['id', 'data', 'status'] },
     ],
     order: [['id', 'DESC']],
-    limit: CleanLimit,
+    limit: cleanLimit,
     offset,
   });
 
   return {
-    items: result.rows,
+    items: result.rows.map(normalizeOrderRecord),
     total: result.count,
-    page: CleanPage,
-    totalPages: Math.ceil(result.count / CleanLimit),
+    page: cleanPage,
+    totalPages: Math.ceil(result.count / cleanLimit),
   };
+};
+
+const getPublicOrderSummary = async (paymentRef) => {
+  await ensureMarketplaceSchema();
+  const cleanPaymentRef = String(paymentRef || '').trim();
+  if (!cleanPaymentRef) raise(400, 'Thieu ma thanh toan.');
+
+  const order = await Order.findOne({
+    where: { payment_ref: cleanPaymentRef },
+    include: [{ model: Product, as: 'product', attributes: ['id', 'name', 'sourceType'] }],
+  });
+
+  if (!order) raise(404, 'Khong tim thay don hang.');
+
+  const normalized = normalizeOrderRecord(order);
+  const deliveryText = extractDeliveryText(normalized.fulfillmentPayload);
+  return {
+    id: normalized.id,
+    email: normalized.email,
+    amount: normalized.amount,
+    status: normalized.status,
+    fulfillmentStatus: normalized.fulfillmentStatus,
+    fulfillmentSource: normalized.fulfillmentSource,
+    paymentRef: normalized.payment_ref,
+    paidAt: normalized.paid_at || null,
+    createdAt: normalized.createdAt || null,
+    product: normalized.product
+      ? {
+          id: normalized.product.id,
+          name: normalized.product.name,
+          sourceType: normalized.product.sourceType,
+        }
+      : null,
+    supplier: normalized.fulfillmentSource === 'supplier_api'
+      ? {
+          supplierKind: normalized.sourceSnapshot?.sourceConfig?.supplierKind || null,
+          externalStatus: normalized.fulfillmentPayload?.externalStatus || null,
+          externalOrderId: normalized.fulfillmentPayload?.externalOrderId || null,
+          lastStatusSyncAt: normalized.fulfillmentPayload?.lastStatusSyncAt || null,
+        }
+      : null,
+    delivery:
+      normalized.fulfillmentStatus === FULFILLMENT_STATUSES.DELIVERED && deliveryText
+        ? {
+            channel: normalized.fulfillmentPayload?.channel || 'inline',
+            text: deliveryText,
+            stockItemId: normalized.fulfillmentPayload?.stockItemId || null,
+          }
+        : null,
+    lastError: normalized.fulfillmentPayload?.lastError || null,
+  };
+};
+
+const refreshSupplierFulfillmentByOrderId = async (orderId) => {
+  await ensureMarketplaceSchema();
+  const cleanOrderId = toInt(orderId);
+  if (!cleanOrderId || cleanOrderId <= 0) raise(400, 'ID don hang khong hop le.');
+
+  const order = await Order.findByPk(cleanOrderId, {
+    include: [{ model: Product, as: 'product' }],
+  });
+
+  if (!order) raise(404, 'Khong tim thay don hang.');
+
+  const sourceType = normalizeFulfillmentSource(
+    order.fulfillmentSource || order.product?.sourceType,
+  );
+  if (sourceType !== 'supplier_api') {
+    raise(400, 'Chi co the refresh don supplier_api.');
+  }
+
+  await applySupplierStatusRefresh(order, { emitEvents: true });
+
+  return normalizeOrderRecord(order);
 };
 
 const createOrder = async (email, productId) => {
@@ -354,7 +553,12 @@ const createOrder = async (email, productId) => {
 const processPayment = async (paymentRef, amount) => {
   const result = await applyPaymentWithLock({ paymentRef, providerTxnId: '', amount });
   if (result.type !== 'paid') return null;
-  return { order: result.order, stockItem: result.stockItem };
+  return {
+    order: result.order,
+    stockItem: result.stockItem,
+    deliveryText: result.deliveryText,
+    fulfillment: result.fulfillment,
+  };
 };
 
 module.exports = {
@@ -365,6 +569,8 @@ module.exports = {
   getAdminCategories,
   getAdminStockItems,
   getAdminOrders,
+  getPublicOrderSummary,
+  refreshSupplierFulfillmentByOrderId,
   createOrder,
   processPayment,
 };

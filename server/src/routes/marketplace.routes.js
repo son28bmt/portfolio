@@ -3,8 +3,20 @@ const rateLimit = require("express-rate-limit");
 const controller = require("../controllers/marketplace.controller");
 const { protectMarketplaceAdmin } = require("../middleware/marketplace-admin.middleware");
 const { verifyTurnstile } = require("../middleware/turnstile.middleware");
+const { ensureMarketplaceSchema } = require("../services/marketplace-schema.service");
 
 const router = express.Router();
+
+router.use(async (req, res, next) => {
+  try {
+    await ensureMarketplaceSchema();
+    return next();
+  } catch (error) {
+    return res.status(500).json({
+      message: `Khong the khoi tao schema marketplace: ${error.message || error}`,
+    });
+  }
+});
 
 const orderLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
@@ -31,10 +43,11 @@ const adminLoginLimiter = rateLimit({
 router.get("/products", controller.publicGetProducts);
 router.post("/orders", orderLimiter, verifyTurnstile, controller.publicCreateOrder);
 router.get("/orders/:payment_ref/status", controller.publicGetOrderStatus);
+router.get("/orders/:payment_ref", controller.publicGetOrderSummary);
 router.get("/sse/orders/:payment_ref", controller.publicGetOrderSSE);
 
 // Webhook
-router.post("/webhook/sepay", controller.webhookSePay);
+router.post(["/webhook/sepay", "/order/webhook/sepay", "/orders/webhook/sepay"], controller.webhookSePay);
 
 // Admin login
 router.post("/admin/login", adminLoginLimiter, controller.adminLogin);
@@ -60,7 +73,13 @@ router.delete("/admin/categories/:id", controller.adminDeleteCategory);
 router.get("/admin/orders", controller.adminGetOrders);
 router.get("/admin/orders/:id", controller.adminGetOrderById);
 router.post("/admin/orders", controller.adminCreateOrder);
+router.post("/admin/orders/:id/refresh-fulfillment", controller.adminRefreshSupplierOrder);
 router.put("/admin/orders/:id", controller.adminUpdateOrder);
 router.delete("/admin/orders/:id", controller.adminDeleteOrder);
+
+router.get("/admin/supplier/smm-panel/services", controller.adminGetSmmServices);
+router.get("/admin/supplier/smm-panel/balance", controller.adminGetSmmBalance);
+router.post("/admin/supplier/smm-panel/sync-services", controller.adminSyncSmmServices);
+router.post("/admin/supplier/smm-panel/refresh-processing", controller.adminBatchRefreshSupplierOrders);
 
 module.exports = router;

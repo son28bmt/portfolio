@@ -12,6 +12,10 @@ const Donation = require('./Donation');
 const LiveChatMessage = require('./LiveChatMessage');
 const BlogAutomationRule = require('./BlogAutomationRule');
 const BlogAutomationJob = require('./BlogAutomationJob');
+const UserProfile = require('./UserProfile');
+const WalletAccount = require('./WalletAccount');
+const WalletLedgerEntry = require('./WalletLedgerEntry');
+const WalletTopup = require('./WalletTopup');
 
 // Associations
 Category.hasMany(Product, { foreignKey: 'categoryId', as: 'products' });
@@ -25,6 +29,42 @@ Order.belongsTo(Product, { foreignKey: 'productId', as: 'product' });
 
 StockItem.hasMany(Order, { foreignKey: 'stockItemId', as: 'orders' });
 Order.belongsTo(StockItem, { foreignKey: 'stockItemId', as: 'stockItem' });
+
+User.hasOne(UserProfile, { foreignKey: 'userId', as: 'profile' });
+UserProfile.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+
+User.hasOne(WalletAccount, { foreignKey: 'userId', as: 'walletAccount' });
+WalletAccount.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+
+WalletAccount.hasMany(WalletLedgerEntry, {
+  foreignKey: 'walletAccountId',
+  as: 'ledgerEntries',
+});
+WalletLedgerEntry.belongsTo(WalletAccount, {
+  foreignKey: 'walletAccountId',
+  as: 'walletAccount',
+});
+
+WalletAccount.hasMany(WalletTopup, {
+  foreignKey: 'walletAccountId',
+  as: 'topups',
+});
+WalletTopup.belongsTo(WalletAccount, {
+  foreignKey: 'walletAccountId',
+  as: 'walletAccount',
+});
+
+User.hasMany(Order, { foreignKey: 'userId', as: 'orders' });
+Order.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+
+WalletLedgerEntry.hasMany(Order, {
+  foreignKey: 'walletLedgerEntryId',
+  as: 'orders',
+});
+Order.belongsTo(WalletLedgerEntry, {
+  foreignKey: 'walletLedgerEntryId',
+  as: 'walletLedgerEntry',
+});
 
 BlogAutomationRule.hasMany(BlogAutomationJob, {
   foreignKey: 'ruleId',
@@ -62,4 +102,8 @@ module.exports = {
   LiveChatMessage,
   BlogAutomationRule,
   BlogAutomationJob,
+  UserProfile,
+  WalletAccount,
+  WalletLedgerEntry,
+  WalletTopup,
 };

@@ -3,7 +3,6 @@ const { Op } = require('sequelize');
 const Donation = require('../models/Donation');
 const { protect } = require('../middleware/auth.middleware');
 const { requireAdmin } = require('../middleware/require-admin.middleware');
-const { processSepayWebhook: processMarketplaceWebhook } = require('../services/marketplace.service');
 const {
   DONATION_STATUS,
   sanitizeDonorName,
@@ -33,7 +32,7 @@ const expirePendingDonations = async () => {
         status: DONATION_STATUS.PENDING,
         expiresAt: { [Op.lte]: new Date() },
       },
-    }
+    },
   );
 };
 
@@ -50,11 +49,15 @@ router.post('/intents', async (req, res) => {
     const amount = toAmount(req.body?.amount);
 
     if (!config.bankBin || !config.accountNo || !config.accountName) {
-      return res.status(500).json({ message: 'Thiếu cấu hình tài khoản nhận donate trên server.' });
+      return res
+        .status(500)
+        .json({ message: 'Thiếu cấu hình tài khoản nhận donate trên server.' });
     }
 
     if (donorName.length < 2) {
-      return res.status(400).json({ message: 'Tên người ủng hộ phải có ít nhất 2 ký tự.' });
+      return res
+        .status(400)
+        .json({ message: 'Tên người ủng hộ phải có ít nhất 2 ký tự.' });
     }
 
     if (!amount || amount < config.minAmount || amount > config.maxAmount) {
@@ -184,38 +187,82 @@ router.post('/webhook/sepay', async (req, res) => {
 
     const payload = normalizeSepayPayload(req.body);
     if (!payload.isSuccess) {
-      return res.status(202).json({ message: 'Bỏ qua webhook không phải giao dịch thành công.' });
+      return res.status(202).json({
+        success: true,
+        webhookType: 'donate',
+        handledBy: 'donate',
+        message: 'Bỏ qua webhook không phải giao dịch thành công.',
+      });
     }
 
     const transferContentStr = String(payload.transferContent || '').toUpperCase();
+
     if (transferContentStr.match(/ORD[A-Z0-9]{8,40}/)) {
-      const result = await processMarketplaceWebhook(req);
-      return res.status(200).json({ success: true, ...result });
+      return res.status(409).json({
+        success: false,
+        webhookType: 'donate',
+        handledBy: 'donate',
+        message: 'Webhook donate không xử lý đơn hàng. Vui lòng trỏ webhook order sang /api/order/webhook/sepay.',
+      });
+    }
+
+    if (transferContentStr.match(/WAL[A-Z0-9]{8,40}/)) {
+      return res.status(409).json({
+        success: false,
+        webhookType: 'donate',
+        handledBy: 'donate',
+        message: 'Webhook donate không xử lý nạp quỹ. Vui lòng trỏ webhook wallet sang /api/wallet/webhook/sepay.',
+      });
     }
 
     const orderCode = extractOrderCode(payload.transferContent);
     if (!orderCode) {
-      return res.status(400).json({ message: 'Không tìm thấy mã đơn donate trong nội dung chuyển khoản.' });
+      return res.status(400).json({
+        success: false,
+        webhookType: 'donate',
+        handledBy: 'donate',
+        message: 'Không tìm thấy mã đơn donate trong nội dung chuyển khoản.',
+      });
     }
 
     const donation = await Donation.findOne({ where: { orderCode } });
     if (!donation) {
-      return res.status(404).json({ message: 'Không tìm thấy đơn donate tương ứng.' });
+      return res.status(404).json({
+        success: false,
+        webhookType: 'donate',
+        handledBy: 'donate',
+        message: 'Không tìm thấy đơn donate tương ứng.',
+      });
     }
 
     if (!payload.amount || payload.amount !== donation.amount) {
-      return res.status(400).json({ message: 'Số tiền giao dịch không khớp với đơn donate.' });
+      return res.status(400).json({
+        success: false,
+        webhookType: 'donate',
+        handledBy: 'donate',
+        message: 'Số tiền giao dịch không khớp với đơn donate.',
+      });
     }
 
     if (payload.providerTxnId) {
       const existingTxn = await Donation.findOne({ where: { providerTxnId: payload.providerTxnId } });
       if (existingTxn && existingTxn.id !== donation.id) {
-        return res.status(200).json({ message: 'Giao dịch đã được xử lý trước đó.' });
+        return res.status(200).json({
+          success: true,
+          webhookType: 'donate',
+          handledBy: 'donate',
+          message: 'Giao dịch đã được xử lý trước đó.',
+        });
       }
     }
 
     if (donation.status === DONATION_STATUS.PAID) {
-      return res.status(200).json({ message: 'Đơn donate đã thanh toán trước đó.' });
+      return res.status(200).json({
+        success: true,
+        webhookType: 'donate',
+        handledBy: 'donate',
+        message: 'Đơn donate đã thanh toán trước đó.',
+      });
     }
 
     await donation.update({
@@ -228,10 +275,20 @@ router.post('/webhook/sepay', async (req, res) => {
     sendEvent('donate', donation.orderCode, { status: DONATION_STATUS.PAID });
     notifyAdmin('admin_donate_refresh');
 
-    return res.status(200).json({ success: true, message: 'OK' });
+    return res.status(200).json({
+      success: true,
+      webhookType: 'donate',
+      handledBy: 'donate',
+      message: 'OK',
+    });
   } catch (error) {
     const status = error.status || 500;
-    return res.status(status).json({ message: error.message || 'Lỗi xử lý webhook donate.' });
+    return res.status(status).json({
+      success: false,
+      webhookType: 'donate',
+      handledBy: 'donate',
+      message: error.message || 'Lỗi xử lý webhook donate.',
+    });
   }
 });
 

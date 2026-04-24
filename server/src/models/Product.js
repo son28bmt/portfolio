@@ -29,6 +29,16 @@ const Product = sequelize.define('Product', {
     allowNull: false,
     defaultValue: 0,
   },
+  sourceType: {
+    type: DataTypes.STRING(40),
+    allowNull: false,
+    defaultValue: 'local_stock',
+  },
+  sourceConfig: {
+    type: DataTypes.JSON,
+    allowNull: true,
+    defaultValue: {},
+  },
   createdAt: {
     type: DataTypes.DATE,
     allowNull: false,

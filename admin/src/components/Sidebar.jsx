@@ -1,18 +1,18 @@
 import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
-  LayoutDashboard,
-  FolderKanban,
-  FileText,
-  Settings,
-  MessageSquare,
-  LogOut,
-  Sparkles,
-  Gift,
-  ShoppingBag,
-  Headphones,
-  X,
   Bot,
+  FileText,
+  FolderKanban,
+  Gift,
+  Headphones,
+  LayoutDashboard,
+  LogOut,
+  MessageSquare,
+  ShoppingBag,
+  Sparkles,
+  Settings,
+  X,
 } from 'lucide-react';
 
 const Sidebar = ({ isOpen, onClose }) => {
@@ -38,20 +38,20 @@ const Sidebar = ({ isOpen, onClose }) => {
 
   return (
     <div
-      className={`fixed inset-y-0 left-0 z-50 w-64 h-screen bg-surface border-r border-white/5 flex flex-col p-6 transition-transform duration-300 transform 
-      ${isOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'} 
+      className={`fixed inset-y-0 left-0 z-50 flex h-screen w-64 flex-col border-r border-white/5 bg-surface p-6 transition-transform duration-300 transform
+      ${isOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'}
       lg:translate-x-0 lg:static lg:shadow-none`}
     >
       <button
         onClick={onClose}
-        className="lg:hidden absolute top-4 right-4 p-2 text-white/50 hover:text-white rounded-lg hover:bg-white/5"
+        className="absolute right-4 top-4 rounded-lg p-2 text-white/50 hover:bg-white/5 hover:text-white lg:hidden"
       >
-        <X className="w-5 h-5" />
+        <X className="h-5 w-5" />
       </button>
 
-      <div className="flex items-center gap-3 mb-8 lg:mb-10 px-2 mt-4 lg:mt-0">
-        <Sparkles className="text-primary w-6 h-6" />
-        <span className="font-bold text-lg">Admin Panel</span>
+      <div className="mb-8 mt-4 flex items-center gap-3 px-2 lg:mb-10 lg:mt-0">
+        <Sparkles className="h-6 w-6 text-primary" />
+        <span className="text-lg font-bold">Admin Panel</span>
       </div>
 
       <nav className="flex-grow space-y-2">
@@ -59,19 +59,17 @@ const Sidebar = ({ isOpen, onClose }) => {
           <NavLink
             key={item.path}
             to={item.path}
-            onClick={() => {
-              if (onClose) onClose();
-            }}
+            onClick={() => onClose?.()}
             className={({ isActive }) => `
-              flex items-center gap-4 px-4 py-3 rounded-xl text-sm font-medium transition-all
+              flex items-center gap-4 rounded-xl px-4 py-3 text-sm font-medium transition-all
               ${
                 isActive
-                  ? 'bg-primary/10 text-primary border border-primary/20'
-                  : 'text-white/40 hover:text-white hover:bg-white/5'
+                  ? 'border border-primary/20 bg-primary/10 text-primary'
+                  : 'text-white/40 hover:bg-white/5 hover:text-white'
               }
             `}
           >
-            <item.icon className="w-5 h-5" />
+            <item.icon className="h-5 w-5" />
             {item.label}
           </NavLink>
         ))}
@@ -79,9 +77,9 @@ const Sidebar = ({ isOpen, onClose }) => {
 
       <button
         onClick={handleLogout}
-        className="flex items-center gap-4 px-4 py-3 rounded-xl text-sm font-medium text-red-400 hover:bg-red-400/10 transition-all mt-auto"
+        className="mt-auto flex items-center gap-4 rounded-xl px-4 py-3 text-sm font-medium text-red-400 transition-all hover:bg-red-400/10"
       >
-        <LogOut className="w-5 h-5" />
+        <LogOut className="h-5 w-5" />
         Đăng xuất
       </button>
     </div>

@@ -1,6 +1,7 @@
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 const { getJwtSecret } = require('../utils/jwt.util');
+const { registerUser } = require('../services/account.service');
 
 const generateToken = (id) => {
   return jwt.sign({ id }, getJwtSecret(), {
@@ -10,20 +11,14 @@ const generateToken = (id) => {
 
 exports.register = async (req, res) => {
   try {
-    const { username, password } = req.body;
-    
-    // Check if user exists
-    const userExists = await User.findOne({ where: { username } });
-    if (userExists) {
-      return res.status(400).json({ message: 'User already exists' });
-    }
+    const { username, password, email, fullName } = req.body || {};
+    const account = await registerUser({ username, password, email, fullName });
 
-    const user = await User.create({ username, password });
-    
     res.status(201).json({
-      id: user.id,
-      username: user.username,
-      token: generateToken(user.id),
+      id: account.id,
+      username: account.username,
+      token: generateToken(account.id),
+      account,
     });
   } catch (error) {
     const isSecretError = /JWT_SECRET/.test(String(error?.message || ''));
@@ -37,7 +32,8 @@ exports.register = async (req, res) => {
 
 exports.login = async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const username = String(req.body?.username || '').trim().toLowerCase();
+    const password = String(req.body?.password || '');
 
     const user = await User.findOne({ where: { username } });
     if (user && (await user.comparePassword(password))) {

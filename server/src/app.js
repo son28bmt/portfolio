@@ -5,11 +5,14 @@ const morgan = require('morgan');
 const fs = require('fs');
 const path = require('path');
 const dotenv = require('dotenv');
-dotenv.config({ path: path.resolve(__dirname, '../.env') });
-dotenv.config();
+dotenv.config({ path: path.resolve(__dirname, '../.env'), override: true });
+dotenv.config({ override: true });
 const rateLimit = require('express-rate-limit');
 const { connectDB } = require('./config/db');
 const authRoutes = require('./routes/auth.routes');
+const accountRoutes = require('./routes/account.routes');
+const walletRoutes = require('./routes/wallet.routes');
+const adminWalletRoutes = require('./routes/admin-wallet.routes');
 const projectRoutes = require('./routes/project.routes');
 const blogRoutes = require('./routes/blog.routes');
 const blogAutomationRoutes = require('./routes/blog-automation.routes');
@@ -24,6 +27,7 @@ const chatRoutes = require('./routes/chat.routes');
 const http = require('http');
 const { initSocket } = require('./services/socket.service');
 const { startBlogAutomationScheduler } = require('./services/blog-automation.service');
+const { startMarketplaceSupplierScheduler } = require('./services/marketplace-supplier-sync.service');
 
 const app = express();
 app.set('trust proxy', 1);
@@ -115,6 +119,9 @@ app.use('/uploads', express.static(uploadsDir));
 app.use('/', seoRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api/account', accountRoutes);
+app.use('/api/wallet', walletRoutes);
+app.use('/api/admin/wallet', adminWalletRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/blog', blogRoutes);
 app.use('/api/blog-auto', blogAutomationRoutes);
@@ -155,6 +162,7 @@ app.use((err, req, res, next) => {
 const server = http.createServer(app);
 initSocket(server, corsOptions);
 startBlogAutomationScheduler();
+startMarketplaceSupplierScheduler();
 
 // Start Server
 server.listen(PORT, () => {

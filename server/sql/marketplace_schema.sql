@@ -18,6 +18,8 @@ CREATE TABLE IF NOT EXISTS products (
   price DECIMAL(15,0) NOT NULL,
   category_id BIGINT UNSIGNED NOT NULL,
   quantity INT UNSIGNED NOT NULL DEFAULT 0,
+  sourceType VARCHAR(40) NOT NULL DEFAULT 'local_stock',
+  sourceConfig JSON NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   KEY idx_products_category_id (category_id),
@@ -47,6 +49,11 @@ CREATE TABLE IF NOT EXISTS orders (
   product_id BIGINT UNSIGNED NOT NULL,
   stock_item_id BIGINT UNSIGNED NULL,
   status ENUM('pending', 'paid', 'failed') NOT NULL DEFAULT 'pending',
+  fulfillmentStatus ENUM('pending', 'processing', 'delivered', 'failed', 'manual_review') NOT NULL DEFAULT 'pending',
+  fulfillmentSource VARCHAR(40) NULL,
+  fulfillmentPayload JSON NULL,
+  productSnapshot JSON NULL,
+  sourceSnapshot JSON NULL,
   payment_ref VARCHAR(120) NOT NULL,
   payment_txn_id VARCHAR(191) NULL,
   amount DECIMAL(15,0) NOT NULL,
@@ -80,3 +87,7 @@ CREATE TABLE IF NOT EXISTS admins (
 -- Seed admin mau (password hash bcrypt cho "admin123", doi ngay khi deploy)
 -- INSERT INTO admins(username, password)
 -- VALUES ('admin', '$2a$10$yD5dgoT99Qdrf5A6Hc4PoeV5A/9MZzdmW2y6nQ4N9bV8MmyK9fC2K');
+
+-- Ghi chu V1/V2:
+-- - V1 chi bat sourceType = 'local_stock'
+-- - V2 se bat them sourceType = 'supplier_api' khi da co API nha cung cap

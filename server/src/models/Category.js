@@ -12,6 +12,12 @@ const Category = sequelize.define('Category', {
     allowNull: false,
     unique: true,
   },
+  storeSection: {
+    type: DataTypes.STRING(40),
+    allowNull: false,
+    defaultValue: 'service',
+    field: 'store_section',
+  },
   createdAt: {
     type: DataTypes.DATE,
     allowNull: false,

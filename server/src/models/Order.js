@@ -19,15 +19,52 @@ const Order = sequelize.define('Order', {
     allowNull: false,
     field: 'product_id',
   },
+  userId: {
+    type: DataTypes.UUID,
+    allowNull: true,
+    field: 'user_id',
+  },
   stockItemId: {
     type: DataTypes.BIGINT.UNSIGNED,
     allowNull: true,
     field: 'stock_item_id',
   },
+  walletLedgerEntryId: {
+    type: DataTypes.UUID,
+    allowNull: true,
+    field: 'wallet_ledger_entry_id',
+  },
   status: {
     type: DataTypes.ENUM('pending', 'paid', 'failed'),
     allowNull: false,
     defaultValue: 'pending',
+  },
+  paymentMethod: {
+    type: DataTypes.ENUM('qr', 'wallet'),
+    allowNull: false,
+    defaultValue: 'qr',
+    field: 'payment_method',
+  },
+  fulfillmentStatus: {
+    type: DataTypes.ENUM('pending', 'processing', 'delivered', 'failed', 'manual_review'),
+    allowNull: false,
+    defaultValue: 'pending',
+  },
+  fulfillmentSource: {
+    type: DataTypes.STRING(40),
+    allowNull: true,
+  },
+  fulfillmentPayload: {
+    type: DataTypes.JSON,
+    allowNull: true,
+  },
+  productSnapshot: {
+    type: DataTypes.JSON,
+    allowNull: true,
+  },
+  sourceSnapshot: {
+    type: DataTypes.JSON,
+    allowNull: true,
   },
   payment_ref: {
     type: DataTypes.STRING(120),

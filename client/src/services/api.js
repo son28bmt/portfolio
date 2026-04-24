@@ -25,6 +25,10 @@ const normalizeRequestUrl = (url = '') => {
 };
 
 api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('userToken');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
   config.url = normalizeRequestUrl(config.url);
   return config;
 });
