@@ -111,6 +111,9 @@ const normalizeProductRecord = (product) => {
 const normalizeOrderRecord = (order) => {
   const plain = order?.toJSON ? order.toJSON() : order;
   if (!plain) return plain;
+  const normalizedFulfillmentPayload = normalizeSourceConfig(plain.fulfillmentPayload);
+  const normalizedProductSnapshot = normalizeSourceConfig(plain.productSnapshot);
+  const normalizedSourceSnapshot = normalizeSourceConfig(plain.sourceSnapshot);
   return {
     ...plain,
     fulfillmentSource: normalizeFulfillmentSource(
@@ -119,9 +122,21 @@ const normalizeOrderRecord = (order) => {
     fulfillmentStatus:
       String(plain.fulfillmentStatus || '').trim() ||
       (plain.status === 'paid' ? FULFILLMENT_STATUSES.DELIVERED : FULFILLMENT_STATUSES.PENDING),
-    fulfillmentPayload: plain.fulfillmentPayload || null,
-    productSnapshot: plain.productSnapshot || null,
-    sourceSnapshot: plain.sourceSnapshot || null,
+    fulfillmentPayload:
+      normalizedFulfillmentPayload &&
+      Object.keys(normalizedFulfillmentPayload).length > 0
+        ? normalizedFulfillmentPayload
+        : null,
+    productSnapshot:
+      normalizedProductSnapshot &&
+      Object.keys(normalizedProductSnapshot).length > 0
+        ? normalizedProductSnapshot
+        : null,
+    sourceSnapshot:
+      normalizedSourceSnapshot &&
+      Object.keys(normalizedSourceSnapshot).length > 0
+        ? normalizedSourceSnapshot
+        : null,
     product: plain.product ? normalizeProductRecord(plain.product) : plain.product,
   };
 };
@@ -273,6 +288,12 @@ const applyPaymentWithLock = async ({ paymentRef, providerTxnId, amount }) => {
     const sourceType = normalizeFulfillmentSource(
       order.fulfillmentSource || order.product?.sourceType,
     );
+    order.fulfillmentPayload = normalizeSourceConfig(order.fulfillmentPayload);
+    order.productSnapshot = normalizeSourceConfig(order.productSnapshot);
+    order.sourceSnapshot = normalizeSourceConfig(order.sourceSnapshot);
+    if (order.product) {
+      order.product.sourceConfig = normalizeSourceConfig(order.product.sourceConfig);
+    }
     const provider = getFulfillmentProvider(sourceType);
     const fulfillment = await provider.fulfillPaidOrder({ order, transaction });
 
@@ -287,7 +308,7 @@ const applyPaymentWithLock = async ({ paymentRef, providerTxnId, amount }) => {
       order.fulfillmentStatus =
         fulfillment?.fulfillmentStatus || FULFILLMENT_STATUSES.FAILED;
       order.fulfillmentPayload = {
-        ...(order.fulfillmentPayload || {}),
+        ...normalizeSourceConfig(order.fulfillmentPayload),
         lastError: fulfillment?.message || 'Fulfillment failed.',
         code: fulfillment?.code || 'fulfillment_failed',
       };
