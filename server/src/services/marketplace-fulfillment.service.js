@@ -38,7 +38,28 @@ const createMarketplaceError = (status, message) => {
 
 const safeJsonObject = (value) => {
   if (!value) return {};
-  if (typeof value === 'object' && !Array.isArray(value)) return { ...value };
+  if (typeof value === 'object' && !Array.isArray(value)) {
+    const entries = Object.entries(value);
+    const looksLikeIndexedStringObject =
+      entries.length > 0 &&
+      entries.every(([key, item]) => /^\d+$/.test(key) && typeof item === 'string');
+
+    if (looksLikeIndexedStringObject) {
+      const reconstructed = entries
+        .sort((a, b) => Number(a[0]) - Number(b[0]))
+        .map(([, item]) => item)
+        .join('');
+
+      try {
+        const parsed = JSON.parse(reconstructed);
+        return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+      } catch {
+        return {};
+      }
+    }
+
+    return { ...value };
+  }
   if (typeof value !== 'string') return {};
 
   try {

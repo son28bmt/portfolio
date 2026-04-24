@@ -571,8 +571,10 @@ const refreshSupplierFulfillmentByOrderId = async (orderId) => {
   const currentPayload = normalizeSourceConfig(currentOrder.fulfillmentPayload);
   const hasExternalOrderId = Boolean(currentPayload?.externalOrderId);
   const canRetryCreateExternalOrder =
-    currentOrder.status === 'paid' &&
-    currentOrder.fulfillmentStatus === FULFILLMENT_STATUSES.MANUAL_REVIEW &&
+    ['paid', 'failed'].includes(currentOrder.status) &&
+    [FULFILLMENT_STATUSES.MANUAL_REVIEW, FULFILLMENT_STATUSES.FAILED].includes(
+      currentOrder.fulfillmentStatus,
+    ) &&
     !hasExternalOrderId &&
     currentPayload?.requestInput;
 
@@ -600,6 +602,10 @@ const refreshSupplierFulfillmentByOrderId = async (orderId) => {
     const fulfillment = await provider.fulfillPaidOrder({ order, transaction });
 
     if (!fulfillment?.ok) {
+      order.status =
+        fulfillment?.fulfillmentStatus === FULFILLMENT_STATUSES.MANUAL_REVIEW
+          ? 'paid'
+          : 'failed';
       order.fulfillmentStatus =
         fulfillment?.fulfillmentStatus || FULFILLMENT_STATUSES.MANUAL_REVIEW;
       order.fulfillmentPayload = {
@@ -613,6 +619,7 @@ const refreshSupplierFulfillmentByOrderId = async (orderId) => {
       return normalizeOrderRecord(order);
     }
 
+    order.status = 'paid';
     order.fulfillmentStatus =
       fulfillment.fulfillmentStatus || FULFILLMENT_STATUSES.PROCESSING;
     order.fulfillmentPayload = fulfillment.deliveryPayload || order.fulfillmentPayload || null;
