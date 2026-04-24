@@ -1,77 +1,95 @@
-# Marketplace V1
+# Marketplace
 
-Tình trạng tài liệu: cập nhật theo code hiện tại ngày `2026-04-24`.
+Tình trạng tài liệu: cập nhật theo code hiện tại ngày `2026-04-25`.
 
 ## 1) Mục tiêu hiện tại
 
-Marketplace V1 vẫn tập trung vào bài toán bán hàng số nội bộ:
+Marketplace hiện phục vụ 3 việc chính:
 
-- hiển thị catalog sản phẩm
-- tạo đơn QR qua SePay
-- xác nhận webhook
-- fulfill tự động bằng stock nội bộ
-- gửi email giao hàng
-- giữ checkout theo hướng guest-first
+- bán sản phẩm nội bộ bằng `local_stock`
+- bán dịch vụ supplier qua `supplier_api + smm_panel`
+- giữ chỗ kiến trúc cho lane `card / mã số / giao ngay`
 
-Tuy nhiên V1 đã được refactor để không khóa cứng hệ thống vào `stock_items`.
+Checkout vẫn giữ theo hướng `guest-first`, còn member lane được mở rộng qua wallet và account.
 
-## 2) Ghi chú kiến trúc bắt buộc
+## 2) Kiến trúc bắt buộc
 
 Không được đồng nhất:
 
-- `product catalog`
-- `fulfillment source`
-- `delivery payload`
+- `catalog`
+- `payment`
+- `fulfillment`
 
-Từ V1 trở đi, `local_stock` chỉ là một fulfillment provider.
-V2 bổ sung `supplier_api` mà không đập lại flow order/payment.
+Từ V1 trở đi:
 
-## 3) Nguyên tắc auth khi mua
+- `local_stock` chỉ là một fulfillment provider
+- `supplier_api` là provider layer riêng
+- `digital_code/card` là lane tương lai, không được nhét logic chung với `smm_panel`
 
-- khách vẫn có thể mua ngay bằng QR mà không cần đăng nhập
-- đăng nhập/đăng ký không phải điều kiện để checkout
-- đăng nhập/đăng ký là để nhận ưu đãi, giữ lịch sử mua, dùng quỹ nội bộ và mở rộng sang lane member
+## 3) Auth khi mua
 
-Lane member được mô tả chi tiết ở [internal-fund-v1.md](/e:/portfolio/server/docs/internal-fund-v1.md).
+- khách vẫn có thể mua bằng QR mà không cần đăng nhập
+- đăng nhập/đăng ký không phải điều kiện bắt buộc để checkout
+- đăng nhập/đăng ký dùng cho:
+  - quỹ nội bộ
+  - lịch sử mua
+  - ưu đãi về sau
+
+Chi tiết member lane nằm ở [internal-fund-v1.md](/e:/portfolio/server/docs/internal-fund-v1.md).
 
 ## 4) Trạng thái hiện tại
 
-### 4.1 Đã có trong code
+### 4.1 Marketplace core đã chạy
 
 - `products` có `sourceType`, `sourceConfig`
 - `orders` có `fulfillmentStatus`, `fulfillmentSource`, `fulfillmentPayload`, `productSnapshot`, `sourceSnapshot`
-- fulfillment provider registry đã tồn tại
-- provider `local_stock` chạy ổn cho V1
-- webhook thanh toán đi qua provider, không gọi cứng `StockItem.findOne(...)`
-- guest checkout vẫn là lane mặc định
-- member lane cơ bản đã có account, wallet, wallet checkout
+- fulfillment provider registry đã tách khỏi logic order chính
+- `local_stock` chạy được
+- QR order chạy được
+- wallet checkout chạy được
+- tra cứu đơn bằng `payment_ref` chạy được
 
-### 4.2 Đã bật ở V2 bản đầu
+### 4.2 Supplier V2 bản đầu đã usable
 
-Hiện tại backend đã mở được `supplier_api` cho nhánh `smm_panel`:
+Hiện đã enable:
 
-- sản phẩm có thể mang `sourceType = supplier_api`
-- `sourceConfig` có `supplierKind`
-- `supplierKind = smm_panel` đã được enable
-- `supplierKind = digital_code` đã được giữ chỗ nhưng chưa bật
+- `sourceType = supplier_api`
+- `supplierKind = smm_panel`
+- input động cho supplier order:
+  - `targetLink`
+  - `quantity`
+  - `comments`
+- tạo external order sau khi thanh toán
+- auto refresh các đơn `processing`
+- refresh tay từng đơn
+- sync service list từ panel vào catalog nội bộ
+- admin có `Supplier Center`
 
-Với `smm_panel`, đơn hàng có thể nhận thêm input động:
+Hiện chưa enable:
 
-- `targetLink`
-- `quantity`
-- `comments`
+- `supplierKind = digital_code`
+- lane card giao ngay thật
 
-Sau khi thanh toán thành công:
+### 4.3 Storefront hiện tại
 
-- hệ thống tạo external order ở supplier
-- `fulfillmentStatus` có thể chuyển sang `processing`
-- scheduler nền sẽ auto refresh trạng thái supplier
-- admin vẫn có thể refresh tay một đơn nếu cần
-- admin có thể kéo service list và balance từ panel, rồi sync vào catalog nội bộ
-- admin có `Supplier Center` riêng để vận hành nhánh `smm_panel`
-- client có thể tra cứu lại đơn bằng `payment_ref` mà không cần giữ nguyên phiên checkout
+Client hiện đã tách thành các lane:
 
-## 5) Route chính hiện tại
+- `/cua-hang`: hub
+- `/cua-hang/dich-vu`: dịch vụ đang bán
+- `/cua-hang/tu-them`: hàng nội bộ tự thêm
+- `/cua-hang/card`: placeholder “đang phát triển”
+
+### 4.4 Admin hiện tại
+
+Admin đã có:
+
+- categories có `storeSection`
+- products hiển thị theo section/category
+- supplier center
+- wallet tab
+- dashboard summary có tổng tiền đã nhận
+
+## 5) Route chính
 
 ### Public
 
@@ -83,9 +101,22 @@ Sau khi thanh toán thành công:
 
 ### Webhook
 
-- `POST /api/webhook/sepay`
+- order:
+  - `POST /api/order/webhook/sepay`
+  - alias cũ:
+    - `POST /api/orders/webhook/sepay`
+    - `POST /api/webhook/sepay`
+- wallet:
+  - `POST /api/wallet/webhook/sepay`
+- donate:
+  - `POST /api/donate/webhook/sepay`
 
-### Admin marketplace core
+Ghi chú:
+
+- mỗi lane nên dùng webhook riêng
+- wrong-lane webhook nên trả `ignored`, không fail cứng
+
+### Admin marketplace
 
 - `POST /api/admin/login`
 - `GET/POST/PUT/DELETE /api/admin/products`
@@ -93,13 +124,7 @@ Sau khi thanh toán thành công:
 - `GET/POST/PUT/DELETE /api/admin/categories`
 - `GET/POST/PUT/DELETE /api/admin/orders`
 
-### Admin member/wallet liên quan
-
-- `GET /api/admin/wallet/users`
-- `GET /api/admin/wallet/topups`
-- `GET /api/admin/wallet/ledger`
-
-### Admin supplier V2 bản đầu
+### Admin supplier
 
 - `GET /api/admin/supplier/smm-panel/services`
 - `GET /api/admin/supplier/smm-panel/balance`
@@ -107,50 +132,64 @@ Sau khi thanh toán thành công:
 - `POST /api/admin/supplier/smm-panel/refresh-processing`
 - `POST /api/admin/orders/:id/refresh-fulfillment`
 
-## 6) Luồng mua hàng V1
+### Admin wallet / dashboard liên quan
 
-1. FE gọi `POST /api/orders` với `email` và `product_id`.
-2. Backend tạo `order` `pending`, đồng thời snapshot sản phẩm và source.
-3. Người dùng chuyển khoản đúng `payment_ref`.
-4. SePay webhook gọi `POST /api/webhook/sepay`.
-5. Backend verify webhook, lock transaction và chuyển đơn sang fulfillment provider.
-6. Nếu là `local_stock`, hệ thống cấp `stock_item`.
-7. Nếu là `supplier_api`, hệ thống tạo external order và chuyển đơn sang `processing`.
-8. Đơn được cập nhật `status/fulfillmentStatus`, đẩy realtime cho admin/client.
+- `GET /api/admin/wallet/users`
+- `GET /api/admin/wallet/topups`
+- `GET /api/admin/wallet/ledger`
+- `GET /api/admin/dashboard/summary`
 
-## 7) Phần member & wallet
+## 6) Luồng order hiện tại
 
-Marketplace core không còn đứng riêng hoàn toàn. Hiện tại đã có lane member cơ bản:
+1. FE tạo `POST /api/orders`.
+2. Backend tạo order `pending`, snapshot product/source.
+3. User thanh toán đúng `payment_ref`.
+4. SePay gọi webhook order.
+5. Backend verify webhook, lock transaction và gọi fulfillment provider.
+6. Nếu là `local_stock`:
+   - giao stock item ngay
+   - `fulfillmentStatus = delivered`
+7. Nếu là `supplier_api + smm_panel`:
+   - tạo external order
+   - `fulfillmentStatus = processing`
+   - scheduler/admin sẽ refresh tiếp
 
-- register/login user thường
-- account page
-- topup wallet
-- wallet checkout
-- lịch sử ledger
-- lịch sử mua bằng quỹ
-- admin wallet read-only
+## 7) Những gì còn chưa chuẩn hoặc chưa tốt
 
-Chi tiết xem ở [internal-fund-v1.md](/e:/portfolio/server/docs/internal-fund-v1.md).
-
-## 8) Những gì chưa được coi là xong
-
-Không nên nói “Marketplace V1 xong hết” vì hiện vẫn còn:
+### 7.1 Chưa nên gọi là “xong hết”
 
 - member security chưa xong
-- admin wallet mới ở mức read-only cơ bản
-- supplier API mới ở mức usable cho `smm_panel`
-- chưa có hoàn tiền tự động cho `Partial/Canceled`
-- chưa có lane `digital_code/card`
+- admin wallet mới mức cơ bản
+- supplier API mới usable cho `smm_panel`
+- `digital_code/card` chưa bật thật
 
-## 9) Định hướng V2
+### 7.2 Gap vận hành hiện có
 
-Khi đã làm việc xong với nhà cung cấp và có API phù hợp, V2 tiếp tục theo hướng:
+1. Production rất dễ lỗi nếu chưa deploy backend mới hoặc chưa restart process sau khi thêm route/schema.
+2. Database production vẫn có thể thiếu cột mới như `orders.fulfillmentStatus`, `orders.payment_method`, `categories.store_section`.
+3. `Partial / Canceled` của supplier hiện mới đẩy về `manual_review`, chưa có credit/refund tự động.
+4. Double transfer vào cùng một mã topup/order chưa có flow xử lý đẹp, chủ yếu là chặn auto xử lý trùng và để vận hành thủ công.
+5. Vẫn còn route legacy `shop.routes.js` cùng tồn tại trong app, dễ gây nhầm giữa shop cũ và marketplace mới.
 
-- nhánh đang chạy là `supplier_api + smm_panel`
-- nhánh để dành tiếp theo là `supplier_api + digital_code/card`
-- map `product` <-> `serviceId` hoặc `supplierSku` tùy loại supplier
-- đồng bộ dữ liệu supplier
-- auto refresh trạng thái
-- retry, timeout, manual review, operational log
+## 8) V2 hiện còn thiếu
 
-V2 phải là bổ sung provider mới, không phải đập lại flow order/payment của V1.
+- auto refund / credit cho `Partial / Canceled`
+- provider `digital_code/card`
+- domain model riêng cho card giao ngay
+- sync catalog sâu hơn: diff / disable / cleanup
+- email và status update riêng cho async supplier
+- margin / pricing ops rõ ràng hơn trong admin
+
+## 9) Hướng đi tiếp
+
+V2 nên tiếp tục theo hướng:
+
+- giữ nguyên payment + order core hiện tại
+- thêm provider mới thay vì đập lại flow cũ
+- phát triển lane `card / mã số` như một lane riêng, không trộn với `smm_panel`
+
+Tham chiếu:
+
+- member lane: [internal-fund-v1.md](/e:/portfolio/server/docs/internal-fund-v1.md)
+- roadmap phase: [marketplace-v1-v2-roadmap.md](/e:/portfolio/server/docs/marketplace-v1-v2-roadmap.md)
+- supplier lane: [supplier-api-v2.md](/e:/portfolio/server/docs/supplier-api-v2.md)

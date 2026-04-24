@@ -1,6 +1,6 @@
 # Supplier API V2
 
-Tình trạng tài liệu: cập nhật theo code hiện tại ngày `2026-04-24`.
+Tình trạng tài liệu: cập nhật theo code hiện tại ngày `2026-04-25`.
 
 ## 1) Mục tiêu
 
@@ -9,7 +9,7 @@ Mở `supplier_api` theo hướng generic:
 - hiện tại chạy được `smm_panel`
 - sau này thêm `digital_code/card`
 
-Không dùng tư duy “provider nào cũng giống nhau”.
+Không dùng tư duy “supplier nào cũng giống nhau”.
 
 ## 2) Kiến trúc đã chốt
 
@@ -26,34 +26,38 @@ Không dùng tư duy “provider nào cũng giống nhau”.
 Ghi chú:
 
 - `digital_code` hiện mới là slot kiến trúc
-- chưa được kích hoạt trong code fulfill thực tế
+- code fulfill thật cho lane card vẫn chưa bật
 
 ## 3) Những gì đã làm
 
 ### 3.1 Backend
 
-- thêm [smm-panel.service.js](/e:/portfolio/server/src/services/smm-panel.service.js)
-- mở provider `supplier_api` trong [marketplace-fulfillment.service.js](/e:/portfolio/server/src/services/marketplace-fulfillment.service.js)
-- cho phép order input động:
+- có `smm-panel.service.js`
+- có provider `supplier_api` trong `marketplace-fulfillment.service.js`
+- hỗ trợ input order động:
   - `targetLink`
   - `quantity`
   - `comments`
 - tạo external order sau khi thanh toán thành công
-- lưu `externalOrderId`, `externalStatus`, `externalRaw` trong `fulfillmentPayload`
-- thêm refresh thủ công trạng thái supplier theo order
-- thêm scheduler nền để auto refresh các đơn `paid + processing + supplier_api`
-- thêm service sync catalog từ panel vào `Category/Product`
+- lưu `externalOrderId`, `externalStatus`, `externalRaw`
+- refresh tay từng order supplier
+- scheduler auto refresh đơn `processing`
+- sync service từ panel vào `Category/Product`
 
-### 3.2 FE
+### 3.2 Admin
 
-- public marketplace hiển thị form động cho sản phẩm `smm_panel`
-- public marketplace tiếp tục theo dõi đơn supplier khi đã `paid + processing`
-- public marketplace có khối tra cứu đơn bằng `payment_ref`
-- admin product form cho phép tạo sản phẩm `supplier_api`
-- admin có `Supplier Center` riêng để xem balance, queue đơn supplier và service list từ panel
-- admin có thể sync từng service hoặc sync hàng loạt kết quả đang lọc
-- admin có thể quét thủ công cả hàng đợi đơn supplier
-- admin order table vẫn có nút refresh thủ công cho từng đơn supplier
+- có `Supplier Center`
+- xem balance panel
+- xem service list
+- sync từng service hoặc sync hàng loạt
+- quét lại queue supplier đang xử lý
+
+### 3.3 Client
+
+- `/cua-hang/dich-vu` hiển thị sản phẩm supplier
+- có form động theo `sourceConfig`
+- theo dõi đơn supplier sau khi đã thanh toán
+- tra cứu lại đơn bằng `payment_ref`
 
 ## 4) Source config hiện tại cho `smm_panel`
 
@@ -74,28 +78,28 @@ Ví dụ:
   "serviceName": "Instagram Followers",
   "categoryName": "Instagram",
   "supplierRate": 25000,
-  "lastCatalogSyncAt": "2026-04-24T10:00:00.000Z"
+  "lastCatalogSyncAt": "2026-04-25T10:00:00.000Z"
 }
 ```
 
 ## 5) Flow hiện tại cho `smm_panel`
 
 1. User chọn sản phẩm `supplier_api`.
-2. User nhập `targetLink`, `quantity`, và `comments` nếu cần.
-3. Hệ thống tạo đơn nội bộ `pending`.
+2. User nhập `targetLink`, `quantity`, `comments` nếu cần.
+3. Hệ thống tạo order nội bộ `pending`.
 4. User thanh toán QR hoặc bằng quỹ.
-5. Sau khi xác nhận thanh toán, backend gọi supplier action `add`.
-6. Nếu supplier trả về external order:
+5. Sau khi xác nhận thanh toán, backend gọi action `add`.
+6. Nếu supplier trả external order:
    - `status = paid`
    - `fulfillmentStatus = processing`
-7. Scheduler nền sẽ quét các đơn supplier đang `processing` theo chu kỳ.
-8. Admin vẫn có thể bấm refresh tay nếu muốn ép kiểm tra ngay.
+7. Scheduler nền sẽ quét các đơn `processing`.
+8. Admin vẫn có thể refresh tay nếu muốn.
 9. Nếu supplier trả `Completed`:
    - `fulfillmentStatus = delivered`
 10. Nếu supplier trả `Partial` hoặc `Canceled`:
    - `fulfillmentStatus = manual_review`
 
-## 6) Các endpoint hiện có
+## 6) Endpoint hiện có
 
 - `GET /api/admin/supplier/smm-panel/services`
 - `GET /api/admin/supplier/smm-panel/balance`
@@ -104,35 +108,63 @@ Ví dụ:
 - `POST /api/admin/orders/:id/refresh-fulfillment`
 - `GET /api/orders/:payment_ref`
 
-## 7) Biến môi trường cần có
+## 7) Catalog sync hiện tại
+
+Khi sync service từ panel:
+
+- category mới hiện mặc định vào `storeSection = service`
+- chưa có auto map sang lane `card`
+- chưa có diff/disable service cũ thật sự tốt
+
+Điều này đúng với hiện trạng vì lane đang chạy thật mới là `dịch vụ`, chưa phải `card`.
+
+## 8) Biến môi trường cần có
 
 - `MARKET_SMM_PANEL_URL`
 - `MARKET_SMM_PANEL_KEY`
-- `MARKET_SMM_PANEL_TIMEOUT_MS` (optional)
-- `MARKET_SUPPLIER_SYNC_ENABLED` (optional)
-- `MARKET_SUPPLIER_SYNC_INTERVAL_MS` (optional)
-- `MARKET_SUPPLIER_SYNC_BATCH_SIZE` (optional)
-- `MARKET_SUPPLIER_MIN_SYNC_AGE_MS` (optional)
+- `MARKET_SMM_PANEL_TIMEOUT_MS`
+- `MARKET_SUPPLIER_SYNC_ENABLED`
+- `MARKET_SUPPLIER_SYNC_INTERVAL_MS`
+- `MARKET_SUPPLIER_SYNC_BATCH_SIZE`
+- `MARKET_SUPPLIER_MIN_SYNC_AGE_MS`
 
-## 8) Những gì vẫn chưa làm
+## 9) Những gì vẫn chưa làm
 
-- xử lý hoàn tiền hoặc credit tự động cho `Partial/Canceled`
-- sync catalog sâu hơn như disable service cũ, xóa map, hoặc diff rõ ràng
-- email/status update riêng cho supplier async order
+- auto refund / credit cho `Partial / Canceled`
+- sync catalog sâu hơn: diff / disable / cleanup
+- email/status update riêng cho async supplier order
+- pricing/margin ops tốt hơn cho admin
 - provider `digital_code/card`
 
-## 9) Ghi chú cho phase thẻ cào
+## 10) Ghi chú cho phase card / mã số
 
-Khi làm thẻ cào hoặc mã số giao ngay, không nên nhét chung business logic với `smm_panel`.
+Khi làm card hoặc mã giao ngay, không được nhét business logic chung với `smm_panel`.
 
 Nên xem đó là nhánh riêng:
 
 - `supplier_api + supplierKind = digital_code`
 
-Vì loại này thường cần:
+Vì lane này thường cần:
 
-- nhận mã/secret để giao ngay
-- email delivery rõ ràng
+- nhận secret / code để giao ngay
 - ẩn dữ liệu nhạy cảm
-- chống lộ mã
-- logic tồn kho / reserve / claim rất khác `smm_panel`
+- reserve / claim / release
+- email delivery rõ ràng
+- logic tồn kho khác hoàn toàn `smm_panel`
+
+## 11) Đánh giá hiện tại
+
+`smm_panel` hiện đã usable ở mức đầu nhưng chưa đủ đẹp cho vận hành dài hạn.
+
+Điểm ổn:
+
+- tạo đơn được
+- refresh được
+- sync catalog được
+- client/admin đều dùng được
+
+Điểm chưa ổn:
+
+- finance handling cho `Partial / Canceled` chưa xong
+- lane card vẫn mới là placeholder kiến trúc
+- production rollout vẫn phụ thuộc nhiều vào deploy đúng route + restart + schema DB

@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   CircleDollarSign,
+  CheckCircle2,
   Copy,
   CreditCard,
   LogOut,
@@ -47,6 +48,7 @@ const Account = () => {
     () => Number(walletSummary?.wallet?.balance ?? account?.wallet?.balance ?? 0),
     [walletSummary, account],
   );
+  const topupStatus = topupIntent?.topup?.status || '';
 
   const loadWalletData = async () => {
     const [walletRes, ledgerRes, purchasesRes] = await Promise.all([
@@ -282,32 +284,83 @@ const Account = () => {
             </div>
 
             {topupIntent?.topup && (
-              <div className="mt-6 grid gap-5 lg:grid-cols-[220px_1fr]">
-                <div className="rounded-3xl border border-white/10 bg-white p-3">
-                  <img src={topupIntent.qrImageUrl} alt="QR topup" className="w-full rounded-2xl" />
-                </div>
-                <div className="space-y-3">
-                  <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                    <p className="text-xs uppercase tracking-[0.24em] text-white/40">Trạng thái</p>
-                    <p className="mt-2 text-lg font-bold capitalize">{topupIntent.topup.status}</p>
-                    <p className="mt-2 text-sm text-white/55">
-                      Số tiền: <span className="font-bold text-white">{formatVnd(topupIntent.topup.amount)}</span>
-                    </p>
-                  </div>
-                  <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                    <p className="text-xs uppercase tracking-[0.24em] text-white/40">Nội dung chuyển khoản</p>
-                    <div className="mt-2 flex items-center justify-between gap-3">
-                      <span className="font-mono text-sm text-white">{topupIntent.transferContent}</span>
-                      <button
-                        type="button"
-                        onClick={() => copyText(topupIntent.transferContent, 'Đã sao chép mã nạp quỹ.')}
-                        className="rounded-xl border border-white/10 bg-white/5 p-2 text-white/75 hover:bg-white/10"
-                      >
-                        <Copy className="h-4 w-4" />
-                      </button>
+              <div className="mt-6 space-y-4">
+                {topupStatus === 'pending' ? (
+                  <div className="grid gap-5 lg:grid-cols-[220px_1fr]">
+                    <div className="rounded-3xl border border-white/10 bg-white p-3">
+                      <img src={topupIntent.qrImageUrl} alt="QR topup" className="w-full rounded-2xl" />
+                    </div>
+                    <div className="space-y-3">
+                      <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                        <p className="text-xs uppercase tracking-[0.24em] text-white/40">Trạng thái</p>
+                        <p className="mt-2 text-lg font-bold capitalize">{topupIntent.topup.status}</p>
+                        <p className="mt-2 text-sm text-white/55">
+                          Số tiền:{' '}
+                          <span className="font-bold text-white">{formatVnd(topupIntent.topup.amount)}</span>
+                        </p>
+                      </div>
+                      <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                        <p className="text-xs uppercase tracking-[0.24em] text-white/40">Nội dung chuyển khoản</p>
+                        <div className="mt-2 flex items-center justify-between gap-3">
+                          <span className="font-mono text-sm text-white">{topupIntent.transferContent}</span>
+                          <button
+                            type="button"
+                            onClick={() => copyText(topupIntent.transferContent, 'Đã sao chép mã nạp quỹ.')}
+                            className="rounded-xl border border-white/10 bg-white/5 p-2 text-white/75 hover:bg-white/10"
+                          >
+                            <Copy className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </div>
+                      <div className="rounded-2xl border border-orange-500/20 bg-orange-500/10 p-4 text-sm text-orange-200">
+                        Chỉ chuyển đúng một lần cho mỗi mã nạp quỹ. Nếu bạn chuyển lặp lại cùng mã này,
+                        hệ thống sẽ không tự cộng dư thêm lần nữa.
+                      </div>
                     </div>
                   </div>
-                </div>
+                ) : (
+                  <div
+                    className={`rounded-3xl border p-5 ${
+                      topupStatus === 'paid'
+                        ? 'border-green-500/20 bg-green-500/10'
+                        : topupStatus === 'expired'
+                          ? 'border-orange-500/20 bg-orange-500/10'
+                          : 'border-red-500/20 bg-red-500/10'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.24em] text-white/45">Lệnh nạp gần nhất</p>
+                        <div className="mt-3 flex items-center gap-3">
+                          {topupStatus === 'paid' && <CheckCircle2 className="h-6 w-6 text-green-300" />}
+                          <p className="text-xl font-bold capitalize text-white">{topupStatus}</p>
+                        </div>
+                        <p className="mt-3 text-sm text-white/70">
+                          Số tiền:{' '}
+                          <span className="font-bold text-white">{formatVnd(topupIntent.topup.amount)}</span>
+                        </p>
+                        <p className="mt-2 text-sm text-white/60">
+                          Mã nạp: <span className="font-mono text-white">{topupIntent.transferContent}</span>
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setTopupIntent(null)}
+                        className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-semibold text-white/80 hover:bg-white/10"
+                      >
+                        Ẩn lệnh này
+                      </button>
+                    </div>
+
+                    <div className="mt-4 rounded-2xl border border-white/10 bg-black/10 p-4 text-sm text-white/70">
+                      {topupStatus === 'paid'
+                        ? 'Nạp quỹ đã thành công và số dư đã được cập nhật. Nếu người dùng chuyển thêm lần nữa vào cùng mã này, hệ thống sẽ không cộng lặp tự động.'
+                        : topupStatus === 'expired'
+                          ? 'Lệnh nạp đã hết hạn. Bạn nên tạo một mã nạp mới trước khi chuyển khoản.'
+                          : 'Lệnh nạp này không còn hợp lệ. Hãy tạo lại lệnh mới để tiếp tục.'}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </section>
