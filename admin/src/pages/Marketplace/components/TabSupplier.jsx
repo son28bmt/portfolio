@@ -42,6 +42,9 @@ const pricingOptions = [
   { value: 'per_unit', label: 'Giá theo từng đơn vị' },
 ];
 
+const isSupplierBalanceLow = (item) =>
+  String(item?.fulfillmentPayload?.code || '').trim().toLowerCase() === 'supplier_balance_low';
+
 const TabSupplier = ({ setError, setNotice, refreshKey }) => {
   const [services, setServices] = useState([]);
   const [servicesLoading, setServicesLoading] = useState(false);
@@ -104,6 +107,10 @@ const TabSupplier = ({ setError, setNotice, refreshKey }) => {
   }, [services, serviceSearch]);
 
   const visibleServices = useMemo(() => filteredServices.slice(0, 30), [filteredServices]);
+  const supplierBalanceLowOrders = useMemo(
+    () => supplierOrders.filter((item) => isSupplierBalanceLow(item)),
+    [supplierOrders],
+  );
 
   const syncServices = async (serviceIds, label = 'các dịch vụ đã chọn') => {
     if (!serviceIds.length) {
@@ -255,6 +262,23 @@ const TabSupplier = ({ setError, setNotice, refreshKey }) => {
             </div>
           </div>
         </div>
+
+        {supplierBalanceLowOrders.length > 0 && (
+          <div className="rounded-2xl border border-orange-500/20 bg-orange-500/10 p-4">
+            <div className="flex items-start gap-3">
+              <div className="rounded-2xl border border-orange-500/20 bg-orange-500/10 p-3 text-orange-300">
+                <ShieldAlert className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="font-bold text-orange-200">Có đơn đang thiếu tiền ở ví nhà cung cấp</p>
+                <p className="mt-1 text-sm text-orange-100/80">
+                  Đã có {supplierBalanceLowOrders.length} đơn thu tiền thành công nhưng chưa đẩy được sang supplier.
+                  Cần nạp thêm tiền vào panel rồi bấm <span className="font-bold">Làm mới</span> cho từng đơn.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
@@ -312,6 +336,14 @@ const TabSupplier = ({ setError, setNotice, refreshKey }) => {
                     <td className="px-4 py-3 text-white/85">
                       <div>{item.product?.name || '-'}</div>
                       <div className="mt-1 text-xs text-white/45">{formatVnd(item.amount)}</div>
+                      {isSupplierBalanceLow(item) && (
+                        <div className="mt-2 rounded-xl border border-orange-500/20 bg-orange-500/10 px-3 py-2 text-[11px] leading-5 text-orange-200">
+                          <div className="font-bold">Thiếu tiền supplier</div>
+                          <div className="mt-1">
+                            Đơn đã thu tiền. Hãy nạp thêm tiền vào panel rồi bấm <span className="font-bold">Làm mới</span>.
+                          </div>
+                        </div>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-white/70">
                       <div>{item.fulfillmentPayload?.externalStatus || '-'}</div>
@@ -320,9 +352,26 @@ const TabSupplier = ({ setError, setNotice, refreshKey }) => {
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <span className="rounded-full bg-white/10 px-2 py-1 text-xs font-bold text-white/75">
-                        {item.fulfillmentStatus || '-'}
-                      </span>
+                      <div className="space-y-2">
+                        <span
+                          className={`rounded-full px-2 py-1 text-xs font-bold ${
+                            item.fulfillmentStatus === 'manual_review'
+                              ? 'bg-orange-500/10 text-orange-300'
+                              : item.fulfillmentStatus === 'delivered'
+                                ? 'bg-emerald-500/10 text-emerald-300'
+                                : item.fulfillmentStatus === 'failed'
+                                  ? 'bg-red-500/10 text-red-300'
+                                  : 'bg-white/10 text-white/75'
+                          }`}
+                        >
+                          {item.fulfillmentStatus || '-'}
+                        </span>
+                        {item.fulfillmentPayload?.lastError && (
+                          <div className="text-[11px] leading-5 text-white/50">
+                            {item.fulfillmentPayload.lastError}
+                          </div>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-right">
                       <button

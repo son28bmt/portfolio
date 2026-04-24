@@ -22,6 +22,37 @@ const fulfillmentLabels = {
   failed: 'Thất bại',
 };
 
+const getHandlingGuide = (item) => {
+  const code = String(item?.fulfillmentPayload?.code || '').trim().toLowerCase();
+  const lastError = String(item?.fulfillmentPayload?.lastError || '').trim();
+
+  if (item?.fulfillmentStatus === 'manual_review' && code === 'supplier_balance_low') {
+    return {
+      tone: 'warning',
+      title: 'Thiếu tiền ở ví nhà cung cấp',
+      description: 'Đơn đã thu tiền. Cần nạp thêm tiền vào panel supplier rồi bấm Làm mới để chạy tiếp.',
+    };
+  }
+
+  if (item?.fulfillmentStatus === 'manual_review') {
+    return {
+      tone: 'warning',
+      title: 'Cần kiểm tra tay',
+      description: lastError || 'Đơn này đang chờ admin xử lý tiếp.',
+    };
+  }
+
+  if (item?.fulfillmentStatus === 'failed') {
+    return {
+      tone: 'danger',
+      title: 'Fulfillment đang lỗi',
+      description: lastError || 'Đơn bị lỗi trong bước giao hàng.',
+    };
+  }
+
+  return null;
+};
+
 const TabOrders = ({ setError, setNotice, refreshKey }) => {
   const [orders, setOrders] = useState([]);
   const [products, setProducts] = useState([]);
@@ -220,12 +251,27 @@ const TabOrders = ({ setError, setNotice, refreshKey }) => {
           <tbody className="divide-y divide-white/5">
             {orders.map((item) => {
               const isSupplierOrder = item.fulfillmentSource === 'supplier_api';
+              const handlingGuide = getHandlingGuide(item);
 
               return (
                 <tr key={item.id} className="transition-colors hover:bg-white/5">
                   <td className="px-4 py-3 font-bold text-white">#{item.id}</td>
                   <td className="px-4 py-3 text-white/90">{item.email}</td>
-                  <td className="px-4 py-3 font-medium text-primary">{item.product?.name || '-'}</td>
+                  <td className="px-4 py-3">
+                    <div className="font-medium text-primary">{item.product?.name || '-'}</div>
+                    {handlingGuide && (
+                      <div
+                        className={`mt-2 rounded-xl border px-3 py-2 text-[11px] leading-5 ${
+                          handlingGuide.tone === 'warning'
+                            ? 'border-orange-500/20 bg-orange-500/10 text-orange-200'
+                            : 'border-red-500/20 bg-red-500/10 text-red-200'
+                        }`}
+                      >
+                        <div className="font-bold">{handlingGuide.title}</div>
+                        <div className="mt-1 opacity-90">{handlingGuide.description}</div>
+                      </div>
+                    )}
+                  </td>
                   <td className="px-4 py-3 font-bold text-emerald-400">{formatVnd(item.amount)}</td>
                   <td className="px-4 py-3">
                     <select
@@ -245,9 +291,26 @@ const TabOrders = ({ setError, setNotice, refreshKey }) => {
                     </select>
                   </td>
                   <td className="px-4 py-3">
-                    <span className="rounded-lg bg-white/10 px-2 py-1 text-xs font-bold text-white/75">
-                      {fulfillmentLabels[item.fulfillmentStatus] || item.fulfillmentStatus || '-'}
-                    </span>
+                    <div className="space-y-2">
+                      <span
+                        className={`inline-flex rounded-lg px-2 py-1 text-xs font-bold ${
+                          item.fulfillmentStatus === 'manual_review'
+                            ? 'bg-orange-500/10 text-orange-300'
+                            : item.fulfillmentStatus === 'delivered'
+                              ? 'bg-emerald-500/10 text-emerald-300'
+                              : item.fulfillmentStatus === 'failed'
+                                ? 'bg-red-500/10 text-red-300'
+                                : 'bg-white/10 text-white/75'
+                        }`}
+                      >
+                        {fulfillmentLabels[item.fulfillmentStatus] || item.fulfillmentStatus || '-'}
+                      </span>
+                      {item.fulfillmentPayload?.code === 'supplier_balance_low' && (
+                        <div className="text-[11px] font-bold text-orange-300">
+                          Cần nạp thêm tiền supplier rồi làm mới đơn.
+                        </div>
+                      )}
+                    </div>
                   </td>
                   <td className="px-4 py-3 font-mono text-xs text-white/50">{item.payment_ref}</td>
                   <td className="px-4 py-3">
