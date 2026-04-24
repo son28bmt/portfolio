@@ -198,20 +198,22 @@ router.post('/webhook/sepay', async (req, res) => {
     const transferContentStr = String(payload.transferContent || '').toUpperCase();
 
     if (transferContentStr.match(/ORD[A-Z0-9]{8,40}/)) {
-      return res.status(409).json({
-        success: false,
+      return res.status(200).json({
+        success: true,
         webhookType: 'donate',
         handledBy: 'donate',
-        message: 'Webhook donate không xử lý đơn hàng. Vui lòng trỏ webhook order sang /api/order/webhook/sepay.',
+        type: 'ignored',
+        message: 'Bo qua giao dich cua lane order.',
       });
     }
 
     if (transferContentStr.match(/WAL[A-Z0-9]{8,40}/)) {
-      return res.status(409).json({
-        success: false,
+      return res.status(200).json({
+        success: true,
         webhookType: 'donate',
         handledBy: 'donate',
-        message: 'Webhook donate không xử lý nạp quỹ. Vui lòng trỏ webhook wallet sang /api/wallet/webhook/sepay.',
+        type: 'ignored',
+        message: 'Bo qua giao dich cua lane wallet.',
       });
     }
 

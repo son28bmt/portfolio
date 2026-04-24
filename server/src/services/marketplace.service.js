@@ -95,7 +95,7 @@ const extractPaymentRef = (text) => {
   if (!raw) return '';
   const match = raw.match(/ORD[A-Z0-9]{8,40}/);
   if (match) return match[0];
-  return raw.slice(0, 120);
+  return '';
 };
 
 const normalizeProductRecord = (product) => {
