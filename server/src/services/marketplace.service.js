@@ -304,13 +304,20 @@ const applyPaymentWithLock = async ({ paymentRef, providerTxnId, amount }) => {
     if (!order.sourceSnapshot) order.sourceSnapshot = buildSourceSnapshot(order.product);
 
     if (!fulfillment?.ok) {
-      order.status = 'failed';
-      order.fulfillmentStatus =
+      const nextFulfillmentStatus =
         fulfillment?.fulfillmentStatus || FULFILLMENT_STATUSES.FAILED;
+      order.status =
+        nextFulfillmentStatus === FULFILLMENT_STATUSES.MANUAL_REVIEW ? 'paid' : 'failed';
+      order.fulfillmentStatus = nextFulfillmentStatus;
       order.fulfillmentPayload = {
         ...normalizeSourceConfig(order.fulfillmentPayload),
+        lifecycle:
+          nextFulfillmentStatus === FULFILLMENT_STATUSES.MANUAL_REVIEW
+            ? 'awaiting_admin_retry'
+            : 'payment_failed',
         lastError: fulfillment?.message || 'Fulfillment failed.',
         code: fulfillment?.code || 'fulfillment_failed',
+        lastFailureAt: new Date().toISOString(),
       };
       await order.save({ transaction });
       return {
@@ -548,22 +555,75 @@ const refreshSupplierFulfillmentByOrderId = async (orderId) => {
   const cleanOrderId = toInt(orderId);
   if (!cleanOrderId || cleanOrderId <= 0) raise(400, 'ID don hang khong hop le.');
 
-  const order = await Order.findByPk(cleanOrderId, {
+  const currentOrder = await Order.findByPk(cleanOrderId, {
     include: [{ model: Product, as: 'product' }],
   });
 
-  if (!order) raise(404, 'Khong tim thay don hang.');
+  if (!currentOrder) raise(404, 'Khong tim thay don hang.');
 
   const sourceType = normalizeFulfillmentSource(
-    order.fulfillmentSource || order.product?.sourceType,
+    currentOrder.fulfillmentSource || currentOrder.product?.sourceType,
   );
   if (sourceType !== 'supplier_api') {
     raise(400, 'Chi co the refresh don supplier_api.');
   }
 
-  await applySupplierStatusRefresh(order, { emitEvents: true });
+  const currentPayload = normalizeSourceConfig(currentOrder.fulfillmentPayload);
+  const hasExternalOrderId = Boolean(currentPayload?.externalOrderId);
+  const canRetryCreateExternalOrder =
+    currentOrder.status === 'paid' &&
+    currentOrder.fulfillmentStatus === FULFILLMENT_STATUSES.MANUAL_REVIEW &&
+    !hasExternalOrderId &&
+    currentPayload?.requestInput;
 
-  return normalizeOrderRecord(order);
+  if (!canRetryCreateExternalOrder) {
+    await applySupplierStatusRefresh(currentOrder, { emitEvents: true });
+    return normalizeOrderRecord(currentOrder);
+  }
+
+  return sequelize.transaction(async (transaction) => {
+    const order = await Order.findByPk(cleanOrderId, {
+      include: [{ model: Product, as: 'product' }],
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+
+    if (!order) raise(404, 'Khong tim thay don hang.');
+
+    order.fulfillmentPayload = normalizeSourceConfig(order.fulfillmentPayload);
+    order.sourceSnapshot = normalizeSourceConfig(order.sourceSnapshot);
+    if (order.product) {
+      order.product.sourceConfig = normalizeSourceConfig(order.product.sourceConfig);
+    }
+
+    const provider = getFulfillmentProvider(sourceType);
+    const fulfillment = await provider.fulfillPaidOrder({ order, transaction });
+
+    if (!fulfillment?.ok) {
+      order.fulfillmentStatus =
+        fulfillment?.fulfillmentStatus || FULFILLMENT_STATUSES.MANUAL_REVIEW;
+      order.fulfillmentPayload = {
+        ...normalizeSourceConfig(order.fulfillmentPayload),
+        lifecycle: 'awaiting_admin_retry',
+        lastError: fulfillment?.message || 'Khong the chay lai don supplier.',
+        code: fulfillment?.code || 'retry_failed',
+        lastFailureAt: new Date().toISOString(),
+      };
+      await order.save({ transaction });
+      return normalizeOrderRecord(order);
+    }
+
+    order.fulfillmentStatus =
+      fulfillment.fulfillmentStatus || FULFILLMENT_STATUSES.PROCESSING;
+    order.fulfillmentPayload = fulfillment.deliveryPayload || order.fulfillmentPayload || null;
+    await order.save({ transaction });
+    notifyAdmin('admin_market_refresh');
+    sendEvent('market', order.payment_ref, {
+      status: order.status,
+      fulfillmentStatus: order.fulfillmentStatus,
+    });
+    return normalizeOrderRecord(order);
+  });
 };
 
 const createOrder = async (email, productId) => {

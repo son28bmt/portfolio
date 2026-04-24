@@ -216,6 +216,23 @@ const mapExternalStatusToFulfillment = (status) => {
   return FULFILLMENT_STATUSES.MANUAL_REVIEW;
 };
 
+const isSupplierBalanceError = (error) => {
+  const message = sanitizeText(error?.message || '', 500).toLowerCase();
+  if (!message) return false;
+
+  return (
+    message.includes('insufficient') ||
+    message.includes('not enough funds') ||
+    message.includes('not enough balance') ||
+    message.includes('low balance') ||
+    message.includes('balance') ||
+    message.includes('so du') ||
+    message.includes('khong du tien') ||
+    message.includes('thiếu tiền') ||
+    message.includes('thieu tien')
+  );
+};
+
 const localStockProvider = {
   async assertProductReady({ product }) {
     if (!product) {
@@ -367,12 +384,27 @@ const supplierApiProvider = {
       };
     }
 
-    const result = await createSmmOrder({
-      service: requestInput.serviceId,
-      link: requestInput.targetLink,
-      quantity: requestInput.quantity,
-      comments: requestInput.comments,
-    });
+    let result;
+    try {
+      result = await createSmmOrder({
+        service: requestInput.serviceId,
+        link: requestInput.targetLink,
+        quantity: requestInput.quantity,
+        comments: requestInput.comments,
+      });
+    } catch (error) {
+      if (isSupplierBalanceError(error)) {
+        return {
+          ok: false,
+          code: 'supplier_balance_low',
+          message:
+            'Vi supplier hien khong du tien de tao don. Don se duoc treo de admin nap them va chay tiep.',
+          fulfillmentStatus: FULFILLMENT_STATUSES.MANUAL_REVIEW,
+        };
+      }
+
+      throw error;
+    }
 
     if (!result.externalOrderId) {
       return {
@@ -454,4 +486,5 @@ module.exports = {
   normalizeOrderInput,
   getFulfillmentProvider,
   createMarketplaceError,
+  isSupplierBalanceError,
 };
