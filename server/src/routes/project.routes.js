@@ -8,6 +8,10 @@ const Project = require('../models/Project');
 const { protect } = require('../middleware/auth.middleware');
 const { requireAdmin } = require('../middleware/require-admin.middleware');
 const { uploadBufferToR2, getPresignedUploadUrl } = require('../services/r2.service');
+const {
+  notifyTelegramProjectChanged,
+  notifyTelegramProjectDownload,
+} = require('../services/telegram.service');
 
 const ALLOWED_PROJECT_FILE_TYPES = new Set([
   'image/jpeg',
@@ -17,14 +21,14 @@ const ALLOWED_PROJECT_FILE_TYPES = new Set([
   'image/gif',
   'image/avif',
   'application/vnd.android.package-archive',
-  'application/octet-stream', 
+  'application/octet-stream',
   'application/zip',
   'application/x-zip-compressed',
   'application/apk',
   'application/x-itunes-ipa',
   'application/x-ios-app',
 ]);
-const MAX_PROJECT_FILE_SIZE_MB = 200; 
+const MAX_PROJECT_FILE_SIZE_MB = 200;
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -197,7 +201,10 @@ const readSingleQueryValue = (value) => {
 
 router.post('/upload-images', protect, requireAdmin, uploadFilesMiddleware, async (req, res) => {
   try {
-    if (!req.files || req.files.length === 0) return res.status(400).json({ message: 'Bạn chưa chọn tệp để tải lên.' });
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ message: 'Bạn chưa chọn tệp để tải lên.' });
+    }
+
     const folder = req.body.folder || 'projects';
     const isAppUpload = /^projects\/apps\//i.test(String(folder));
     const urls = await Promise.all(
@@ -218,7 +225,7 @@ router.post('/upload-images', protect, requireAdmin, uploadFilesMiddleware, asyn
         } catch {
           return uploadedUrl;
         }
-      })
+      }),
     );
     return res.status(201).json({ urls });
   } catch (error) {
@@ -231,8 +238,12 @@ router.get('/get-upload-url', protect, requireAdmin, async (req, res) => {
     const fileName = readSingleQueryValue(req.query.fileName);
     const mimeType = readSingleQueryValue(req.query.mimeType).toLowerCase();
     const folder = readSingleQueryValue(req.query.folder) || 'projects';
-    if (!fileName || !mimeType) return res.status(400).json({ message: 'Thiếu thông tin fileName hoặc mimeType.' });
-    if (!ALLOWED_PROJECT_FILE_TYPES.has(mimeType)) return res.status(400).json({ message: 'Dinh dang tep khong hop le.' });
+    if (!fileName || !mimeType) {
+      return res.status(400).json({ message: 'Thiếu thông tin fileName hoặc mimeType.' });
+    }
+    if (!ALLOWED_PROJECT_FILE_TYPES.has(mimeType)) {
+      return res.status(400).json({ message: 'Định dạng tệp không hợp lệ.' });
+    }
     const { uploadUrl, publicUrl, fileKey } = await getPresignedUploadUrl({ fileName, mimeType, folder });
     return res.json({ uploadUrl, publicUrl, fileKey });
   } catch (error) {
@@ -255,14 +266,31 @@ const downloadLimiter = rateLimit({
 router.get('/:id/download/:type', downloadLimiter, async (req, res) => {
   try {
     const { id, type } = req.params;
-    if (!['apk', 'ios'].includes(type)) return res.status(400).json({ message: 'Loại tệp không hợp lệ. Chọn apk hoặc ios.' });
+    if (!['apk', 'ios'].includes(type)) {
+      return res.status(400).json({ message: 'Loại tệp không hợp lệ. Chọn apk hoặc ios.' });
+    }
     const project = await Project.findByPk(id);
     if (!project) return res.status(404).json({ message: 'Dự án không tồn tại.' });
     const fileUrl = type === 'apk' ? project.apkUrl : project.iosUrl;
-    if (!fileUrl) return res.status(404).json({ message: 'Tệp tải xuống chưa khả dụng cho dự án này.' });
-    if (!/bot|crawl|spider/i.test(req.headers['user-agent'] || '')) {
-      await Project.increment(type === 'apk' ? 'apkDownloadCount' : 'iosDownloadCount', { by: 1, where: { id } });
+    if (!fileUrl) {
+      return res.status(404).json({ message: 'Tệp tải xuống chưa khả dụng cho dự án này.' });
     }
+
+    const isBotRequest = /bot|crawl|spider/i.test(req.headers['user-agent'] || '');
+    if (!isBotRequest) {
+      await Project.increment(type === 'apk' ? 'apkDownloadCount' : 'iosDownloadCount', {
+        by: 1,
+        where: { id },
+      });
+      notifyTelegramProjectDownload({
+        project: normalizeProjectRecord(project),
+        downloadType: type,
+        downloadCount:
+          Number((type === 'apk' ? project.apkDownloadCount : project.iosDownloadCount) || 0) + 1,
+        ip: req.ip,
+      });
+    }
+
     const targetUrl = resolveDownloadUrl(req, fileUrl);
     if (!/^https?:\/\//i.test(targetUrl)) {
       return res.status(400).json({ message: 'Link tải xuống không hợp lệ.' });
@@ -288,7 +316,7 @@ router.get('/:id/download/:type', downloadLimiter, async (req, res) => {
     }
     res.setHeader(
       'Content-Disposition',
-      `attachment; filename="${downloadFileName}"; filename*=UTF-8''${encodedFileName}`
+      `attachment; filename="${downloadFileName}"; filename*=UTF-8''${encodedFileName}`,
     );
     res.setHeader('Cache-Control', 'no-store');
 
@@ -309,31 +337,47 @@ router.get('/:id/download/:type', downloadLimiter, async (req, res) => {
     return upstream.data.pipe(res);
   } catch (error) {
     console.error('❌ Download Track Error:', error);
-    res.status(500).json({ message: 'Lỗi xử lý lượt tải.' });
+    return res.status(500).json({ message: 'Lỗi xử lý lượt tải.' });
   }
 });
 
 router.get('/', async (req, res) => {
   try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = Math.min(parseInt(req.query.limit) || 10, 50);
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = Math.min(parseInt(req.query.limit, 10) || 10, 50);
     const offset = (page - 1) * limit;
-    const { count, rows } = await Project.findAndCountAll({ order: [['createdAt', 'DESC']], limit, offset });
+    const { count, rows } = await Project.findAndCountAll({
+      order: [['createdAt', 'DESC']],
+      limit,
+      offset,
+    });
     res.json({
-      items: await Promise.all(rows.map(async (project) => {
-        if (!project.slug && project.title) {
-          try {
-            project.slug = project.title.toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[đĐ]/g, 'd').replace(/\s+/g, '-').replace(/[^\w-]+/g, '').replace(/--+/g, '-').replace(/^-+/, '').replace(/-+$/, '');
-            await project.save();
-          } catch (e) {
-            console.error('Lazy slug failed:', e.message);
+      items: await Promise.all(
+        rows.map(async (project) => {
+          if (!project.slug && project.title) {
+            try {
+              project.slug = project.title
+                .toLowerCase()
+                .trim()
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .replace(/[đĐ]/g, 'd')
+                .replace(/\s+/g, '-')
+                .replace(/[^\w-]+/g, '')
+                .replace(/--+/g, '-')
+                .replace(/^-+/, '')
+                .replace(/-+$/, '');
+              await project.save();
+            } catch (e) {
+              console.error('Lazy slug failed:', e.message);
+            }
           }
-        }
-        return normalizeProjectRecord(project);
-      })),
+          return normalizeProjectRecord(project);
+        }),
+      ),
       total: count,
       page,
-      totalPages: Math.ceil(count / limit)
+      totalPages: Math.ceil(count / limit),
     });
   } catch (error) {
     console.error('❌ CRITICAL ERROR FETCHING PROJECTS:', error);
@@ -347,18 +391,23 @@ router.get('/:id', async (req, res) => {
     const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
     const project = isUUID ? await Project.findByPk(id) : await Project.findOne({ where: { slug: id } });
     if (!project) return res.status(404).json({ message: 'Project not found' });
-    res.json(normalizeProjectRecord(project));
+    return res.json(normalizeProjectRecord(project));
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    return res.status(500).json({ message: error.message });
   }
 });
 
 router.post('/', protect, requireAdmin, async (req, res) => {
   try {
     const project = await Project.create(normalizeProjectPayload(req.body));
-    res.status(201).json(normalizeProjectRecord(project));
+    notifyTelegramProjectChanged({
+      project: normalizeProjectRecord(project),
+      action: 'created',
+      actor: req.user?.username || '',
+    });
+    return res.status(201).json(normalizeProjectRecord(project));
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    return res.status(400).json({ message: error.message });
   }
 });
 
@@ -367,9 +416,14 @@ router.put('/:id', protect, requireAdmin, async (req, res) => {
     const project = await Project.findByPk(req.params.id);
     if (!project) return res.status(404).json({ message: 'Project not found' });
     await project.update(normalizeProjectPayload(req.body));
-    res.json(normalizeProjectRecord(project));
+    notifyTelegramProjectChanged({
+      project: normalizeProjectRecord(project),
+      action: 'updated',
+      actor: req.user?.username || '',
+    });
+    return res.json(normalizeProjectRecord(project));
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    return res.status(400).json({ message: error.message });
   }
 });
 
@@ -378,9 +432,9 @@ router.delete('/:id', protect, requireAdmin, async (req, res) => {
     const project = await Project.findByPk(req.params.id);
     if (!project) return res.status(404).json({ message: 'Project not found' });
     await project.destroy();
-    res.json({ message: 'Project removed' });
+    return res.json({ message: 'Project removed' });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    return res.status(500).json({ message: error.message });
   }
 });
 

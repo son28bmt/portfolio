@@ -8,6 +8,7 @@ const {
   BlogAutomationRule,
   BlogAutomationJob,
 } = require('../models');
+const { notifyTelegramBlogChanged } = require('./telegram.service');
 
 const DEFAULT_BASE_URL = 'https://api.openai.com/v1';
 const DEFAULT_TEXT_MODEL = 'gpt-4o';
@@ -1273,6 +1274,12 @@ const publishBlogFromDraft = async (draftPayload = {}) => {
     readTime: draftPayload.readTime || estimateReadTime(draftPayload.content),
     tags: toStringArray(draftPayload.tags),
     image: String(draftPayload.image || '').trim() || null,
+  });
+
+  notifyTelegramBlogChanged({
+    blog,
+    action: 'created',
+    source: 'automation',
   });
 
   return blog;

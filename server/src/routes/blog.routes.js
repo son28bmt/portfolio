@@ -4,6 +4,7 @@ const Blog = require('../models/Blog');
 const { protect } = require('../middleware/auth.middleware');
 const { requireAdmin } = require('../middleware/require-admin.middleware');
 const { Op } = require('sequelize');
+const { notifyTelegramBlogChanged } = require('../services/telegram.service');
 
 const decodePossibleJson = (value) => {
   let current = value;
@@ -120,6 +121,12 @@ router.post('/', protect, requireAdmin, async (req, res) => {
   try {
     const payload = normalizeBlogPayload(req.body);
     const post = await Blog.create(payload);
+    notifyTelegramBlogChanged({
+      blog: normalizeBlogRecord(post),
+      action: 'created',
+      source: 'admin',
+      actor: req.user?.username || '',
+    });
     res.status(201).json(normalizeBlogRecord(post));
   } catch (error) {
     res.status(400).json({ message: error.message });
@@ -134,6 +141,12 @@ router.put('/:idOrSlug', protect, requireAdmin, async (req, res) => {
 
     const payload = normalizeBlogPayload(req.body);
     await post.update(payload);
+    notifyTelegramBlogChanged({
+      blog: normalizeBlogRecord(post),
+      action: 'updated',
+      source: 'admin',
+      actor: req.user?.username || '',
+    });
     res.json(normalizeBlogRecord(post));
   } catch (error) {
     res.status(400).json({ message: error.message });

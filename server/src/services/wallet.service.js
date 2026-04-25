@@ -28,6 +28,11 @@ const {
   getFulfillmentProvider,
 } = require('./marketplace-fulfillment.service');
 const { notifyAdmin } = require('./socket.service');
+const {
+  notifyTelegramOrderCreated,
+  notifyTelegramOrderStatus,
+  notifyTelegramWalletTopupPaid,
+} = require('./telegram.service');
 
 const TOPUP_STATUS = Object.freeze({
   PENDING: 'pending',
@@ -498,6 +503,23 @@ const walletCheckout = async (userId, { productId, orderInput = {} }) => {
   }
 
   notifyAdmin('admin_wallet_refresh');
+  notifyTelegramOrderCreated({
+    order: createdOrder,
+    product: createdOrder?.product || { name: productName },
+    paymentMethod: 'wallet',
+  });
+  notifyTelegramOrderStatus({
+    order: createdOrder,
+    product: createdOrder?.product || { name: productName },
+    title:
+      result.fulfillmentStatus === FULFILLMENT_STATUSES.DELIVERED
+        ? '[ORDER] Don hang da hoan thanh'
+        : '[ORDER] Don hang dang duoc xu ly',
+    message:
+      result.fulfillmentStatus === FULFILLMENT_STATUSES.DELIVERED
+        ? 'Don hang thanh toan bang quy da hoan thanh.'
+        : 'Don hang thanh toan bang quy da duoc tao va dang xu ly.',
+  });
   notifyAdmin('admin_market_refresh');
 
   return {
@@ -610,10 +632,21 @@ const processWalletWebhook = async (req) => {
     topup.rawWebhook = JSON.stringify(payload.rawPayload);
     await topup.save({ transaction });
 
-    return { ok: true, type: 'paid', topup: serializeTopup(topup) };
+    return {
+      ok: true,
+      type: 'paid',
+      topup: serializeTopup(topup),
+      balanceAfter: Number(walletAccount.balance || 0),
+    };
   });
 
   notifyAdmin('admin_wallet_refresh');
+  if (result.type === 'paid') {
+    notifyTelegramWalletTopupPaid({
+      topup: result.topup,
+      balanceAfter: result.balanceAfter,
+    });
+  }
   return result;
 };
 

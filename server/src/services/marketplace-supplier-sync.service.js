@@ -2,6 +2,7 @@ const { Category, Order, Product } = require('../models');
 const { ensureMarketplaceSchema } = require('./marketplace-schema.service');
 const { sendEvent } = require('./sse.service');
 const { notifyAdmin } = require('./socket.service');
+const { notifyTelegramOrderStatus } = require('./telegram.service');
 const {
   FULFILLMENT_SOURCES,
   FULFILLMENT_STATUSES,
@@ -290,6 +291,14 @@ const applySupplierStatusRefresh = async (order, { emitEvents = true } = {}) => 
       fulfillmentStatus: order.fulfillmentStatus,
     });
     notifyAdmin('admin_market_refresh');
+    if (order.fulfillmentStatus === FULFILLMENT_STATUSES.DELIVERED) {
+      notifyTelegramOrderStatus({
+        order,
+        product: order.product,
+        title: '[ORDER] Don hang da hoan thanh',
+        message: 'Supplier da cap nhat trang thai delivered.',
+      });
+    }
   }
 
   return {

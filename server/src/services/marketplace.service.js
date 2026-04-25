@@ -8,6 +8,10 @@ const { buildVietQrUrl, verifySepayWebhook, normalizeSepayPayload } = require('.
 const { sendMarketplaceDeliveryEmail } = require('./email.service');
 const { sendEvent } = require('./sse.service');
 const { notifyAdmin } = require('./socket.service');
+const {
+  notifyTelegramOrderCreated,
+  notifyTelegramOrderStatus,
+} = require('./telegram.service');
 const { ensureMarketplaceSchema } = require('./marketplace-schema.service');
 const { applySupplierStatusRefresh } = require('./marketplace-supplier-sync.service');
 const {
@@ -223,6 +227,11 @@ const createOrderIntent = async ({ email, productId, orderInput = {} }) => {
   });
 
   notifyAdmin('admin_market_refresh');
+  notifyTelegramOrderCreated({
+    order,
+    product,
+    paymentMethod: 'qr',
+  });
 
   const qrUrl = buildVietQrUrl({
     bankBin,
@@ -378,6 +387,13 @@ const processSepayWebhook = async (req) => {
     notifyAdmin('admin_market_refresh');
 
     if (result.type === 'paid') {
+      notifyTelegramOrderStatus({
+        order: result.order,
+        product: result.order?.product,
+        title: '[ORDER] Don hang da hoan thanh',
+        message: 'He thong da ghi nhan thanh toan va giao hang thanh cong.',
+      });
+
       const deliveryText =
         result.deliveryText || extractDeliveryText(result.order?.fulfillmentPayload);
 
@@ -396,7 +412,26 @@ const processSepayWebhook = async (req) => {
           );
         }
       }
+    } else if (result.type === 'processing') {
+      notifyTelegramOrderStatus({
+        order: result.order,
+        product: result.order?.product,
+        title: '[ORDER] Don hang dang duoc xu ly',
+        message: 'He thong da ghi nhan thanh toan va da day don sang supplier.',
+      });
     }
+  }
+
+  if (result.type === 'supplier_balance_low') {
+    notifyTelegramOrderStatus({
+      order: result.order,
+      product: result.order?.product,
+      title: '[ORDER] Don hang can xu ly tay',
+      message:
+        result.fulfillment?.message ||
+        'Vi supplier khong du tien. Can nap them vao panel roi retry don nay.',
+      extraLines: ['Huong xu ly: Nap them tien vao vi supplier va bam lam moi / retry fulfillment.'],
+    });
   }
 
   return { ok: true, ...result };
@@ -628,6 +663,18 @@ const refreshSupplierFulfillmentByOrderId = async (orderId) => {
     sendEvent('market', order.payment_ref, {
       status: order.status,
       fulfillmentStatus: order.fulfillmentStatus,
+    });
+    notifyTelegramOrderStatus({
+      order,
+      product: order.product,
+      title:
+        order.fulfillmentStatus === FULFILLMENT_STATUSES.DELIVERED
+          ? '[ORDER] Don hang da hoan thanh'
+          : '[ORDER] Don hang da duoc retry',
+      message:
+        order.fulfillmentStatus === FULFILLMENT_STATUSES.DELIVERED
+          ? 'Admin da xu ly lai thanh cong va don hang da hoan thanh.'
+          : 'Admin da retry fulfillment thanh cong.',
     });
     return normalizeOrderRecord(order);
   });
