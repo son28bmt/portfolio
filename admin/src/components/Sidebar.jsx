@@ -13,6 +13,7 @@ import {
   Sparkles,
   Settings,
   X,
+  UsersRound,
 } from 'lucide-react';
 
 const Sidebar = ({ isOpen, onClose }) => {
@@ -31,6 +32,7 @@ const Sidebar = ({ isOpen, onClose }) => {
     { icon: FileText, label: 'Blog', path: '/blog' },
     { icon: Bot, label: 'Blog tự động', path: '/blog/automation' },
     { icon: MessageSquare, label: 'Tin nhắn', path: '/messages' },
+    { icon: UsersRound, label: 'Người dùng', path: '/users' },
     { icon: Gift, label: 'Donate', path: '/donate' },
     { icon: ShoppingBag, label: 'Chợ số', path: '/marketplace' },
     { icon: Settings, label: 'Cấu hình AI', path: '/ai-settings' },

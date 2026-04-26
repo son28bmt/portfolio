@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+/* eslint-disable react-refresh/only-export-components */
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import api from '../services/api';
 
 const USER_TOKEN_KEY = 'userToken';
@@ -18,9 +19,12 @@ const readStoredAccount = () => {
 export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(() => window.localStorage.getItem(USER_TOKEN_KEY) || '');
   const [account, setAccount] = useState(() => readStoredAccount());
-  const [loading, setLoading] = useState(Boolean(window.localStorage.getItem(USER_TOKEN_KEY)));
+  const [loading, setLoading] = useState(() => {
+    const storedToken = window.localStorage.getItem(USER_TOKEN_KEY);
+    return Boolean(storedToken && !readStoredAccount());
+  });
 
-  const persist = (nextToken, nextAccount) => {
+  const persist = useCallback((nextToken, nextAccount) => {
     if (nextToken) {
       window.localStorage.setItem(USER_TOKEN_KEY, nextToken);
     } else {
@@ -32,24 +36,25 @@ export const AuthProvider = ({ children }) => {
     } else {
       window.localStorage.removeItem(USER_ACCOUNT_KEY);
     }
-  };
+  }, []);
 
-  const applyAuth = (nextToken, nextAccount) => {
+  const applyAuth = useCallback((nextToken, nextAccount) => {
     setToken(nextToken || '');
     setAccount(nextAccount || null);
+    setLoading(Boolean(nextToken && !nextAccount));
     persist(nextToken || '', nextAccount || null);
-  };
+  }, [persist]);
 
-  const updateAccount = (nextAccount) => {
+  const updateAccount = useCallback((nextAccount) => {
     setAccount(nextAccount || null);
     persist(window.localStorage.getItem(USER_TOKEN_KEY) || token, nextAccount || null);
-  };
+  }, [persist, token]);
 
-  const logout = () => {
+  const logout = useCallback(() => {
     applyAuth('', null);
-  };
+  }, [applyAuth]);
 
-  const refreshAccount = async (overrideToken = '') => {
+  const refreshAccount = useCallback(async (overrideToken = '') => {
     const activeToken = overrideToken || window.localStorage.getItem(USER_TOKEN_KEY) || token;
     if (!activeToken) return null;
     try {
@@ -62,16 +67,15 @@ export const AuthProvider = ({ children }) => {
       }
       throw error;
     }
-  };
+  }, [logout, token, updateAccount]);
 
   useEffect(() => {
     let active = true;
     if (!token) {
-      setLoading(false);
       return undefined;
     }
 
-    setLoading(true);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     refreshAccount(token)
       .catch(() => {})
       .finally(() => {
@@ -81,16 +85,16 @@ export const AuthProvider = ({ children }) => {
     return () => {
       active = false;
     };
-  }, [token]);
+  }, [refreshAccount, token]);
 
-  const login = async ({ username, password }) => {
+  const login = useCallback(async ({ username, password }) => {
     const { data } = await api.post('/auth/login', { username, password });
     applyAuth(data?.token || '', null);
     const freshAccount = await refreshAccount(data?.token || '');
     return freshAccount;
-  };
+  }, [applyAuth, refreshAccount]);
 
-  const register = async ({ username, password, email, fullName }) => {
+  const register = useCallback(async ({ username, password, email, fullName }) => {
     const { data } = await api.post('/auth/register', {
       username,
       password,
@@ -104,7 +108,7 @@ export const AuthProvider = ({ children }) => {
       await refreshAccount(data?.token || '');
     }
     return nextAccount;
-  };
+  }, [applyAuth, refreshAccount]);
 
   const value = useMemo(
     () => ({
@@ -118,7 +122,7 @@ export const AuthProvider = ({ children }) => {
       refreshAccount,
       updateAccount,
     }),
-    [token, account, loading],
+    [account, loading, login, logout, refreshAccount, register, token, updateAccount],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -177,6 +177,8 @@ const FloatingChat = () => {
     return () => {
       if (socketRef.current) socketRef.current.disconnect();
     };
+  // Keep guestToken out so receiving a freshly issued token does not reconnect the socket.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [guestId, activeTab, isOpen]);
 
   const handleAiSend = async (e) => {

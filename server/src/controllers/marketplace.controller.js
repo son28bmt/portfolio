@@ -17,12 +17,14 @@ const {
   syncSmmPanelServicesToCatalog,
   autoRefreshSupplierOrdersBatch,
 } = require('../services/marketplace-supplier-sync.service');
+const { syncCardCatalogToMarketplace } = require('../services/marketplace-card-sync.service');
 const {
   FULFILLMENT_SOURCES,
   normalizeFulfillmentSource,
   buildProductSourceConfig,
 } = require('../services/marketplace-fulfillment.service');
 const { listSmmServices, getSmmBalance } = require('../services/smm-panel.service');
+const { listCardProducts, getCardBalance } = require('../services/card-partner.service');
 const { addClient } = require('../services/sse.service');
 
 const signAdminToken = (adminId) =>
@@ -272,11 +274,41 @@ const adminGetSmmBalance = async (req, res) => {
   }
 };
 
+const adminGetCardProducts = async (req, res) => {
+  try {
+    const items = await listCardProducts();
+    return res.json({ items });
+  } catch (error) {
+    return handleError(res, error);
+  }
+};
+
+const adminGetCardBalance = async (req, res) => {
+  try {
+    const balance = await getCardBalance();
+    return res.json(balance);
+  } catch (error) {
+    return handleError(res, error);
+  }
+};
+
 const adminSyncSmmServices = async (req, res) => {
   try {
     const result = await syncSmmPanelServicesToCatalog(req.body || {});
     return res.json({
       message: 'Da dong bo catalog tu SMM panel vao admin.',
+      ...result,
+    });
+  } catch (error) {
+    return handleError(res, error);
+  }
+};
+
+const adminSyncCardProducts = async (req, res) => {
+  try {
+    const result = await syncCardCatalogToMarketplace(req.body || {});
+    return res.json({
+      message: 'Da dong bo catalog card vao admin.',
       ...result,
     });
   } catch (error) {
@@ -612,6 +644,9 @@ module.exports = {
   adminRefreshSupplierOrder,
   adminGetSmmServices,
   adminGetSmmBalance,
+  adminGetCardProducts,
+  adminGetCardBalance,
   adminSyncSmmServices,
+  adminSyncCardProducts,
   adminBatchRefreshSupplierOrders,
 };

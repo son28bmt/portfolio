@@ -44,7 +44,9 @@ const buildSiteUrl = (pathName = '') => {
 const getConfig = () => {
   const token = sanitizeText(process.env.TELEGRAM_BOT_TOKEN, 255);
   const chatId = sanitizeText(process.env.TELEGRAM_CHAT_ID, 80);
-  const enabledRaw = String(process.env.TELEGRAM_NOTIFICATIONS_ENABLED || 'true').trim().toLowerCase();
+  const enabledRaw = String(process.env.TELEGRAM_NOTIFICATIONS_ENABLED || 'true')
+    .trim()
+    .toLowerCase();
   const threadId = toNumber(process.env.TELEGRAM_MESSAGE_THREAD_ID, null);
 
   return {
@@ -96,7 +98,10 @@ const queueTelegramNotification = (builder) => {
   Promise.resolve()
     .then(builder)
     .catch((error) => {
-      console.error('[Telegram] Gui notify that bai:', error?.response?.data || error?.message || error);
+      console.error(
+        '[Telegram] Gui notify that bai:',
+        error?.response?.data || error?.message || error,
+      );
     });
 };
 
@@ -110,6 +115,21 @@ const queueTelegramLines = (lines, options = {}) => {
   queueTelegramNotification(() => sendTelegramMessageNow(message, options));
 };
 
+const sectionTitle = (prefix, title) => `${prefix} ${title}`.trim();
+const divider = () => '────────────────';
+
+const bullet = (label, value) => {
+  const cleanValue = sanitizeText(value, 500);
+  if (!cleanValue) return '';
+  return `• ${label}: ${cleanValue}`;
+};
+
+const note = (value) => {
+  const cleanValue = sanitizeText(value, 500);
+  if (!cleanValue) return '';
+  return `• Ghi chú: ${cleanValue}`;
+};
+
 const buildOrderLink = (paymentRef) => {
   const ref = sanitizeText(paymentRef, 80);
   if (!ref) return '';
@@ -120,13 +140,14 @@ const notifyTelegramOrderCreated = ({ order, product, paymentMethod = 'qr' } = {
   if (!order) return;
 
   queueTelegramLines([
-    '[ORDER] Don hang moi',
-    `Ma: ${sanitizeText(order.payment_ref || order.paymentRef, 80)}`,
-    `San pham: ${sanitizeText(product?.name || order?.product?.name || 'Khong ro', 180)}`,
-    `Email: ${sanitizeText(order.email, 180)}`,
-    `So tien: ${formatVnd(order.amount)}`,
-    `Thanh toan: ${paymentMethod === 'wallet' ? 'Quy noi bo' : 'QR / chuyen khoan'}`,
-    `Trang thai: ${sanitizeText(order.status || 'pending', 40)}`,
+    sectionTitle('[ORDER]', 'Đơn hàng mới'),
+    divider(),
+    bullet('Mã', order.payment_ref || order.paymentRef),
+    bullet('Sản phẩm', product?.name || order?.product?.name || 'Không rõ'),
+    bullet('Email', order.email),
+    bullet('Số tiền', formatVnd(order.amount)),
+    bullet('Thanh toán', paymentMethod === 'wallet' ? 'Quỹ nội bộ' : 'QR / chuyển khoản'),
+    bullet('Trạng thái', order.status || 'pending'),
     buildOrderLink(order.payment_ref || order.paymentRef),
   ]);
 };
@@ -135,33 +156,42 @@ const notifyTelegramOrderStatus = ({ order, title, message, product, extraLines 
   if (!order) return;
 
   queueTelegramLines([
-    title || '[ORDER] Cap nhat don hang',
-    `Ma: ${sanitizeText(order.payment_ref || order.paymentRef, 80)}`,
-    `San pham: ${sanitizeText(product?.name || order?.product?.name || 'Khong ro', 180)}`,
-    `Email: ${sanitizeText(order.email, 180)}`,
-    `So tien: ${formatVnd(order.amount)}`,
-    `Thanh toan: ${sanitizeText(order.paymentMethod || 'qr', 40)}`,
-    `Trang thai don: ${sanitizeText(order.status, 40)}`,
-    `Fulfillment: ${sanitizeText(order.fulfillmentStatus, 40)}`,
-    message ? sanitizeText(message, 400) : '',
+    title || sectionTitle('[ORDER]', 'Cập nhật đơn hàng'),
+    divider(),
+    bullet('Mã', order.payment_ref || order.paymentRef),
+    bullet('Sản phẩm', product?.name || order?.product?.name || 'Không rõ'),
+    bullet('Email', order.email),
+    bullet('Số tiền', formatVnd(order.amount)),
+    bullet('Thanh toán', order.paymentMethod || 'qr'),
+    bullet('Trạng thái đơn', order.status),
+    bullet('Fulfillment', order.fulfillmentStatus),
+    note(message),
     ...extraLines,
     buildOrderLink(order.payment_ref || order.paymentRef),
   ]);
 };
 
-const notifyTelegramBlogChanged = ({ blog, action = 'created', source = 'admin', actor = '' } = {}) => {
+const notifyTelegramBlogChanged = ({
+  blog,
+  action = 'created',
+  source = 'admin',
+  actor = '',
+} = {}) => {
   if (!blog) return;
 
   const actionLabel =
-    action === 'updated' ? '[BLOG] Blog da cap nhat' : '[BLOG] Blog moi da dang';
+    action === 'updated'
+      ? sectionTitle('[BLOG]', 'Blog đã cập nhật')
+      : sectionTitle('[BLOG]', 'Blog mới đã đăng');
   const blogUrl = buildSiteUrl(`/blog/${sanitizeText(blog.slug, 180)}`);
 
   queueTelegramLines([
     actionLabel,
-    `Tieu de: ${sanitizeText(blog.title, 220)}`,
-    `Nguon: ${source === 'automation' ? 'Tu dong hoa' : 'Admin'}`,
-    actor ? `Nguoi thuc hien: ${sanitizeText(actor, 80)}` : '',
-    sanitizeText(blog.excerpt, 260),
+    divider(),
+    bullet('Tiêu đề', blog.title),
+    bullet('Nguồn', source === 'automation' ? 'Tự động hóa' : 'Admin'),
+    bullet('Người thực hiện', actor),
+    blog.excerpt ? `• Tóm tắt: ${sanitizeText(blog.excerpt, 260)}` : '',
     blogUrl,
   ]);
 };
@@ -170,14 +200,17 @@ const notifyTelegramProjectChanged = ({ project, action = 'updated', actor = '' 
   if (!project) return;
 
   const title =
-    action === 'created' ? '[PROJECT] Du an moi da dang' : '[PROJECT] Du an da cap nhat';
+    action === 'created'
+      ? sectionTitle('[PROJECT]', 'Dự án mới đã đăng')
+      : sectionTitle('[PROJECT]', 'Dự án đã cập nhật');
   const projectUrl = buildSiteUrl(`/du-an/${sanitizeText(project.slug || project.id, 180)}`);
 
   queueTelegramLines([
     title,
-    `Ten du an: ${sanitizeText(project.title, 220)}`,
-    `Danh muc: ${sanitizeText(project.category, 120)}`,
-    actor ? `Nguoi thuc hien: ${sanitizeText(actor, 80)}` : '',
+    divider(),
+    bullet('Tên dự án', project.title),
+    bullet('Danh mục', project.category),
+    bullet('Người thực hiện', actor),
     projectUrl,
   ]);
 };
@@ -192,28 +225,33 @@ const notifyTelegramProjectDownload = ({
 
   const projectUrl = buildSiteUrl(`/du-an/${sanitizeText(project.slug || project.id, 180)}`);
 
-  queueTelegramLines([
-    '[DOWNLOAD] Co luot tai du an',
-    `Du an: ${sanitizeText(project.title, 220)}`,
-    `Loai tep: ${downloadType === 'ios' ? 'iOS / IPA' : 'Android / APK'}`,
-    `Tong luot ${downloadType}: ${Number(downloadCount || 0).toLocaleString('vi-VN')}`,
-    ip ? `IP: ${sanitizeText(ip, 80)}` : '',
-    projectUrl,
-  ], { disableNotification: true });
+  queueTelegramLines(
+    [
+      sectionTitle('[DOWNLOAD]', 'Có lượt tải dự án'),
+      divider(),
+      bullet('Dự án', project.title),
+      bullet('Loại tệp', downloadType === 'ios' ? 'iOS / IPA' : 'Android / APK'),
+      bullet(`Tổng lượt ${downloadType}`, Number(downloadCount || 0).toLocaleString('vi-VN')),
+      bullet('IP', ip),
+      projectUrl,
+    ],
+    { disableNotification: true },
+  );
 };
 
 const notifyTelegramWalletTopupPaid = ({ topup, user, balanceAfter } = {}) => {
   if (!topup) return;
 
   queueTelegramLines([
-    '[WALLET] Nap quy thanh cong',
-    `Ma: ${sanitizeText(topup.paymentRef, 80)}`,
-    `Nguoi dung: ${sanitizeText(user?.username || user?.email || '', 180)}`,
-    `So tien: ${formatVnd(topup.amount)}`,
+    sectionTitle('[WALLET]', 'Nạp quỹ thành công'),
+    divider(),
+    bullet('Mã', topup.paymentRef),
+    bullet('Người dùng', user?.username || user?.email || ''),
+    bullet('Số tiền', formatVnd(topup.amount)),
     balanceAfter !== undefined && balanceAfter !== null
-      ? `So du sau nap: ${formatVnd(balanceAfter)}`
+      ? bullet('Số dư sau nạp', formatVnd(balanceAfter))
       : '',
-    `Luc: ${formatDateTime(topup.paidAt || new Date())}`,
+    bullet('Lúc', formatDateTime(topup.paidAt || new Date())),
   ]);
 };
 

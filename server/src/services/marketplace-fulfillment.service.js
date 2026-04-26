@@ -5,6 +5,12 @@ const {
   createSmmOrder,
   getSmmOrderStatus,
 } = require('./smm-panel.service');
+const {
+  assertCardPartnerConfigured,
+  checkCardAvailable,
+  buyCard,
+  redownloadCard,
+} = require('./card-partner.service');
 
 const FULFILLMENT_SOURCES = {
   LOCAL_STOCK: 'local_stock',
@@ -120,6 +126,15 @@ const buildProductSourceConfig = ({ sourceType, sourceConfig } = {}) => {
     return {
       ...normalizedConfig,
       ...baseConfig,
+      serviceCode: sanitizeText(normalizedConfig.serviceCode, 80) || null,
+      cardValue: toInt(normalizedConfig.cardValue),
+      currencyCode: sanitizeText(normalizedConfig.currencyCode, 20) || 'VND',
+      productSlug: sanitizeText(normalizedConfig.productSlug, 180) || null,
+      imageUrl: sanitizeText(normalizedConfig.imageUrl, 1000) || null,
+      serviceName: sanitizeText(normalizedConfig.serviceName, 255) || '',
+      categoryName: sanitizeText(normalizedConfig.categoryName, 255) || '',
+      defaultQuantity: Math.max(1, toInt(normalizedConfig.defaultQuantity) || 1),
+      allowsQuantity: Boolean(normalizedConfig.allowsQuantity),
       requiresTargetLink: false,
       requiresComments: false,
       pricingModel: SMM_PRICING_MODELS.FIXED,
@@ -139,8 +154,8 @@ const buildProductSourceConfig = ({ sourceType, sourceConfig } = {}) => {
     requiresComments: Boolean(normalizedConfig.requiresComments),
     fixedTarget: sanitizeText(normalizedConfig.fixedTarget, 1000) || '',
     fixedComments: sanitizeText(normalizedConfig.fixedComments, 4000) || '',
-    targetLabel: sanitizeText(normalizedConfig.targetLabel, 120) || 'Link mục tiêu',
-    commentsLabel: sanitizeText(normalizedConfig.commentsLabel, 120) || 'Nội dung comments',
+    targetLabel: sanitizeText(normalizedConfig.targetLabel, 120) || 'Link muc tieu',
+    commentsLabel: sanitizeText(normalizedConfig.commentsLabel, 120) || 'Noi dung comments',
     serviceName: sanitizeText(normalizedConfig.serviceName, 255) || '',
     categoryName: sanitizeText(normalizedConfig.categoryName, 255) || '',
     refill: Boolean(normalizedConfig.refill),
@@ -171,6 +186,26 @@ const buildSourceSnapshot = (product) => ({
 const extractDeliveryText = (payload) => {
   const raw = payload?.deliveryText ?? payload?.content ?? payload?.data ?? '';
   return String(raw || '').trim();
+};
+
+const buildCardDeliveryText = ({ cards = [], orderCode = '', serviceName = '', value = 0 }) => {
+  const lines = [
+    sanitizeText(serviceName, 255) || 'Ma the / card',
+    orderCode ? `Ma don nha cung cap: ${orderCode}` : '',
+    value ? `Menh gia: ${Number(value).toLocaleString('vi-VN')} d` : '',
+    '',
+  ].filter(Boolean);
+
+  cards.forEach((card, index) => {
+    lines.push(`The ${index + 1}:`);
+    lines.push(`- Ten: ${sanitizeText(card?.name, 255) || 'Card'}`);
+    lines.push(`- Serial: ${sanitizeText(card?.serial, 255)}`);
+    lines.push(`- Code: ${sanitizeText(card?.code, 255)}`);
+    if (card?.expired) lines.push(`- Het han: ${sanitizeText(card.expired, 80)}`);
+    lines.push('');
+  });
+
+  return lines.join('\n').trim();
 };
 
 const normalizeOrderInput = (value = {}) => ({
@@ -209,6 +244,15 @@ const resolveSmmQuantity = (config, orderInput) => {
   return quantity;
 };
 
+const resolveCardQuantity = (config, orderInput) => {
+  const requestedQuantity = toInt(orderInput?.quantity);
+  const defaultQuantity = Math.max(1, toInt(config.defaultQuantity) || 1);
+  if (config.allowsQuantity) {
+    return Math.max(1, requestedQuantity || defaultQuantity);
+  }
+  return 1;
+};
+
 const calculateSmmAmount = ({ productPrice, quantity, pricingModel }) => {
   const basePrice = Number(productPrice || 0);
   if (!Number.isFinite(basePrice) || basePrice <= 0) {
@@ -223,6 +267,47 @@ const calculateSmmAmount = ({ productPrice, quantity, pricingModel }) => {
   }
 
   return Math.round((basePrice * quantity) / 1000);
+};
+
+const mapCardProviderFailure = ({ status, message }) => {
+  const normalizedStatus = Number(status || 0);
+  const cleanMessage = sanitizeText(message, 255) || 'Khong the mua the.';
+
+  if (normalizedStatus === 2) {
+    return {
+      code: 'card_redownload_required',
+      message: 'Thanh toan thanh cong nhung chua lay duoc the. He thong se thu tai lai sau.',
+      fulfillmentStatus: FULFILLMENT_STATUSES.PROCESSING,
+    };
+  }
+
+  if (normalizedStatus === 102) {
+    return {
+      code: 'supplier_balance_low',
+      message:
+        'Vi supplier hien khong du tien de mua the. Don se duoc treo de admin nap them va chay tiep.',
+      fulfillmentStatus: FULFILLMENT_STATUSES.MANUAL_REVIEW,
+    };
+  }
+
+  if ([109, 114, 116, 118, 121, 122, 123, 124].includes(normalizedStatus)) {
+    return {
+      code:
+        normalizedStatus === 118
+          ? 'out_of_stock'
+          : normalizedStatus === 109
+            ? 'duplicate_request'
+            : 'card_provider_manual_review',
+      message: cleanMessage,
+      fulfillmentStatus: FULFILLMENT_STATUSES.MANUAL_REVIEW,
+    };
+  }
+
+  return {
+    code: normalizedStatus ? `card_error_${normalizedStatus}` : 'card_provider_failed',
+    message: cleanMessage,
+    fulfillmentStatus: FULFILLMENT_STATUSES.MANUAL_REVIEW,
+  };
 };
 
 const mapExternalStatusToFulfillment = (status) => {
@@ -333,10 +418,24 @@ const supplierApiProvider = {
     });
 
     if (normalizeSupplierKind(config.supplierKind) === SUPPLIER_KINDS.DIGITAL_CODE) {
-      throw createMarketplaceError(
-        409,
-        'Nguon digital_code/card duoc de san cho giai doan sau, hien chua kich hoat.',
-      );
+      assertCardPartnerConfigured();
+      if (!config.serviceCode || !config.cardValue) {
+        throw createMarketplaceError(400, 'San pham card chua cau hinh serviceCode hoac cardValue.');
+      }
+
+      const availability = await checkCardAvailable({
+        serviceCode: config.serviceCode,
+        value: config.cardValue,
+        qty: resolveCardQuantity(config, {}),
+      });
+
+      if (!availability.stockAvailable) {
+        throw createMarketplaceError(
+          409,
+          availability.message || 'San pham card tam thoi het hang hoac khong du ton kho.',
+        );
+      }
+      return;
     }
 
     assertSmmConfigured();
@@ -351,6 +450,24 @@ const supplierApiProvider = {
       sourceType: product.sourceType,
       sourceConfig: product.sourceConfig,
     });
+
+    if (normalizeSupplierKind(config.supplierKind) === SUPPLIER_KINDS.DIGITAL_CODE) {
+      const quantity = resolveCardQuantity(config, orderInput);
+      const amount = Math.round(Number(product?.price || 0) * quantity);
+      if (!amount || amount <= 0) {
+        throw createMarketplaceError(400, 'San pham card chua co gia hop le.');
+      }
+
+      return {
+        amount,
+        requestInput: {
+          supplierKind: SUPPLIER_KINDS.DIGITAL_CODE,
+          serviceCode: config.serviceCode,
+          cardValue: config.cardValue,
+          qty: quantity,
+        },
+      };
+    }
 
     if (normalizeSupplierKind(config.supplierKind) !== SUPPLIER_KINDS.SMM_PANEL) {
       throw createMarketplaceError(
@@ -386,6 +503,75 @@ const supplierApiProvider = {
       sourceConfig: order.sourceSnapshot?.sourceConfig || order.product?.sourceConfig,
     });
     const requestInput = order.fulfillmentPayload?.requestInput || {};
+
+    if (normalizeSupplierKind(config.supplierKind) === SUPPLIER_KINDS.DIGITAL_CODE) {
+      const quantity = resolveCardQuantity(config, { quantity: requestInput.qty });
+
+      const availability = await checkCardAvailable({
+        serviceCode: config.serviceCode,
+        value: config.cardValue,
+        qty: quantity,
+      });
+
+      if (!availability.stockAvailable) {
+        return {
+          ok: false,
+          code: 'out_of_stock',
+          message: availability.message || 'San pham card da het hang.',
+          fulfillmentStatus: FULFILLMENT_STATUSES.MANUAL_REVIEW,
+        };
+      }
+
+      const result = await buyCard({
+        requestId: order.payment_ref,
+        serviceCode: requestInput.serviceCode || config.serviceCode,
+        value: requestInput.cardValue || config.cardValue,
+        qty: quantity,
+      });
+
+      if (result.status === 1 && result.cards.length > 0) {
+        return {
+          ok: true,
+          fulfillmentStatus: FULFILLMENT_STATUSES.DELIVERED,
+          deliveryPayload: {
+            requestInput,
+            externalProvider: 'card_partner',
+            externalOrderId: result.orderCode,
+            externalStatus: 'completed',
+            lastStatusSyncAt: new Date().toISOString(),
+            cards: result.cards,
+            deliveryText: buildCardDeliveryText({
+              cards: result.cards,
+              orderCode: result.orderCode,
+              serviceName: config.serviceName,
+              value: config.cardValue,
+            }),
+            externalRaw: result.raw,
+          },
+        };
+      }
+
+      if (result.status === 2 && result.orderCode) {
+        return {
+          ok: true,
+          fulfillmentStatus: FULFILLMENT_STATUSES.PROCESSING,
+          deliveryPayload: {
+            requestInput,
+            externalProvider: 'card_partner',
+            externalOrderId: result.orderCode,
+            externalStatus: 'pending',
+            lifecycle: 'awaiting_redownload',
+            lastStatusSyncAt: new Date().toISOString(),
+            externalRaw: result.raw,
+          },
+        };
+      }
+
+      return {
+        ok: false,
+        ...mapCardProviderFailure({ status: result.status, message: result.message }),
+      };
+    }
 
     if (normalizeSupplierKind(config.supplierKind) !== SUPPLIER_KINDS.SMM_PANEL) {
       return {
@@ -451,8 +637,72 @@ const supplierApiProvider = {
   },
 
   async refreshOrderStatus({ order }) {
+    const config = buildProductSourceConfig({
+      sourceType:
+        order.fulfillmentSource || order.product?.sourceType || FULFILLMENT_SOURCES.SUPPLIER_API,
+      sourceConfig: order.sourceSnapshot?.sourceConfig || order.product?.sourceConfig,
+    });
     const payload = order.fulfillmentPayload || {};
     const externalOrderId = sanitizeText(payload.externalOrderId, 80);
+    if (normalizeSupplierKind(config.supplierKind) === SUPPLIER_KINDS.DIGITAL_CODE) {
+      if (!externalOrderId) {
+        return {
+          ok: false,
+          code: 'external_order_missing',
+          message: 'Don hang card chua co externalOrderId de tai lai the.',
+          fulfillmentStatus: FULFILLMENT_STATUSES.MANUAL_REVIEW,
+        };
+      }
+
+      const result = await redownloadCard({
+        requestId: order.payment_ref,
+        orderCode: externalOrderId,
+      });
+
+      if (result.status === 1 && result.cards.length > 0) {
+        return {
+          ok: true,
+          fulfillmentStatus: FULFILLMENT_STATUSES.DELIVERED,
+          deliveryPayload: {
+            ...payload,
+            externalProvider: 'card_partner',
+            externalOrderId,
+            externalStatus: 'completed',
+            lastStatusSyncAt: new Date().toISOString(),
+            cards: result.cards,
+            deliveryText: buildCardDeliveryText({
+              cards: result.cards,
+              orderCode: externalOrderId,
+              serviceName: config.serviceName,
+              value: config.cardValue,
+            }),
+            externalRaw: result.raw,
+          },
+        };
+      }
+
+      if (result.status === 2) {
+        return {
+          ok: true,
+          fulfillmentStatus: FULFILLMENT_STATUSES.PROCESSING,
+          deliveryPayload: {
+            ...payload,
+            externalProvider: 'card_partner',
+            externalOrderId,
+            externalStatus: 'pending',
+            lifecycle: 'awaiting_redownload',
+            lastStatusSyncAt: new Date().toISOString(),
+            externalRaw: result.raw,
+          },
+        };
+      }
+
+      return {
+        ok: false,
+        ...mapCardProviderFailure({ status: result.status, message: result.message }),
+      };
+    }
+
     if (!externalOrderId) {
       return {
         ok: false,

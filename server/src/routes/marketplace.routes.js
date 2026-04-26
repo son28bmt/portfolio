@@ -81,5 +81,8 @@ router.get("/admin/supplier/smm-panel/services", controller.adminGetSmmServices)
 router.get("/admin/supplier/smm-panel/balance", controller.adminGetSmmBalance);
 router.post("/admin/supplier/smm-panel/sync-services", controller.adminSyncSmmServices);
 router.post("/admin/supplier/smm-panel/refresh-processing", controller.adminBatchRefreshSupplierOrders);
+router.get("/admin/supplier/card-partner/products", controller.adminGetCardProducts);
+router.get("/admin/supplier/card-partner/balance", controller.adminGetCardBalance);
+router.post("/admin/supplier/card-partner/sync-products", controller.adminSyncCardProducts);
 
 module.exports = router;

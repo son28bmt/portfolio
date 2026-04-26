@@ -185,8 +185,8 @@ const AIChatDemoLocalHistory = () => {
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [chatModelProvider, setChatModelProvider] = useState('chatgpt');
-  const [userApiKey, setUserApiKey] = useState('');
-  const [userBaseUrl, setUserBaseUrl] = useState('');
+  const [userApiKey] = useState('');
+  const [userBaseUrl] = useState('');
   const [selectedImage, setSelectedImage] = useState(null);
   const fileInputRef = useRef(null);
   const messagesEndRef = useRef(null);

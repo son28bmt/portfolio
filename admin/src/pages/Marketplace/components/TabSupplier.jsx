@@ -1,5 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Activity, Database, RefreshCw, RotateCcw, ShieldAlert } from 'lucide-react';
+import {
+  Activity,
+  CreditCard,
+  Database,
+  RefreshCw,
+  RotateCcw,
+  ShieldAlert,
+  Wallet,
+} from 'lucide-react';
 import api from '../../../services/api';
 
 const formatVnd = (value) =>
@@ -9,7 +17,7 @@ const formatVnd = (value) =>
     maximumFractionDigits: 0,
   });
 
-const normalizeServices = (items) =>
+const normalizeSmmServices = (items) =>
   (Array.isArray(items) ? items : []).map((item) => ({
     service: String(item?.service || '').trim(),
     name: String(item?.name || '').trim(),
@@ -20,11 +28,34 @@ const normalizeServices = (items) =>
     max: Number(item?.max || 0),
   }));
 
-const initialSyncForm = {
+const normalizeCardProducts = (items) =>
+  (Array.isArray(items) ? items : []).map((item) => ({
+    name: String(item?.name || '').trim(),
+    serviceCode: String(item?.serviceCode || '').trim(),
+    slug: String(item?.slug || '').trim(),
+    values: Array.isArray(item?.cardvalue)
+      ? item.cardvalue
+          .map((subItem) => ({
+            id: subItem?.providerProductId ?? subItem?.id ?? null,
+            serviceCode: String(subItem?.serviceCode || subItem?.service_code || item?.serviceCode || '').trim(),
+            value: Number(subItem?.value || 0),
+          }))
+          .filter((subItem) => subItem.value > 0)
+      : [],
+  }));
+
+const initialSmmSyncForm = {
   rateMultiplier: '1',
   markupPercent: '0',
   markupFixed: '0',
   pricingModel: 'per_1000',
+  updateExisting: true,
+};
+
+const initialCardSyncForm = {
+  rateMultiplier: '1',
+  markupPercent: '0',
+  markupFixed: '0',
   updateExisting: true,
 };
 
@@ -46,50 +77,73 @@ const isSupplierBalanceLow = (item) =>
   String(item?.fulfillmentPayload?.code || '').trim().toLowerCase() === 'supplier_balance_low';
 
 const TabSupplier = ({ setError, setNotice, refreshKey }) => {
-  const [services, setServices] = useState([]);
-  const [servicesLoading, setServicesLoading] = useState(false);
-  const [queueLoading, setQueueLoading] = useState(false);
-  const [syncing, setSyncing] = useState(false);
+  const [smmServices, setSmmServices] = useState([]);
+  const [cardProducts, setCardProducts] = useState([]);
+  const [supplierOrders, setSupplierOrders] = useState([]);
+  const [smmBalanceInfo, setSmmBalanceInfo] = useState(null);
+  const [cardBalanceInfo, setCardBalanceInfo] = useState(null);
+  const [loading, setLoading] = useState(false);
   const [queueRefreshing, setQueueRefreshing] = useState(false);
-  const [balanceInfo, setBalanceInfo] = useState(null);
-  const [serviceSearch, setServiceSearch] = useState('');
+  const [syncingSmm, setSyncingSmm] = useState(false);
+  const [syncingCard, setSyncingCard] = useState(false);
+  const [smmSearch, setSmmSearch] = useState('');
+  const [cardSearch, setCardSearch] = useState('');
   const [queueFilter, setQueueFilter] = useState({
     fulfillmentStatus: 'processing',
     email: '',
   });
-  const [supplierOrders, setSupplierOrders] = useState([]);
-  const [syncForm, setSyncForm] = useState(initialSyncForm);
+  const [smmSyncForm, setSmmSyncForm] = useState(initialSmmSyncForm);
+  const [cardSyncForm, setCardSyncForm] = useState(initialCardSyncForm);
 
   const fetchSupplierData = async ({ silent = false } = {}) => {
     if (!silent) {
-      setServicesLoading(true);
-      setQueueLoading(true);
+      setLoading(true);
       setError('');
     }
 
     try {
-      const [servicesRes, balanceRes, ordersRes] = await Promise.all([
-        api.get('/admin/supplier/smm-panel/services'),
-        api.get('/admin/supplier/smm-panel/balance'),
-        api.get('/admin/orders', {
-          params: {
-            sourceType: 'supplier_api',
-            fulfillmentStatus: queueFilter.fulfillmentStatus,
-            email: queueFilter.email,
-            page: 1,
-            limit: 20,
-          },
-        }),
-      ]);
+      const [smmServicesRes, smmBalanceRes, ordersRes, cardProductsRes, cardBalanceRes] =
+        await Promise.allSettled([
+          api.get('/admin/supplier/smm-panel/services'),
+          api.get('/admin/supplier/smm-panel/balance'),
+          api.get('/admin/orders', {
+            params: {
+              sourceType: 'supplier_api',
+              fulfillmentStatus: queueFilter.fulfillmentStatus,
+              email: queueFilter.email,
+              page: 1,
+              limit: 30,
+            },
+          }),
+          api.get('/admin/supplier/card-partner/products'),
+          api.get('/admin/supplier/card-partner/balance'),
+        ]);
 
-      setServices(normalizeServices(servicesRes.data?.items));
-      setBalanceInfo(balanceRes.data || null);
-      setSupplierOrders(Array.isArray(ordersRes.data?.items) ? ordersRes.data.items : []);
-    } catch (err) {
-      setError(err?.response?.data?.message || 'Không thể tải dữ liệu nhà cung cấp.');
+      if (smmServicesRes.status === 'fulfilled') {
+        setSmmServices(normalizeSmmServices(smmServicesRes.value.data?.items));
+      }
+      if (smmBalanceRes.status === 'fulfilled') {
+        setSmmBalanceInfo(smmBalanceRes.value.data || null);
+      }
+      if (ordersRes.status === 'fulfilled') {
+        setSupplierOrders(Array.isArray(ordersRes.value.data?.items) ? ordersRes.value.data.items : []);
+      }
+      if (cardProductsRes.status === 'fulfilled') {
+        setCardProducts(normalizeCardProducts(cardProductsRes.value.data?.items));
+      }
+      if (cardBalanceRes.status === 'fulfilled') {
+        setCardBalanceInfo(cardBalanceRes.value.data || null);
+      }
+
+      const failures = [smmServicesRes, smmBalanceRes, ordersRes, cardProductsRes, cardBalanceRes].filter(
+        (item) => item.status === 'rejected',
+      );
+
+      if (failures.length > 0 && !silent) {
+        setError('Một vài nguồn dữ liệu nhà cung cấp chưa tải được. Bạn có thể kiểm tra lại cấu hình từng provider.');
+      }
     } finally {
-      setServicesLoading(false);
-      setQueueLoading(false);
+      setLoading(false);
     }
   };
 
@@ -97,39 +151,55 @@ const TabSupplier = ({ setError, setNotice, refreshKey }) => {
     fetchSupplierData({ silent: true });
   }, [refreshKey, queueFilter.fulfillmentStatus, queueFilter.email]);
 
-  const filteredServices = useMemo(() => {
-    const query = serviceSearch.trim().toLowerCase();
-    if (!query) return services;
+  const filteredSmmServices = useMemo(() => {
+    const query = smmSearch.trim().toLowerCase();
+    if (!query) return smmServices;
 
-    return services.filter((item) =>
+    return smmServices.filter((item) =>
       `${item.service} ${item.name} ${item.category} ${item.type}`.toLowerCase().includes(query),
     );
-  }, [services, serviceSearch]);
+  }, [smmSearch, smmServices]);
 
-  const visibleServices = useMemo(() => filteredServices.slice(0, 30), [filteredServices]);
+  const filteredCardProducts = useMemo(() => {
+    const query = cardSearch.trim().toLowerCase();
+    if (!query) return cardProducts;
+
+    return cardProducts.filter((item) => {
+      const valuesText = item.values.map((subItem) => subItem.value).join(' ');
+      return `${item.name} ${item.serviceCode} ${item.slug} ${valuesText}`
+        .toLowerCase()
+        .includes(query);
+    });
+  }, [cardProducts, cardSearch]);
+
   const supplierBalanceLowOrders = useMemo(
     () => supplierOrders.filter((item) => isSupplierBalanceLow(item)),
     [supplierOrders],
   );
 
-  const syncServices = async (serviceIds, label = 'các dịch vụ đã chọn') => {
+  const cardValueCount = useMemo(
+    () => filteredCardProducts.reduce((total, item) => total + item.values.length, 0),
+    [filteredCardProducts],
+  );
+
+  const syncSmmServices = async (serviceIds, label = 'các dịch vụ đã chọn') => {
     if (!serviceIds.length) {
       setError('Không có dịch vụ nào để đồng bộ.');
       return;
     }
 
-    setSyncing(true);
+    setSyncingSmm(true);
     setError('');
     setNotice('');
 
     try {
       const { data } = await api.post('/admin/supplier/smm-panel/sync-services', {
         serviceIds,
-        pricingModel: syncForm.pricingModel,
-        rateMultiplier: Number(syncForm.rateMultiplier || 1),
-        markupPercent: Number(syncForm.markupPercent || 0),
-        markupFixed: Number(syncForm.markupFixed || 0),
-        updateExisting: syncForm.updateExisting,
+        pricingModel: smmSyncForm.pricingModel,
+        rateMultiplier: Number(smmSyncForm.rateMultiplier || 1),
+        markupPercent: Number(smmSyncForm.markupPercent || 0),
+        markupFixed: Number(smmSyncForm.markupFixed || 0),
+        updateExisting: smmSyncForm.updateExisting,
       });
 
       setNotice(
@@ -139,7 +209,31 @@ const TabSupplier = ({ setError, setNotice, refreshKey }) => {
     } catch (err) {
       setError(err?.response?.data?.message || 'Không thể đồng bộ dịch vụ từ SMM panel.');
     } finally {
-      setSyncing(false);
+      setSyncingSmm(false);
+    }
+  };
+
+  const syncCardCatalog = async () => {
+    setSyncingCard(true);
+    setError('');
+    setNotice('');
+
+    try {
+      const { data } = await api.post('/admin/supplier/card-partner/sync-products', {
+        rateMultiplier: Number(cardSyncForm.rateMultiplier || 1),
+        markupPercent: Number(cardSyncForm.markupPercent || 0),
+        markupFixed: Number(cardSyncForm.markupFixed || 0),
+        updateExisting: cardSyncForm.updateExisting,
+      });
+
+      setNotice(
+        `Đã đồng bộ catalog card: tạo ${data.created || 0}, cập nhật ${data.updated || 0}, bỏ qua ${data.skipped || 0}.`,
+      );
+      await fetchSupplierData({ silent: true });
+    } catch (err) {
+      setError(err?.response?.data?.message || 'Không thể đồng bộ catalog card.');
+    } finally {
+      setSyncingCard(false);
     }
   };
 
@@ -185,8 +279,8 @@ const TabSupplier = ({ setError, setNotice, refreshKey }) => {
           <div>
             <h2 className="text-xl font-bold">Trung tâm nhà cung cấp</h2>
             <p className="mt-2 max-w-3xl text-sm text-white/45">
-              Khu này dùng để xem số dư panel, nhập dịch vụ từ nhà cung cấp vào cửa hàng và theo
-              dõi các đơn đang chạy qua supplier.
+              Khu này dùng để xem số dư provider, đồng bộ catalog vào cửa hàng và theo dõi các đơn
+              đang đi qua nhà cung cấp.
             </p>
           </div>
 
@@ -194,12 +288,10 @@ const TabSupplier = ({ setError, setNotice, refreshKey }) => {
             <button
               type="button"
               onClick={() => fetchSupplierData()}
-              disabled={servicesLoading || queueLoading}
+              disabled={loading}
               className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-bold text-white/85 hover:bg-white/10 disabled:opacity-60"
             >
-              <RefreshCw
-                className={`h-4 w-4 ${servicesLoading || queueLoading ? 'animate-spin' : ''}`}
-              />
+              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
               Làm mới dữ liệu
             </button>
 
@@ -215,16 +307,30 @@ const TabSupplier = ({ setError, setNotice, refreshKey }) => {
           </div>
         </div>
 
-        <div className="grid gap-4 lg:grid-cols-3">
+        <div className="grid gap-4 lg:grid-cols-4">
           <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
             <div className="flex items-center gap-3">
               <div className="rounded-2xl border border-white/10 bg-white/5 p-3 text-cyan-200">
                 <Database className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-xs uppercase tracking-[0.24em] text-white/40">Số dư panel</p>
+                <p className="text-xs uppercase tracking-[0.24em] text-white/40">Số dư SMM</p>
                 <p className="mt-1 text-2xl font-black text-white">
-                  {balanceInfo ? formatVnd(balanceInfo.balance) : 'Chưa tải'}
+                  {smmBalanceInfo ? formatVnd(smmBalanceInfo.balance) : 'Chưa tải'}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+            <div className="flex items-center gap-3">
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-3 text-fuchsia-200">
+                <Wallet className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-[0.24em] text-white/40">Số dư card</p>
+                <p className="mt-1 text-2xl font-black text-white">
+                  {cardBalanceInfo ? formatVnd(cardBalanceInfo.balance) : 'Chưa tải'}
                 </p>
               </div>
             </div>
@@ -238,9 +344,7 @@ const TabSupplier = ({ setError, setNotice, refreshKey }) => {
               <div>
                 <p className="text-xs uppercase tracking-[0.24em] text-white/40">Đang xử lý</p>
                 <p className="mt-1 text-2xl font-black text-white">
-                  {
-                    supplierOrders.filter((item) => item.fulfillmentStatus === 'processing').length
-                  }
+                  {supplierOrders.filter((item) => item.fulfillmentStatus === 'processing').length}
                 </p>
               </div>
             </div>
@@ -254,9 +358,7 @@ const TabSupplier = ({ setError, setNotice, refreshKey }) => {
               <div>
                 <p className="text-xs uppercase tracking-[0.24em] text-white/40">Cần kiểm tra tay</p>
                 <p className="mt-1 text-2xl font-black text-white">
-                  {
-                    supplierOrders.filter((item) => item.fulfillmentStatus === 'manual_review').length
-                  }
+                  {supplierOrders.filter((item) => item.fulfillmentStatus === 'manual_review').length}
                 </p>
               </div>
             </div>
@@ -272,8 +374,8 @@ const TabSupplier = ({ setError, setNotice, refreshKey }) => {
               <div>
                 <p className="font-bold text-orange-200">Có đơn đang thiếu tiền ở ví nhà cung cấp</p>
                 <p className="mt-1 text-sm text-orange-100/80">
-                  Đã có {supplierBalanceLowOrders.length} đơn thu tiền thành công nhưng chưa đẩy được sang supplier.
-                  Cần nạp thêm tiền vào panel rồi bấm <span className="font-bold">Làm mới</span> cho từng đơn.
+                  Đã có {supplierBalanceLowOrders.length} đơn thu tiền thành công nhưng chưa đẩy được sang
+                  provider. Hãy nạp thêm tiền rồi bấm <span className="font-bold">Làm mới</span> cho từng đơn.
                 </p>
               </div>
             </div>
@@ -281,7 +383,7 @@ const TabSupplier = ({ setError, setNotice, refreshKey }) => {
         )}
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+      <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
         <section className="glass space-y-4 rounded-[24px] p-6">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div>
@@ -340,7 +442,7 @@ const TabSupplier = ({ setError, setNotice, refreshKey }) => {
                         <div className="mt-2 rounded-xl border border-orange-500/20 bg-orange-500/10 px-3 py-2 text-[11px] leading-5 text-orange-200">
                           <div className="font-bold">Thiếu tiền supplier</div>
                           <div className="mt-1">
-                            Đơn đã thu tiền. Hãy nạp thêm tiền vào panel rồi bấm <span className="font-bold">Làm mới</span>.
+                            Đơn đã thu tiền. Hãy nạp thêm tiền vào provider rồi bấm <span className="font-bold">Làm mới</span>.
                           </div>
                         </div>
                       )}
@@ -397,117 +499,212 @@ const TabSupplier = ({ setError, setNotice, refreshKey }) => {
           </div>
         </section>
 
-        <section className="glass space-y-4 rounded-[24px] p-6">
-          <div>
-            <h3 className="text-lg font-bold">Nhập dịch vụ từ panel</h3>
-            <p className="mt-1 text-sm text-white/45">
-              Chọn cách tính giá bán, mức cộng lời rồi nhập nhanh các dịch vụ cần bán vào cửa hàng.
-            </p>
-          </div>
+        <div className="space-y-6">
+          <section className="glass space-y-4 rounded-[24px] p-6">
+            <div>
+              <h3 className="text-lg font-bold">Đồng bộ dịch vụ từ SMM panel</h3>
+              <p className="mt-1 text-sm text-white/45">
+                Chọn cách tính giá bán, mức cộng lời rồi nhập các dịch vụ social cần bán vào cửa hàng.
+              </p>
+            </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <input
-              type="number"
-              step="0.01"
-              value={syncForm.rateMultiplier}
-              onChange={(e) => setSyncForm((prev) => ({ ...prev, rateMultiplier: e.target.value }))}
-              placeholder="Hệ số giá vốn"
-              className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm outline-none focus:border-primary"
-            />
-            <input
-              type="number"
-              step="0.01"
-              value={syncForm.markupPercent}
-              onChange={(e) => setSyncForm((prev) => ({ ...prev, markupPercent: e.target.value }))}
-              placeholder="Cộng lời theo %"
-              className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm outline-none focus:border-primary"
-            />
-            <input
-              type="number"
-              value={syncForm.markupFixed}
-              onChange={(e) => setSyncForm((prev) => ({ ...prev, markupFixed: e.target.value }))}
-              placeholder="Cộng thêm cố định"
-              className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm outline-none focus:border-primary"
-            />
-            <select
-              value={syncForm.pricingModel}
-              onChange={(e) => setSyncForm((prev) => ({ ...prev, pricingModel: e.target.value }))}
-              className="rounded-xl border border-white/10 bg-slate-800 px-4 py-3 text-sm text-white outline-none focus:border-primary"
-            >
-              {pricingOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <label className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/80">
-            <input
-              type="checkbox"
-              checked={syncForm.updateExisting}
-              onChange={(e) => setSyncForm((prev) => ({ ...prev, updateExisting: e.target.checked }))}
-            />
-            Cập nhật lại cả những sản phẩm đã nhập trước đó
-          </label>
-
-          <input
-            value={serviceSearch}
-            onChange={(e) => setServiceSearch(e.target.value)}
-            placeholder="Tìm theo mã dịch vụ, tên dịch vụ hoặc danh mục..."
-            className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm outline-none focus:border-primary"
-          />
-
-          <button
-            type="button"
-            onClick={() =>
-              syncServices(
-                filteredServices.map((item) => item.service),
-                `${filteredServices.length.toLocaleString('vi-VN')} dịch vụ đang lọc`,
-              )
-            }
-            disabled={syncing || filteredServices.length === 0}
-            className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-bold text-white hover:bg-primary/90 disabled:opacity-60"
-          >
-            {syncing ? 'Đang nhập dịch vụ...' : 'Nhập toàn bộ kết quả đang lọc'}
-          </button>
-
-          <div className="space-y-3 rounded-xl border border-white/10 bg-black/10 p-3">
-            {visibleServices.map((item) => (
-              <div
-                key={item.service}
-                className="rounded-xl border border-white/10 bg-white/5 px-4 py-3"
+            <div className="grid grid-cols-2 gap-3">
+              <input
+                type="number"
+                step="0.01"
+                value={smmSyncForm.rateMultiplier}
+                onChange={(e) => setSmmSyncForm((prev) => ({ ...prev, rateMultiplier: e.target.value }))}
+                placeholder="Hệ số giá vốn"
+                className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm outline-none focus:border-primary"
+              />
+              <input
+                type="number"
+                step="0.01"
+                value={smmSyncForm.markupPercent}
+                onChange={(e) => setSmmSyncForm((prev) => ({ ...prev, markupPercent: e.target.value }))}
+                placeholder="Cộng lời theo %"
+                className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm outline-none focus:border-primary"
+              />
+              <input
+                type="number"
+                value={smmSyncForm.markupFixed}
+                onChange={(e) => setSmmSyncForm((prev) => ({ ...prev, markupFixed: e.target.value }))}
+                placeholder="Cộng thêm cố định"
+                className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm outline-none focus:border-primary"
+              />
+              <select
+                value={smmSyncForm.pricingModel}
+                onChange={(e) => setSmmSyncForm((prev) => ({ ...prev, pricingModel: e.target.value }))}
+                className="rounded-xl border border-white/10 bg-slate-800 px-4 py-3 text-sm text-white outline-none focus:border-primary"
               >
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <p className="font-medium text-white">{item.name || `Dịch vụ ${item.service}`}</p>
-                    <p className="mt-1 text-xs text-white/45">
-                      #{item.service} · {item.category || 'SMM Panel'}
-                    </p>
-                    <p className="mt-1 text-xs text-white/45">
-                      {formatVnd(item.rate)} · {Number(item.min || 0).toLocaleString('vi-VN')} -{' '}
-                      {Number(item.max || 0).toLocaleString('vi-VN')}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => syncServices([item.service], `dịch vụ ${item.service}`)}
-                    disabled={syncing}
-                    className="rounded-lg border border-primary/20 bg-primary/10 px-3 py-2 text-xs font-bold text-primary hover:bg-primary hover:text-white disabled:opacity-60"
-                  >
-                    Nhập
-                  </button>
-                </div>
-              </div>
-            ))}
+                {pricingOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-            {visibleServices.length === 0 && (
-              <div className="px-4 py-8 text-center text-sm text-white/40">
-                Không có dịch vụ nào khớp với bộ lọc.
+            <label className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/80">
+              <input
+                type="checkbox"
+                checked={smmSyncForm.updateExisting}
+                onChange={(e) => setSmmSyncForm((prev) => ({ ...prev, updateExisting: e.target.checked }))}
+              />
+              Cập nhật lại cả những sản phẩm đã nhập trước đó
+            </label>
+
+            <input
+              value={smmSearch}
+              onChange={(e) => setSmmSearch(e.target.value)}
+              placeholder="Tìm theo mã dịch vụ, tên dịch vụ hoặc danh mục..."
+              className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm outline-none focus:border-primary"
+            />
+
+            <button
+              type="button"
+              onClick={() =>
+                syncSmmServices(
+                  filteredSmmServices.map((item) => item.service),
+                  `${filteredSmmServices.length.toLocaleString('vi-VN')} dịch vụ đang lọc`,
+                )
+              }
+              disabled={syncingSmm || filteredSmmServices.length === 0}
+              className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-bold text-white hover:bg-primary/90 disabled:opacity-60"
+            >
+              {syncingSmm ? 'Đang đồng bộ dịch vụ...' : 'Đồng bộ toàn bộ kết quả đang lọc'}
+            </button>
+
+            <div className="space-y-3 rounded-xl border border-white/10 bg-black/10 p-3">
+              {filteredSmmServices.slice(0, 20).map((item) => (
+                <div key={item.service} className="rounded-xl border border-white/10 bg-white/5 px-4 py-3">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="font-medium text-white">{item.name || `Dịch vụ ${item.service}`}</p>
+                      <p className="mt-1 text-xs text-white/45">
+                        #{item.service} • {item.category || 'SMM Panel'}
+                      </p>
+                      <p className="mt-1 text-xs text-white/45">
+                        {formatVnd(item.rate)} • {Number(item.min || 0).toLocaleString('vi-VN')} -{' '}
+                        {Number(item.max || 0).toLocaleString('vi-VN')}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => syncSmmServices([item.service], `dịch vụ ${item.service}`)}
+                      disabled={syncingSmm}
+                      className="rounded-lg border border-primary/20 bg-primary/10 px-3 py-2 text-xs font-bold text-primary hover:bg-primary hover:text-white disabled:opacity-60"
+                    >
+                      Đồng bộ
+                    </button>
+                  </div>
+                </div>
+              ))}
+
+              {filteredSmmServices.length === 0 && (
+                <div className="px-4 py-8 text-center text-sm text-white/40">
+                  Không có dịch vụ SMM nào khớp với bộ lọc.
+                </div>
+              )}
+            </div>
+          </section>
+
+          <section className="glass space-y-4 rounded-[24px] p-6">
+            <div className="flex items-start gap-3">
+              <div className="rounded-2xl border border-fuchsia-400/20 bg-fuchsia-400/10 p-3 text-fuchsia-200">
+                <CreditCard className="h-5 w-5" />
               </div>
-            )}
-          </div>
-        </section>
+              <div>
+                <h3 className="text-lg font-bold">Đồng bộ catalog card</h3>
+                <p className="mt-1 text-sm text-white/45">
+                  Dùng Product List của card partner để tạo sản phẩm card, giftcode và mã số trong cửa hàng.
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <input
+                type="number"
+                step="0.01"
+                value={cardSyncForm.rateMultiplier}
+                onChange={(e) => setCardSyncForm((prev) => ({ ...prev, rateMultiplier: e.target.value }))}
+                placeholder="Hệ số giá vốn"
+                className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm outline-none focus:border-primary"
+              />
+              <input
+                type="number"
+                step="0.01"
+                value={cardSyncForm.markupPercent}
+                onChange={(e) => setCardSyncForm((prev) => ({ ...prev, markupPercent: e.target.value }))}
+                placeholder="Cộng lời theo %"
+                className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm outline-none focus:border-primary"
+              />
+              <input
+                type="number"
+                value={cardSyncForm.markupFixed}
+                onChange={(e) => setCardSyncForm((prev) => ({ ...prev, markupFixed: e.target.value }))}
+                placeholder="Cộng thêm cố định"
+                className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm outline-none focus:border-primary"
+              />
+              <label className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/80">
+                <input
+                  type="checkbox"
+                  checked={cardSyncForm.updateExisting}
+                  onChange={(e) => setCardSyncForm((prev) => ({ ...prev, updateExisting: e.target.checked }))}
+                />
+                Cập nhật lại sản phẩm cũ
+              </label>
+            </div>
+
+            <input
+              value={cardSearch}
+              onChange={(e) => setCardSearch(e.target.value)}
+              placeholder="Tìm theo tên card, serviceCode hoặc mệnh giá..."
+              className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm outline-none focus:border-primary"
+            />
+
+            <button
+              type="button"
+              onClick={syncCardCatalog}
+              disabled={syncingCard || filteredCardProducts.length === 0}
+              className="w-full rounded-xl bg-fuchsia-500 px-4 py-3 text-sm font-bold text-white hover:bg-fuchsia-500/90 disabled:opacity-60"
+            >
+              {syncingCard ? 'Đang đồng bộ catalog card...' : 'Đồng bộ catalog card vào cửa hàng'}
+            </button>
+
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-white/75">
+              <p className="font-bold text-white">Tóm tắt catalog hiện tại</p>
+              <p className="mt-2">
+                {filteredCardProducts.length.toLocaleString('vi-VN')} nhóm card • {cardValueCount.toLocaleString('vi-VN')} mệnh giá
+              </p>
+            </div>
+
+            <div className="space-y-3 rounded-xl border border-white/10 bg-black/10 p-3">
+              {filteredCardProducts.slice(0, 20).map((item) => (
+                <div key={`${item.serviceCode}-${item.slug || item.name}`} className="rounded-xl border border-white/10 bg-white/5 px-4 py-3">
+                  <p className="font-medium text-white">{item.name}</p>
+                  <p className="mt-1 text-xs text-white/45">{item.serviceCode || 'Chưa có serviceCode'}</p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {item.values.slice(0, 12).map((subItem) => (
+                      <span
+                        key={`${item.serviceCode}-${subItem.value}-${subItem.id || 'v'}`}
+                        className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/70"
+                      >
+                        {Number(subItem.value).toLocaleString('vi-VN')}đ
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+
+              {filteredCardProducts.length === 0 && (
+                <div className="px-4 py-8 text-center text-sm text-white/40">
+                  Không có sản phẩm card nào khớp với bộ lọc.
+                </div>
+              )}
+            </div>
+          </section>
+        </div>
       </div>
     </div>
   );

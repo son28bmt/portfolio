@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { motion, AnimatePresence, useScroll, useSpring } from 'framer-motion';
+import { motion, AnimatePresence, useScroll, useSpring } from 'framer-motion'; // eslint-disable-line no-unused-vars
 import { ArrowLeft, Layers, Smartphone, ExternalLink, Download, Globe, Cpu, ChevronRight, Layout, Maximize2, X } from 'lucide-react';
 import api from '../services/api';
 

@@ -416,6 +416,8 @@ const TempMailDemo = () => {
       refreshInbox(sidToken, { silent: true });
     }, 5000);
     return () => window.clearInterval(timer);
+    // refreshInbox reads the latest session state; this interval should restart only when sidToken changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sidToken]);
 
   return (
@@ -593,7 +595,7 @@ const TempMailDemo = () => {
                 </div>
 
                 <div className="flex-1 min-h-0 overflow-hidden py-4 space-y-3">
-                  {!!activeEmail.mail_body ? (
+                  {activeEmail.mail_body ? (
                     <iframe
                       title={`mail-html-${activeEmail.mail_id || 'preview'}`}
                       sandbox=""
@@ -661,4 +663,3 @@ const TempMailDemo = () => {
 };
 
 export default TempMailDemo;
-

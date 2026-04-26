@@ -22,7 +22,8 @@ exports.register = async (req, res) => {
     });
   } catch (error) {
     const isSecretError = /JWT_SECRET/.test(String(error?.message || ''));
-    res.status(500).json({
+    const status = isSecretError ? 500 : error.status || 500;
+    res.status(status).json({
       message: isSecretError
         ? 'Máy chủ thiếu cấu hình bảo mật JWT_SECRET.'
         : error.message,
@@ -43,11 +44,12 @@ exports.login = async (req, res) => {
         token: generateToken(user.id),
       });
     } else {
-      res.status(401).json({ message: 'Invalid username or password' });
+      res.status(401).json({ message: 'Username hoặc Mật Khẩu không đúng' });
     }
   } catch (error) {
     const isSecretError = /JWT_SECRET/.test(String(error?.message || ''));
-    res.status(500).json({
+    const status = isSecretError ? 500 : error.status || 500;
+    res.status(status).json({
       message: isSecretError
         ? 'Máy chủ thiếu cấu hình bảo mật JWT_SECRET.'
         : error.message,

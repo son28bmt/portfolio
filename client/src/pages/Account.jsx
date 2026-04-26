@@ -72,6 +72,8 @@ const Account = () => {
     loadWalletData().catch((err) => {
       setError(err?.response?.data?.message || 'Không thể tải dữ liệu tài khoản.');
     });
+    // Avoid resetting the editable form on wallet-only account refreshes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [account?.id]);
 
   useEffect(() => {
@@ -95,6 +97,8 @@ const Account = () => {
     }, 5000);
 
     return () => window.clearInterval(timer);
+    // The active interval should only track the current topup.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [topupIntent?.topup?.id, topupIntent?.topup?.status]);
 
   const handleProfileSave = async (event) => {

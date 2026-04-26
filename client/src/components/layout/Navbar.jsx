@@ -21,10 +21,6 @@ const Navbar = () => {
   ];
 
   useEffect(() => {
-    setIsOpen(false);
-  }, [pathname]);
-
-  useEffect(() => {
     document.body.style.overflow = isOpen ? 'hidden' : 'unset';
   }, [isOpen]);
 
@@ -137,6 +133,7 @@ const Navbar = () => {
                 >
                   <Link
                     to={link.path}
+                    onClick={() => setIsOpen(false)}
                     className={`text-2xl font-semibold transition-colors hover:text-primary ${
                       isLinkActive(link.path) ? 'text-primary' : 'text-white'
                     }`}
@@ -152,13 +149,17 @@ const Navbar = () => {
                 <>
                   <Link
                     to="/tai-khoan"
+                    onClick={() => setIsOpen(false)}
                     className="rounded-2xl border border-white/10 bg-white/5 px-6 py-3 text-lg font-semibold text-white"
                   >
                     {account?.fullName || account?.username || 'Tài khoản'}
                   </Link>
                   <button
                     type="button"
-                    onClick={logout}
+                    onClick={() => {
+                      setIsOpen(false);
+                      logout();
+                    }}
                     className="rounded-2xl border border-red-500/20 bg-red-500/10 px-6 py-3 text-lg font-semibold text-red-300"
                   >
                     Đăng xuất
@@ -168,12 +169,14 @@ const Navbar = () => {
                 <>
                   <Link
                     to="/dang-nhap"
+                    onClick={() => setIsOpen(false)}
                     className="rounded-2xl border border-white/10 bg-white/5 px-6 py-3 text-lg font-semibold text-white"
                   >
                     Đăng nhập
                   </Link>
                   <Link
                     to="/dang-ky"
+                    onClick={() => setIsOpen(false)}
                     className="rounded-2xl bg-primary px-6 py-3 text-lg font-semibold text-white"
                   >
                     Đăng ký

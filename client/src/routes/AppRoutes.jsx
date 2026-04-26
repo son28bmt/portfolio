@@ -70,7 +70,7 @@ const AppRoutes = () => {
                 pageTitle="Dịch vụ số"
                 pageDescription="Chọn nền tảng, lọc đúng nhóm dịch vụ rồi bấm vào gói bạn muốn mua. Phần cấu hình và thanh toán sẽ hiện ngay ở khung bên phải."
                 alternateLink="/cua-hang/tu-them"
-                alternateLabel="Tài Khoản"
+                alternateLabel="Account & key"
               />
             </PageTransition>
           }
@@ -81,8 +81,8 @@ const AppRoutes = () => {
             <PageTransition>
               <Marketplace
                 catalogMode="local"
-                breadcrumbLabel="Tài Khoản"
-                pageTitle="Tài Khoản"
+                breadcrumbLabel="Account & key"
+                pageTitle="Account & key"
                 pageDescription="Khu này dành cho những sản phẩm bạn tự nhập và tự quản lý trong kho nội bộ. Chọn sản phẩm rồi cấu hình đơn hàng ở khung bên phải."
                 alternateLink="/cua-hang/dich-vu"
                 alternateLabel="Dịch vụ số"

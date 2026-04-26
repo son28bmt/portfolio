@@ -25,6 +25,10 @@ const emptyForm = {
   requiresComments: false,
   targetLabel: 'Link mục tiêu',
   commentsLabel: 'Nội dung comments',
+  serviceCode: '',
+  cardValue: '',
+  currencyCode: 'VND',
+  allowsQuantity: false,
 };
 
 const toNullableNumber = (value) => {
@@ -40,12 +44,12 @@ const sourceTypeLabels = {
 
 const supplierKindLabels = {
   smm_panel: 'Panel SMM',
-  digital_code: 'Mã số / card',
+  digital_code: 'Card / mã số',
 };
 
 const sectionLabels = {
   service: 'Dịch vụ số',
-  custom: 'Tài Khoản',
+  custom: 'Sản phẩm tự thêm',
   card: 'Card và mã số',
 };
 
@@ -56,10 +60,7 @@ const TabProducts = ({ setError, setNotice, refreshKey }) => {
 
   const fetchData = async () => {
     try {
-      const [prodRes, catRes] = await Promise.all([
-        api.get('/admin/products'),
-        api.get('/admin/categories'),
-      ]);
+      const [prodRes, catRes] = await Promise.all([api.get('/admin/products'), api.get('/admin/categories')]);
       setProducts(Array.isArray(prodRes.data) ? prodRes.data : []);
       setCategories(Array.isArray(catRes.data) ? catRes.data : []);
     } catch {
@@ -92,8 +93,21 @@ const TabProducts = ({ setError, setNotice, refreshKey }) => {
   const buildSourceConfigPayload = () => {
     if (productForm.sourceType === 'local_stock') return {};
 
+    if (productForm.supplierKind === 'digital_code') {
+      return {
+        supplierKind: 'digital_code',
+        providerCode: 'card_partner',
+        cardProviderCode: 'card_partner',
+        serviceCode: productForm.serviceCode.trim() || null,
+        cardValue: toNullableNumber(productForm.cardValue),
+        currencyCode: productForm.currencyCode.trim() || 'VND',
+        defaultQuantity: toNullableNumber(productForm.defaultQuantity) || 1,
+        allowsQuantity: Boolean(productForm.allowsQuantity),
+      };
+    }
+
     return {
-      supplierKind: productForm.supplierKind,
+      supplierKind: 'smm_panel',
       serviceId: productForm.serviceId.trim() || null,
       pricingModel: productForm.pricingModel,
       minQuantity: toNullableNumber(productForm.minQuantity),
@@ -164,14 +178,15 @@ const TabProducts = ({ setError, setNotice, refreshKey }) => {
   };
 
   const sourceType = productForm.sourceType;
+  const isCardProduct = sourceType === 'supplier_api' && productForm.supplierKind === 'digital_code';
 
   return (
     <div className="glass animate-in fade-in zoom-in-95 space-y-5 rounded-[24px] p-6 duration-300">
       <div>
         <h2 className="text-xl font-bold">Sản phẩm</h2>
         <p className="mt-2 max-w-3xl text-sm text-white/45">
-          Dùng để tạo hoặc chỉnh sản phẩm trong cửa hàng. Khi chọn danh mục, hệ thống sẽ chia rõ
-          theo từng khu để bạn không gán nhầm sản phẩm sang lane khác.
+          Tạo hoặc chỉnh sản phẩm trong cửa hàng. Danh mục được chia theo từng khu để tránh gán nhầm
+          sản phẩm sang lane khác.
         </p>
       </div>
 
@@ -230,95 +245,136 @@ const TabProducts = ({ setError, setNotice, refreshKey }) => {
               className="cursor-pointer rounded-xl border border-white/10 bg-slate-800 px-4 py-3 text-sm text-white focus:border-primary focus:outline-none"
             >
               <option value="smm_panel">Panel SMM</option>
-              <option value="digital_code">Mã số / card (để dành)</option>
+              <option value="digital_code">Card / mã số</option>
             </select>
 
-            <input
-              value={productForm.serviceId}
-              onChange={(e) => setProductForm((prev) => ({ ...prev, serviceId: e.target.value }))}
-              placeholder="Mã dịch vụ từ nhà cung cấp"
-              className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm focus:border-primary focus:outline-none"
-            />
+            {!isCardProduct ? (
+              <>
+                <input
+                  value={productForm.serviceId}
+                  onChange={(e) => setProductForm((prev) => ({ ...prev, serviceId: e.target.value }))}
+                  placeholder="Mã dịch vụ từ nhà cung cấp"
+                  className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm focus:border-primary focus:outline-none"
+                />
 
-            <select
-              value={productForm.pricingModel}
-              onChange={(e) => setProductForm((prev) => ({ ...prev, pricingModel: e.target.value }))}
-              className="cursor-pointer rounded-xl border border-white/10 bg-slate-800 px-4 py-3 text-sm text-white focus:border-primary focus:outline-none"
-            >
-              <option value="fixed">Giá cố định / đơn</option>
-              <option value="per_1000">Giá theo 1.000 đơn vị</option>
-              <option value="per_unit">Giá theo từng đơn vị</option>
-            </select>
+                <select
+                  value={productForm.pricingModel}
+                  onChange={(e) => setProductForm((prev) => ({ ...prev, pricingModel: e.target.value }))}
+                  className="cursor-pointer rounded-xl border border-white/10 bg-slate-800 px-4 py-3 text-sm text-white focus:border-primary focus:outline-none"
+                >
+                  <option value="fixed">Giá cố định / đơn</option>
+                  <option value="per_1000">Giá theo 1.000 đơn vị</option>
+                  <option value="per_unit">Giá theo từng đơn vị</option>
+                </select>
 
-            <input
-              value={productForm.minQuantity}
-              onChange={(e) => setProductForm((prev) => ({ ...prev, minQuantity: e.target.value }))}
-              placeholder="Số lượng tối thiểu"
-              type="number"
-              className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm focus:border-primary focus:outline-none"
-            />
+                <input
+                  value={productForm.minQuantity}
+                  onChange={(e) => setProductForm((prev) => ({ ...prev, minQuantity: e.target.value }))}
+                  placeholder="Số lượng tối thiểu"
+                  type="number"
+                  className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm focus:border-primary focus:outline-none"
+                />
 
-            <input
-              value={productForm.maxQuantity}
-              onChange={(e) => setProductForm((prev) => ({ ...prev, maxQuantity: e.target.value }))}
-              placeholder="Số lượng tối đa"
-              type="number"
-              className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm focus:border-primary focus:outline-none"
-            />
+                <input
+                  value={productForm.maxQuantity}
+                  onChange={(e) => setProductForm((prev) => ({ ...prev, maxQuantity: e.target.value }))}
+                  placeholder="Số lượng tối đa"
+                  type="number"
+                  className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm focus:border-primary focus:outline-none"
+                />
 
-            <input
-              value={productForm.defaultQuantity}
-              onChange={(e) =>
-                setProductForm((prev) => ({ ...prev, defaultQuantity: e.target.value }))
-              }
-              placeholder="Số lượng mặc định"
-              type="number"
-              className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm focus:border-primary focus:outline-none"
-            />
+                <input
+                  value={productForm.defaultQuantity}
+                  onChange={(e) => setProductForm((prev) => ({ ...prev, defaultQuantity: e.target.value }))}
+                  placeholder="Số lượng mặc định"
+                  type="number"
+                  className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm focus:border-primary focus:outline-none"
+                />
 
-            <input
-              value={productForm.targetLabel}
-              onChange={(e) => setProductForm((prev) => ({ ...prev, targetLabel: e.target.value }))}
-              placeholder="Tên ô nhập link"
-              className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm focus:border-primary focus:outline-none"
-            />
+                <input
+                  value={productForm.targetLabel}
+                  onChange={(e) => setProductForm((prev) => ({ ...prev, targetLabel: e.target.value }))}
+                  placeholder="Tên ô nhập link"
+                  className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm focus:border-primary focus:outline-none"
+                />
 
-            <input
-              value={productForm.commentsLabel}
-              onChange={(e) =>
-                setProductForm((prev) => ({ ...prev, commentsLabel: e.target.value }))
-              }
-              placeholder="Tên ô nhập nội dung comments"
-              className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm focus:border-primary focus:outline-none"
-            />
+                <input
+                  value={productForm.commentsLabel}
+                  onChange={(e) => setProductForm((prev) => ({ ...prev, commentsLabel: e.target.value }))}
+                  placeholder="Tên ô nhập comments"
+                  className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm focus:border-primary focus:outline-none"
+                />
 
-            <label className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/80">
-              <input
-                type="checkbox"
-                checked={productForm.requiresTargetLink}
-                onChange={(e) =>
-                  setProductForm((prev) => ({
-                    ...prev,
-                    requiresTargetLink: e.target.checked,
-                  }))
-                }
-              />
-              Bắt buộc khách nhập link mục tiêu
-            </label>
+                <label className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/80">
+                  <input
+                    type="checkbox"
+                    checked={productForm.requiresTargetLink}
+                    onChange={(e) =>
+                      setProductForm((prev) => ({
+                        ...prev,
+                        requiresTargetLink: e.target.checked,
+                      }))
+                    }
+                  />
+                  Bắt buộc khách nhập link mục tiêu
+                </label>
 
-            <label className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/80">
-              <input
-                type="checkbox"
-                checked={productForm.requiresComments}
-                onChange={(e) =>
-                  setProductForm((prev) => ({
-                    ...prev,
-                    requiresComments: e.target.checked,
-                  }))
-                }
-              />
-              Bắt buộc khách nhập nội dung comments
-            </label>
+                <label className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/80">
+                  <input
+                    type="checkbox"
+                    checked={productForm.requiresComments}
+                    onChange={(e) =>
+                      setProductForm((prev) => ({
+                        ...prev,
+                        requiresComments: e.target.checked,
+                      }))
+                    }
+                  />
+                  Bắt buộc khách nhập comments
+                </label>
+              </>
+            ) : (
+              <>
+                <input
+                  value={productForm.serviceCode}
+                  onChange={(e) => setProductForm((prev) => ({ ...prev, serviceCode: e.target.value }))}
+                  placeholder="Mã nhà mạng / serviceCode"
+                  className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm focus:border-primary focus:outline-none"
+                />
+
+                <input
+                  value={productForm.cardValue}
+                  onChange={(e) => setProductForm((prev) => ({ ...prev, cardValue: e.target.value }))}
+                  placeholder="Mệnh giá card"
+                  type="number"
+                  className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm focus:border-primary focus:outline-none"
+                />
+
+                <input
+                  value={productForm.defaultQuantity}
+                  onChange={(e) => setProductForm((prev) => ({ ...prev, defaultQuantity: e.target.value }))}
+                  placeholder="Số lượng mặc định"
+                  type="number"
+                  className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm focus:border-primary focus:outline-none"
+                />
+
+                <input
+                  value={productForm.currencyCode}
+                  onChange={(e) => setProductForm((prev) => ({ ...prev, currencyCode: e.target.value }))}
+                  placeholder="Đơn vị tiền tệ"
+                  className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm uppercase focus:border-primary focus:outline-none"
+                />
+
+                <label className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/80 md:col-span-2">
+                  <input
+                    type="checkbox"
+                    checked={productForm.allowsQuantity}
+                    onChange={(e) => setProductForm((prev) => ({ ...prev, allowsQuantity: e.target.checked }))}
+                  />
+                  Cho phép khách mua nhiều mã trong cùng một đơn
+                </label>
+              </>
+            )}
           </>
         )}
 
@@ -351,10 +407,13 @@ const TabProducts = ({ setError, setNotice, refreshKey }) => {
           </thead>
           <tbody className="divide-y divide-white/5">
             {products.map((item) => {
-              const supplierKind = item.sourceConfig?.supplierKind || '';
+              const sourceConfig = item.sourceConfig || {};
+              const supplierKind = sourceConfig.supplierKind || '';
               const sourceSummary =
                 item.sourceType === 'supplier_api'
-                  ? `${supplierKindLabels[supplierKind] || 'Nhà cung cấp'} / ${item.sourceConfig?.serviceId || 'Chưa có mã'}`
+                  ? supplierKind === 'digital_code'
+                    ? `${supplierKindLabels[supplierKind]} / ${sourceConfig.serviceCode || 'Chưa có mã'} / ${Number(sourceConfig.cardValue || 0).toLocaleString('vi-VN')}đ`
+                    : `${supplierKindLabels[supplierKind] || 'Nhà cung cấp'} / ${sourceConfig.serviceId || 'Chưa có mã'}`
                   : sourceTypeLabels.local_stock;
 
               return (

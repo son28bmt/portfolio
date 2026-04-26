@@ -2,12 +2,11 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import {
   ArrowRight,
-  Clock3,
+  CreditCard,
   Layers3,
   PackageSearch,
   ShoppingBag,
   Sparkles,
-  WalletCards,
 } from 'lucide-react';
 
 const storeLanes = [
@@ -15,7 +14,7 @@ const storeLanes = [
     title: 'Dịch vụ số',
     subtitle: 'Đang hoạt động',
     description:
-      'Các gói social và dịch vụ số đang mở bán. Chọn nền tảng, chọn gói phù hợp rồi cấu hình đơn hàng ngay.',
+      'Các gói social và dịch vụ số đang mở bán. Chọn nền tảng, cấu hình đơn hàng và theo dõi tiến độ ngay trên web.',
     href: '/cua-hang/dich-vu',
     cta: 'Vào khu dịch vụ',
     accent:
@@ -27,31 +26,31 @@ const storeLanes = [
   },
   {
     title: 'Card và mã số',
-    subtitle: 'Đang phát triển',
+    subtitle: 'Đang hoạt động',
     description:
-      'Khu riêng cho card, key và mã kích hoạt. Trang này đang được hoàn thiện và sẽ mở sớm.',
+      'Khu riêng cho card, giftcode và mã số giao ngay. Chọn nhà mạng hoặc loại thẻ rồi thanh toán để nhận mã.',
     href: '/cua-hang/card',
-    cta: 'Xem khu card',
+    cta: 'Vào khu card',
     accent:
       'border-fuchsia-400/20 bg-[linear-gradient(180deg,rgba(34,10,40,0.94),rgba(15,9,24,0.98))] shadow-[0_0_42px_rgba(217,70,239,0.10)]',
     iconWrap: 'border-fuchsia-400/25 bg-fuchsia-400/12 text-fuchsia-200',
     statusWrap: 'border-fuchsia-400/20 bg-fuchsia-400/10 text-fuchsia-100/80',
-    icon: WalletCards,
-    bullets: ['Trang riêng cho card', 'Ưu tiên sản phẩm giao ngay', 'Sẽ cập nhật sớm'],
+    icon: CreditCard,
+    bullets: ['Nhận mã ngay sau khi nhà cung cấp trả về', 'Hỗ trợ tra cứu lại dữ liệu đã giao', 'Phù hợp cho card và giftcode'],
   },
   {
-    title: 'Tài Khảon',
+    title: 'Account & key',
     subtitle: 'Đang hoạt động',
     description:
-      'Khu tài khoản, tool, file.',
+      'Khu dành cho tài khoản, file, tool hoặc các sản phẩm bạn tự nhập và tự quản lý trong kho nội bộ.',
     href: '/cua-hang/tu-them',
-    cta: 'Vào khu Tài khoản',
+    cta: 'Vào khu tự thêm',
     accent:
       'border-emerald-400/20 bg-[linear-gradient(180deg,rgba(10,36,29,0.96),rgba(8,18,18,0.98))] shadow-[0_0_42px_rgba(52,211,153,0.10)]',
     iconWrap: 'border-emerald-400/25 bg-emerald-400/12 text-emerald-200',
     statusWrap: 'border-emerald-400/20 bg-emerald-400/10 text-emerald-100/80',
     icon: PackageSearch,
-    bullets: ['Tài KHoản AI', 'KEY giá rẻ', 'Tut giá rẻ'],
+    bullets: ['Kho nội bộ tự quản lý', 'Giao hàng theo dữ liệu bạn nhập', 'Phù hợp cho tài khoản, file, key riêng'],
   },
 ];
 
@@ -70,23 +69,23 @@ const MarketplaceHome = () => {
               <ShoppingBag className="h-8 w-8 text-primary md:h-10 md:w-10" />
             </h1>
             <p className="mt-4 max-w-2xl text-sm leading-7 text-white/65 md:text-base">
-              Chọn khu phù hợp để bắt đầu nhanh hơn. Dịch vụ số đang mở bán ngay bây giờ, còn khu
-              card sẽ được cập nhật trong thời gian tới.
+              Chọn đúng khu để mua nhanh hơn. Dịch vụ số, card và mã số, cùng các Account & key
+              hiện đã có lane riêng để dễ quản lý và mở rộng về sau.
             </p>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-4">
-              <p className="text-xs uppercase tracking-[0.22em] text-white/35">Đang mở</p>
-              <p className="mt-2 text-lg font-bold text-white">Dịch vụ số đã sẵn sàng</p>
+              <p className="text-xs uppercase tracking-[0.22em] text-white/35">Khu 1</p>
+              <p className="mt-2 text-lg font-bold text-white">Dịch vụ số</p>
             </div>
             <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-4">
-              <p className="text-xs uppercase tracking-[0.22em] text-white/35">Kho riêng</p>
-              <p className="mt-2 text-lg font-bold text-white">Tài Khoản đã sẵn sàng</p>
+              <p className="text-xs uppercase tracking-[0.22em] text-white/35">Khu 2</p>
+              <p className="mt-2 text-lg font-bold text-white">Card và mã số</p>
             </div>
             <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-4">
-              <p className="text-xs uppercase tracking-[0.22em] text-white/35">Sắp có</p>
-              <p className="mt-2 text-lg font-bold text-white">Khu card và mã số</p>
+              <p className="text-xs uppercase tracking-[0.22em] text-white/35">Khu 3</p>
+              <p className="mt-2 text-lg font-bold text-white">Account & key</p>
             </div>
           </div>
         </div>
@@ -97,10 +96,7 @@ const MarketplaceHome = () => {
           const Icon = lane.icon;
 
           return (
-            <article
-              key={lane.title}
-              className={`flex h-full flex-col rounded-[30px] border p-6 ${lane.accent}`}
-            >
+            <article key={lane.title} className={`flex h-full flex-col rounded-[30px] border p-6 ${lane.accent}`}>
               <div className="flex items-start justify-between gap-4">
                 <div className={`flex h-14 w-14 items-center justify-center rounded-2xl border ${lane.iconWrap}`}>
                   <Icon className="h-6 w-6" />
@@ -141,17 +137,16 @@ const MarketplaceHome = () => {
       <section className="rounded-[28px] border border-white/10 bg-white/[0.03] p-5 md:p-6">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
-            <p className="text-xs font-bold uppercase tracking-[0.22em] text-white/35">Hướng dẫn</p>
-            <h3 className="mt-2 text-xl font-bold text-white">Chọn đúng khu để mua nhanh hơn</h3>
+            <p className="text-xs font-bold uppercase tracking-[0.22em] text-white/35">Gợi ý</p>
+            <h3 className="mt-2 text-xl font-bold text-white">Chọn đúng lane để thao tác nhanh hơn</h3>
           </div>
           <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-bold uppercase tracking-[0.18em] text-white/55">
-            <Clock3 className="h-3.5 w-3.5" />
             Cập nhật liên tục
           </div>
         </div>
         <p className="mt-4 max-w-4xl text-sm leading-7 text-white/60">
-          Nếu bạn đang cần mua dịch vụ social, hãy vào ngay khu dịch vụ số. Nếu bạn đang chờ card,
-          key hoặc mã kích hoạt, khu card sẽ được mở trong đợt cập nhật tiếp theo.
+          Nếu bạn cần mua dịch vụ social, vào khu dịch vụ số. Nếu cần card, giftcode hoặc mã số giao
+          ngay, vào khu card. Nếu cần bán tài khoản hoặc dữ liệu tự quản lý, hãy dùng khu Account & key.
         </p>
       </section>
     </div>

@@ -18,7 +18,7 @@ import TabSupplier from './components/TabSupplier';
 import TabWallet from './components/TabWallet';
 
 const tabs = [
-  { key: 'supplier', label: 'Trung tâm nhà cung cấp', icon: ActivitySquare },
+  { key: 'supplier', label: 'Nhà cung cấp', icon: ActivitySquare },
   { key: 'categories', label: 'Danh mục', icon: Layers3 },
   { key: 'products', label: 'Sản phẩm', icon: Boxes },
   { key: 'stock', label: 'Kho hàng', icon: PackagePlus },
@@ -62,11 +62,11 @@ const MarketplaceManager = () => {
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       <div>
-        <h1 className="bg-gradient-to-r from-primary to-secondary bg-clip-text text-3xl font-bold uppercase tracking-wider text-transparent font-display">
+        <h1 className="bg-gradient-to-r from-primary to-secondary bg-clip-text font-display text-3xl font-bold uppercase tracking-wider text-transparent">
           Quản lý cửa hàng
         </h1>
         <p className="mt-2 text-white/40">
-          Nơi quản lý chung cho danh mục, sản phẩm, đơn hàng, nhà cung cấp và quỹ nội bộ.
+          Khu quản trị chung cho danh mục, sản phẩm, đơn hàng, nhà cung cấp và quỹ nội bộ.
         </p>
       </div>
 
@@ -100,9 +100,7 @@ const MarketplaceManager = () => {
                 : 'border border-white/5 bg-white/5 text-white/50 hover:bg-white/10 hover:text-white/80'
             }`}
           >
-            <tab.icon
-              className={`h-5 w-5 ${activeTab === tab.key ? 'text-white' : 'text-white/40'}`}
-            />
+            <tab.icon className={`h-5 w-5 ${activeTab === tab.key ? 'text-white' : 'text-white/40'}`} />
             {tab.label}
           </button>
         ))}

@@ -66,7 +66,7 @@ const Register = () => {
                   value={form.username}
                   onChange={updateField('username')}
                   className="w-full rounded-2xl border border-white/10 bg-white/5 py-3 pl-11 pr-4 text-sm outline-none transition focus:border-primary"
-                  placeholder="username mới"
+                  placeholder="username"
                   required
                 />
               </div>
