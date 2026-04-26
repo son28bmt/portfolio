@@ -48,15 +48,17 @@ api.interceptors.response.use(
       error?.response?.data?.error ||
       error?.message;
 
-    console.error("Admin API Error:", {
-      url: error.config?.url,
-      method: error.config?.method,
-      status: error.response?.status,
-      data: error.response?.data,
-    });
+    if (!error.config?.silentError) {
+      console.error("Admin API Error:", {
+        url: error.config?.url,
+        method: error.config?.method,
+        status: error.response?.status,
+        data: error.response?.data,
+      });
 
-    if (detailMessage) {
-      console.error("Admin API Message:", detailMessage);
+      if (detailMessage) {
+        console.error("Admin API Message:", detailMessage);
+      }
     }
 
     return Promise.reject(error);

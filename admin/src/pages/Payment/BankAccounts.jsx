@@ -5,6 +5,8 @@ import api from '../../services/api';
 const BACKEND_UPGRADE_MESSAGE =
   'Backend production chưa có API quản lý ngân hàng. Hãy deploy backend mới để lưu cấu hình từ admin.';
 
+const PUBLIC_PAYMENT_ACCOUNT_ENDPOINTS = ['/payment-accounts', '/donate/payment-accounts'];
+
 const emptyAccount = () => ({
   key: '',
   label: '',
@@ -60,13 +62,31 @@ const BankAccounts = () => {
     setItems(accounts.length > 0 ? accounts : [emptyAccount()]);
   };
 
+  const fetchPublicAccounts = async () => {
+    let lastError = null;
+
+    for (const endpoint of PUBLIC_PAYMENT_ACCOUNT_ENDPOINTS) {
+      try {
+        const { data } = await api.get(endpoint, { silentError: true });
+        return {
+          accounts: readAccounts(data),
+          source: endpoint === '/donate/payment-accounts' ? 'API donate public' : 'API thanh toán public',
+        };
+      } catch (err) {
+        lastError = err;
+      }
+    }
+
+    throw lastError || new Error(BACKEND_UPGRADE_MESSAGE);
+  };
+
   const fetchAccounts = async () => {
     setLoading(true);
     setNotice('');
     setError('');
 
     try {
-      const { data } = await api.get('/admin/payment/bank-accounts');
+      const { data } = await api.get('/admin/payment/bank-accounts', { silentError: true });
       setAdminApiReady(true);
       applyAccounts(readAccounts(data), 'Cấu hình admin');
     } catch (err) {
@@ -78,9 +98,8 @@ const BankAccounts = () => {
 
       setAdminApiReady(false);
       try {
-        const { data } = await api.get('/payment-accounts');
-        const accounts = readAccounts(data);
-        applyAccounts(accounts, 'API thanh toán public');
+        const { accounts, source } = await fetchPublicAccounts();
+        applyAccounts(accounts, source);
         setNotice(
           accounts.length > 0
             ? 'Đang hiển thị ngân hàng hệ thống đang dùng. Muốn lưu từ admin, cần deploy backend mới.'
