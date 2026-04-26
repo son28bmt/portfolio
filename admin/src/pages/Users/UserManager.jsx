@@ -33,6 +33,20 @@ const emptyProfile = {
   tier: 'standard',
 };
 
+const isNotFound = (error) => error?.response?.status === 404;
+
+const backendUpgradeMessage =
+  'API quản lý user chưa có trên backend production. Hãy deploy backend mới để dùng đầy đủ thao tác.';
+
+const normalizeUser = (user = {}) => ({
+  ...user,
+  wallet: user.wallet || {
+    id: user.walletId || null,
+    balance: Number(user.walletBalance || 0),
+    status: user.walletStatus || 'active',
+  },
+});
+
 const UserManager = () => {
   const [users, setUsers] = useState([]);
   const [selectedId, setSelectedId] = useState('');
@@ -75,19 +89,41 @@ const UserManager = () => {
 
   const fetchUsers = async (nextPage = page) => {
     setLoading(true);
-    setError('');
+    if (!notice) setError('');
     try {
-      const { data } = await api.get('/admin/users', {
-        params: {
-          page: nextPage,
-          limit: 20,
-          q: filters.q,
-          tier: filters.tier,
-          walletStatus: filters.walletStatus,
-        },
-      });
+      let data;
+      try {
+        const response = await api.get('/admin/users', {
+          params: {
+            page: nextPage,
+            limit: 20,
+            q: filters.q,
+            tier: filters.tier,
+            walletStatus: filters.walletStatus,
+          },
+        });
+        data = response.data;
+      } catch (primaryError) {
+        if (!isNotFound(primaryError)) throw primaryError;
 
-      const items = Array.isArray(data?.items) ? data.items : [];
+        const response = await api.get('/admin/wallet/users', {
+          params: {
+            page: nextPage,
+            limit: 20,
+            q: filters.q,
+          },
+        });
+        data = response.data;
+        setNotice((prev) => prev || backendUpgradeMessage);
+      }
+
+      let items = Array.isArray(data?.items) ? data.items.map(normalizeUser) : [];
+      if (filters.tier) {
+        items = items.filter((item) => item.tier === filters.tier);
+      }
+      if (filters.walletStatus) {
+        items = items.filter((item) => item.wallet?.status === filters.walletStatus);
+      }
       setUsers(items);
       setTotal(Number(data?.total || 0));
       setTotalPages(Number(data?.totalPages || 1));
@@ -110,12 +146,31 @@ const UserManager = () => {
     }
 
     setDetailLoading(true);
-    setError('');
+    if (!notice) setError('');
     try {
       const { data } = await api.get(`/admin/users/${id}`);
-      setDetail(data);
-      applyDetailToForm(data?.user);
+      const normalized = {
+        ...data,
+        user: normalizeUser(data?.user),
+      };
+      setDetail(normalized);
+      applyDetailToForm(normalized.user);
     } catch (err) {
+      if (isNotFound(err)) {
+        const fallbackUser = users.find((item) => item.id === id);
+        if (fallbackUser) {
+          const normalized = normalizeUser(fallbackUser);
+          setDetail({
+            user: normalized,
+            orders: [],
+            topups: [],
+            ledger: [],
+          });
+          applyDetailToForm(normalized);
+          setNotice((prev) => prev || backendUpgradeMessage);
+          return;
+        }
+      }
       setError(err?.response?.data?.message || 'Không thể tải chi tiết người dùng.');
     } finally {
       setDetailLoading(false);
@@ -156,10 +211,10 @@ const UserManager = () => {
     setError('');
     try {
       const { data } = await api.put(`/admin/users/${selectedId}/profile`, profileForm);
-      patchSelectedInList(data);
+      patchSelectedInList(normalizeUser(data));
       setNotice('Đã cập nhật hồ sơ người dùng.');
     } catch (err) {
-      setError(err?.response?.data?.message || 'Không thể cập nhật hồ sơ.');
+      setError(isNotFound(err) ? backendUpgradeMessage : (err?.response?.data?.message || 'Không thể cập nhật hồ sơ.'));
     } finally {
       setBusyKey('');
     }
@@ -173,10 +228,10 @@ const UserManager = () => {
     setError('');
     try {
       const { data } = await api.patch(`/admin/users/${selectedId}/wallet-status`, { status });
-      patchSelectedInList(data);
+      patchSelectedInList(normalizeUser(data));
       setNotice(status === 'locked' ? 'Đã khóa ví người dùng.' : 'Đã mở lại ví người dùng.');
     } catch (err) {
-      setError(err?.response?.data?.message || 'Không thể cập nhật trạng thái ví.');
+      setError(isNotFound(err) ? backendUpgradeMessage : (err?.response?.data?.message || 'Không thể cập nhật trạng thái ví.'));
     } finally {
       setBusyKey('');
     }
@@ -194,7 +249,7 @@ const UserManager = () => {
       setPassword('');
       setNotice('Đã đặt lại mật khẩu người dùng.');
     } catch (err) {
-      setError(err?.response?.data?.message || 'Không thể đặt lại mật khẩu.');
+      setError(isNotFound(err) ? backendUpgradeMessage : (err?.response?.data?.message || 'Không thể đặt lại mật khẩu.'));
     } finally {
       setBusyKey('');
     }

@@ -11,6 +11,8 @@ const {
 } = require('../models');
 const {
   buildVietQrUrl,
+  getPaymentAccounts,
+  resolveEffectivePaymentAccount,
   verifySepayWebhook,
   normalizeSepayPayload,
   toAmount,
@@ -55,6 +57,7 @@ const getWalletConfig = () => {
   const accountName = sanitizeText(
     process.env.WALLET_ACCOUNT_NAME || process.env.DONATE_ACCOUNT_NAME,
   );
+  const paymentAccounts = getPaymentAccounts({ bankBin, accountNo, accountName });
 
   return {
     minAmount: Math.max(1000, minAmount),
@@ -63,6 +66,7 @@ const getWalletConfig = () => {
     bankBin,
     accountNo,
     accountName,
+    paymentAccounts,
     prefix: sanitizeText(process.env.WALLET_PAYMENT_PREFIX || 'WAL', 8).toUpperCase() || 'WAL',
   };
 };
@@ -174,12 +178,17 @@ const getWalletMe = async (userId) => {
   };
 };
 
-const createWalletTopupIntent = async (userId, amount) => {
+const createWalletTopupIntent = async (userId, amount, bankKey = '') => {
   await ensureMemberSchema();
   const config = getWalletConfig();
+  const paymentAccount = await resolveEffectivePaymentAccount(bankKey, {
+    bankBin: config.bankBin,
+    accountNo: config.accountNo,
+    accountName: config.accountName,
+  });
   const cleanAmount = toAmount(amount);
 
-  if (!config.bankBin || !config.accountNo || !config.accountName) {
+  if (!paymentAccount) {
     const error = new Error('Thieu cau hinh tai khoan nhan tien cho vi noi bo.');
     error.status = 500;
     throw error;
@@ -231,9 +240,9 @@ const createWalletTopupIntent = async (userId, amount) => {
     );
 
     const qrImageUrl = buildVietQrUrl({
-      bankBin: config.bankBin,
-      accountNo: config.accountNo,
-      accountName: config.accountName,
+      bankBin: paymentAccount.bankBin,
+      accountNo: paymentAccount.accountNo,
+      accountName: paymentAccount.accountName,
       amount: cleanAmount,
       transferContent: paymentRef,
     });
@@ -244,9 +253,12 @@ const createWalletTopupIntent = async (userId, amount) => {
       topup: serializeTopup(topup),
       qrImageUrl,
       transferContent: paymentRef,
-      bankBin: config.bankBin,
-      accountNo: config.accountNo,
-      accountName: config.accountName,
+      bankKey: paymentAccount.key,
+      bankLabel: paymentAccount.label,
+      bankBin: paymentAccount.bankBin,
+      accountNo: paymentAccount.accountNo,
+      accountName: paymentAccount.accountName,
+      paymentAccounts: config.paymentAccounts,
     };
   });
 };

@@ -4,7 +4,14 @@ const crypto = require('crypto');
 const { Op } = require('sequelize');
 const { sequelize } = require('../config/db');
 const { Product, Order, StockItem, Category } = require('../models');
-const { buildVietQrUrl, verifySepayWebhook, normalizeSepayPayload } = require('./donate.service');
+const {
+  buildVietQrUrl,
+  getPaymentAccounts,
+  getEffectivePaymentAccounts,
+  resolveEffectivePaymentAccount,
+  verifySepayWebhook,
+  normalizeSepayPayload,
+} = require('./donate.service');
 const { sendMarketplaceDeliveryEmail } = require('./email.service');
 const { sendEvent } = require('./sse.service');
 const { notifyAdmin } = require('./socket.service');
@@ -53,7 +60,20 @@ const getPaymentConfig = () => {
   const bankBin = String(process.env.MARKET_BANK_BIN || process.env.DONATE_BANK_BIN || '').trim();
   const accountNo = String(process.env.MARKET_ACCOUNT_NO || process.env.DONATE_ACCOUNT_NO || '').trim();
   const accountName = String(process.env.MARKET_ACCOUNT_NAME || process.env.DONATE_ACCOUNT_NAME || '').trim();
-  return { bankBin, accountNo, accountName };
+  return {
+    bankBin,
+    accountNo,
+    accountName,
+    paymentAccounts: getPaymentAccounts({ bankBin, accountNo, accountName }),
+  };
+};
+
+const getEffectivePaymentConfig = async () => {
+  const base = getPaymentConfig();
+  return {
+    ...base,
+    paymentAccounts: await getEffectivePaymentAccounts(base),
+  };
 };
 
 const webhookLogPath = () => {
@@ -165,7 +185,7 @@ const listPublicProducts = async () => {
   return rows.map(normalizeProductRecord);
 };
 
-const createOrderIntent = async ({ email, productId, orderInput = {} }) => {
+const createOrderIntent = async ({ email, productId, orderInput = {}, bankKey = '' }) => {
   await ensureMarketplaceSchema();
 
   const cleanEmail = String(email || '').trim().toLowerCase();
@@ -193,8 +213,9 @@ const createOrderIntent = async ({ email, productId, orderInput = {} }) => {
   const amount = toAmount(preparedOrder?.amount);
   if (!amount || amount <= 0) raise(400, 'San pham chua co gia hop le.');
 
-  const { bankBin, accountNo, accountName } = getPaymentConfig();
-  if (!bankBin || !accountNo || !accountName) {
+  const paymentConfig = await getEffectivePaymentConfig();
+  const paymentAccount = await resolveEffectivePaymentAccount(bankKey, paymentConfig);
+  if (!paymentAccount) {
     raise(500, 'Thieu cau hinh tai khoan nhan tien cho SePay/VietQR.');
   }
 
@@ -234,9 +255,9 @@ const createOrderIntent = async ({ email, productId, orderInput = {} }) => {
   });
 
   const qrUrl = buildVietQrUrl({
-    bankBin,
-    accountNo,
-    accountName,
+    bankBin: paymentAccount.bankBin,
+    accountNo: paymentAccount.accountNo,
+    accountName: paymentAccount.accountName,
     amount,
     transferContent: paymentRef,
   });
@@ -247,6 +268,12 @@ const createOrderIntent = async ({ email, productId, orderInput = {} }) => {
     paymentRef,
     amount,
     transferContent: paymentRef,
+    bankKey: paymentAccount.key,
+    bankLabel: paymentAccount.label,
+    bankBin: paymentAccount.bankBin,
+    accountNo: paymentAccount.accountNo,
+    accountName: paymentAccount.accountName,
+    paymentAccounts: paymentConfig.paymentAccounts,
   };
 };
 
@@ -708,4 +735,6 @@ module.exports = {
   refreshSupplierFulfillmentByOrderId,
   createOrder,
   processPayment,
+  getPaymentConfig,
+  getEffectivePaymentConfig,
 };

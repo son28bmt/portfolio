@@ -31,6 +31,8 @@ const Account = () => {
   const [purchases, setPurchases] = useState([]);
   const [topupAmount, setTopupAmount] = useState('100000');
   const [topupIntent, setTopupIntent] = useState(null);
+  const [paymentAccounts, setPaymentAccounts] = useState([]);
+  const [selectedBankKey, setSelectedBankKey] = useState('');
   const [profileForm, setProfileForm] = useState({
     fullName: '',
     email: '',
@@ -49,17 +51,22 @@ const Account = () => {
     [walletSummary, account],
   );
   const topupStatus = topupIntent?.topup?.status || '';
+  const hasPaymentChoices = paymentAccounts.length > 1;
 
   const loadWalletData = async () => {
-    const [walletRes, ledgerRes, purchasesRes] = await Promise.all([
+    const [walletRes, ledgerRes, purchasesRes, paymentAccountsRes] = await Promise.all([
       api.get('/wallet/me'),
       api.get('/wallet/ledger', { params: { limit: 10 } }),
       api.get('/wallet/purchases', { params: { limit: 10, page: 1 } }),
+      api.get('/payment-accounts').catch(() => ({ data: { items: [] } })),
     ]);
 
     setWalletSummary(walletRes.data);
     setLedger(Array.isArray(ledgerRes.data?.items) ? ledgerRes.data.items : []);
     setPurchases(Array.isArray(purchasesRes.data?.items) ? purchasesRes.data.items : []);
+    const accounts = Array.isArray(paymentAccountsRes.data?.items) ? paymentAccountsRes.data.items : [];
+    setPaymentAccounts(accounts);
+    setSelectedBankKey((prev) => prev || accounts[0]?.key || '');
   };
 
   useEffect(() => {
@@ -138,7 +145,10 @@ const Account = () => {
     setError('');
     setNotice('');
     try {
-      const { data } = await api.post('/wallet/topups', { amount: Number(topupAmount || 0) });
+      const { data } = await api.post('/wallet/topups', {
+        amount: Number(topupAmount || 0),
+        bankKey: selectedBankKey,
+      });
       setTopupIntent(data);
       setNotice('Đã tạo lệnh nạp quỹ. Vui lòng chuyển khoản đúng nội dung.');
     } catch (err) {
@@ -277,6 +287,20 @@ const Account = () => {
                 className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm outline-none transition focus:border-primary"
                 placeholder="Số tiền nạp"
               />
+              {hasPaymentChoices && (
+                <select
+                  value={selectedBankKey}
+                  onChange={(e) => setSelectedBankKey(e.target.value)}
+                  className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm outline-none transition focus:border-primary md:max-w-[240px]"
+                  aria-label="Chọn ngân hàng nhận tiền"
+                >
+                  {paymentAccounts.map((account) => (
+                    <option key={account.key} value={account.key}>
+                      {account.label || account.accountNo}
+                    </option>
+                  ))}
+                </select>
+              )}
               <button
                 type="button"
                 onClick={handleTopup}
@@ -315,6 +339,13 @@ const Account = () => {
                             <Copy className="h-4 w-4" />
                           </button>
                         </div>
+                      </div>
+                      <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                        <p className="text-xs uppercase tracking-[0.24em] text-white/40">Tài khoản nhận</p>
+                        <p className="mt-2 text-sm font-bold text-white">{topupIntent.accountName}</p>
+                        <p className="mt-1 font-mono text-xs text-white/60">
+                          {topupIntent.accountNo} - {topupIntent.bankBin}
+                        </p>
                       </div>
                       <div className="rounded-2xl border border-orange-500/20 bg-orange-500/10 p-4 text-sm text-orange-200">
                         Chỉ chuyển đúng một lần cho mỗi mã nạp quỹ. Nếu bạn chuyển lặp lại cùng mã này,

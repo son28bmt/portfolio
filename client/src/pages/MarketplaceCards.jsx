@@ -78,6 +78,8 @@ const MarketplaceCards = () => {
   const [search, setSearch] = useState('');
   const [selectedProviderKey, setSelectedProviderKey] = useState('');
   const [selectedProductId, setSelectedProductId] = useState(null);
+  const [paymentAccounts, setPaymentAccounts] = useState([]);
+  const [selectedBankKey, setSelectedBankKey] = useState('');
   const [email, setEmail] = useState('');
   const [quantity, setQuantity] = useState('1');
   const [creatingOrder, setCreatingOrder] = useState(false);
@@ -89,6 +91,7 @@ const MarketplaceCards = () => {
   const [trackerSummary, setTrackerSummary] = useState(null);
   const [trackerLoading, setTrackerLoading] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState(null);
+  const hasPaymentChoices = paymentAccounts.length > 1;
 
   const turnstileRef = useRef();
   const emailInputRef = useRef();
@@ -105,6 +108,17 @@ const MarketplaceCards = () => {
       setError(err?.response?.data?.message || 'Không thể tải danh sách card.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchPaymentAccounts = async () => {
+    try {
+      const { data } = await api.get('/payment-accounts');
+      const accounts = Array.isArray(data?.items) ? data.items : [];
+      setPaymentAccounts(accounts);
+      setSelectedBankKey((prev) => prev || accounts[0]?.key || '');
+    } catch {
+      setPaymentAccounts([]);
     }
   };
 
@@ -137,6 +151,7 @@ const MarketplaceCards = () => {
 
   useEffect(() => {
     fetchProducts();
+    fetchPaymentAccounts();
   }, []);
 
   useEffect(() => {
@@ -327,6 +342,7 @@ const MarketplaceCards = () => {
         {
           email: String(email || '').trim(),
           product_id: selectedProduct.id,
+          bankKey: selectedBankKey,
           ...buildOrderPayload(),
           turnstileToken,
         },
@@ -747,6 +763,25 @@ const MarketplaceCards = () => {
                 </div>
               )}
 
+              {hasPaymentChoices && (
+                <label className="block">
+                  <span className="text-xs font-bold uppercase tracking-wider text-white/50">
+                    Ngân hàng nhận tiền
+                  </span>
+                  <select
+                    value={selectedBankKey}
+                    onChange={(e) => setSelectedBankKey(e.target.value)}
+                    className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm focus:border-fuchsia-400 focus:outline-none"
+                  >
+                    {paymentAccounts.map((account) => (
+                      <option key={account.key} value={account.key}>
+                        {account.label || account.accountNo}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+
               <button
                 type="submit"
                 disabled={creatingOrder || !selectedProduct}
@@ -805,6 +840,15 @@ const MarketplaceCards = () => {
                       alt="Mã QR thanh toán"
                       className="mx-auto w-full max-w-[280px] rounded-2xl border border-white/10 bg-white p-2"
                     />
+                    {orderResult.accountNo && (
+                      <div className="rounded-xl border border-white/10 bg-black/20 p-3 text-sm">
+                        <p className="mb-1 text-xs text-white/50">Tài khoản nhận tiền</p>
+                        <p className="font-semibold text-white">{orderResult.accountName}</p>
+                        <p className="mt-1 font-mono text-xs text-white/60">
+                          {orderResult.accountNo} - {orderResult.bankBin}
+                        </p>
+                      </div>
+                    )}
                     <div className="rounded-xl border border-white/10 bg-black/20 p-3 text-sm">
                       <p className="mb-1 text-xs text-white/50">Nội dung chuyển khoản</p>
                       <div className="flex items-center justify-between gap-2">

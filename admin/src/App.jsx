@@ -16,6 +16,7 @@ import LiveChat from './pages/LiveChat';
 import DonateList from './pages/Donate/DonateList';
 import MarketplaceManager from './pages/Marketplace/MarketplaceManager';
 import UserManager from './pages/Users/UserManager';
+import BankAccounts from './pages/Payment/BankAccounts';
 import { Menu } from 'lucide-react';
 
 // Simple Protected Route Component
@@ -74,6 +75,7 @@ function App() {
       <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
       <Route path="/live-chat" element={<ProtectedRoute><LiveChat /></ProtectedRoute>} />
       <Route path="/users" element={<ProtectedRoute><UserManager /></ProtectedRoute>} />
+      <Route path="/payment/banks" element={<ProtectedRoute><BankAccounts /></ProtectedRoute>} />
       <Route path="/donate" element={<ProtectedRoute><DonateList /></ProtectedRoute>} />
       <Route path="/marketplace" element={<ProtectedRoute><MarketplaceManager /></ProtectedRoute>} />
       

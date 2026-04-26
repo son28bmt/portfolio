@@ -63,7 +63,7 @@ router.get('/ledger', async (req, res) => {
 
 router.post('/topups', topupLimiter, async (req, res) => {
   try {
-    const data = await createWalletTopupIntent(req.user.id, req.body?.amount);
+    const data = await createWalletTopupIntent(req.user.id, req.body?.amount, req.body?.bankKey);
     return res.status(201).json(data);
   } catch (error) {
     return res.status(error.status || 500).json({ message: error.message });

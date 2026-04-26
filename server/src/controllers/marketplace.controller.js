@@ -12,6 +12,7 @@ const {
   getAdminOrders,
   getPublicOrderSummary,
   refreshSupplierFulfillmentByOrderId,
+  getEffectivePaymentConfig,
 } = require('../services/marketplace.service');
 const {
   syncSmmPanelServicesToCatalog,
@@ -62,6 +63,15 @@ const publicGetProducts = async (req, res) => {
   }
 };
 
+const publicGetPaymentAccounts = async (req, res) => {
+  try {
+    const config = await getEffectivePaymentConfig();
+    return res.json({ items: config.paymentAccounts || [] });
+  } catch (error) {
+    return handleError(res, error);
+  }
+};
+
 const publicCreateOrder = async (req, res) => {
   try {
     const {
@@ -71,10 +81,12 @@ const publicCreateOrder = async (req, res) => {
       targetLink,
       quantity,
       comments,
+      bankKey,
     } = req.body || {};
     const result = await createOrderIntent({
       email,
       productId: productIdFromClient ?? productId,
+      bankKey,
       orderInput: {
         targetLink,
         quantity,
@@ -89,6 +101,12 @@ const publicCreateOrder = async (req, res) => {
       payment_ref: result.paymentRef,
       transfer_content: result.transferContent,
       amount: result.amount,
+      bankKey: result.bankKey,
+      bankLabel: result.bankLabel,
+      bankBin: result.bankBin,
+      accountNo: result.accountNo,
+      accountName: result.accountName,
+      paymentAccounts: result.paymentAccounts,
     });
   } catch (error) {
     return handleError(res, error);
@@ -618,6 +636,7 @@ const adminDeleteOrder = async (req, res) => {
 
 module.exports = {
   publicGetProducts,
+  publicGetPaymentAccounts,
   publicCreateOrder,
   publicGetOrderStatus,
   publicGetOrderSummary,

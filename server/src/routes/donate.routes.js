@@ -7,6 +7,8 @@ const {
   DONATION_STATUS,
   sanitizeDonorName,
   getDonateConfig,
+  getEffectivePaymentAccounts,
+  resolveEffectivePaymentAccount,
   generateOrderCode,
   buildTransferContent,
   buildVietQrUrl,
@@ -23,6 +25,12 @@ const { notifyAdmin } = require('../services/socket.service');
 const router = express.Router();
 
 const validStatuses = new Set(Object.values(DONATION_STATUS));
+
+router.get('/payment-accounts', async (req, res) => {
+  const config = getDonateConfig();
+  const items = await getEffectivePaymentAccounts(config);
+  return res.json({ items });
+});
 
 const expirePendingDonations = async () => {
   await Donation.update(
@@ -45,10 +53,11 @@ const toPublicDonation = (donation) => ({
 router.post('/intents', async (req, res) => {
   try {
     const config = getDonateConfig();
+    const paymentAccount = await resolveEffectivePaymentAccount(req.body?.bankKey, config);
     const donorName = sanitizeDonorName(req.body?.donorName);
     const amount = toAmount(req.body?.amount);
 
-    if (!config.bankBin || !config.accountNo || !config.accountName) {
+    if (!paymentAccount) {
       return res
         .status(500)
         .json({ message: 'Thiếu cấu hình tài khoản nhận donate trên server.' });
@@ -97,9 +106,9 @@ router.post('/intents', async (req, res) => {
     notifyAdmin('admin_donate_refresh');
 
     const qrImageUrl = buildVietQrUrl({
-      bankBin: config.bankBin,
-      accountNo: config.accountNo,
-      accountName: config.accountName,
+      bankBin: paymentAccount.bankBin,
+      accountNo: paymentAccount.accountNo,
+      accountName: paymentAccount.accountName,
       amount,
       transferContent,
     });
@@ -111,9 +120,12 @@ router.post('/intents', async (req, res) => {
       transferContent,
       qrImageUrl,
       expiresAt,
-      bankBin: config.bankBin,
-      accountNo: config.accountNo,
-      accountName: config.accountName,
+      bankKey: paymentAccount.key,
+      bankLabel: paymentAccount.label,
+      bankBin: paymentAccount.bankBin,
+      accountNo: paymentAccount.accountNo,
+      accountName: paymentAccount.accountName,
+      paymentAccounts: config.paymentAccounts,
     });
   } catch (error) {
     return res.status(500).json({ message: error.message || 'Không thể tạo phiên donate.' });

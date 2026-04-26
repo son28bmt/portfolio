@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const Setting = require('../models/Setting');
 
 const DONATION_STATUS = Object.freeze({
   PENDING: 'pending',
@@ -29,6 +30,151 @@ const toAmount = (value) => {
 
 const sanitizeText = (value) => String(value || '').trim();
 
+const normalizeBankAccount = (account = {}, index = 0) => {
+  const key = sanitizeText(account.key || account.id || account.code || `bank_${index + 1}`)
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+  const bankBin = sanitizeText(account.bankBin || account.bank_bin || account.bin);
+  const accountNo = sanitizeText(account.accountNo || account.account_no || account.number);
+  const accountName = sanitizeText(account.accountName || account.account_name || account.name);
+  const label = sanitizeText(account.label || account.title || `${accountName} - ${accountNo}`);
+
+  if (!key || !bankBin || !accountNo || !accountName) return null;
+  return {
+    key,
+    label: label || accountNo,
+    bankBin,
+    accountNo,
+    accountName,
+  };
+};
+
+const parseJsonBankAccounts = () => {
+  const raw = sanitizeText(process.env.PAYMENT_BANK_ACCOUNTS);
+  if (!raw) return [];
+
+  try {
+    const parsed = JSON.parse(raw);
+    const items = Array.isArray(parsed) ? parsed : parsed?.accounts;
+    if (!Array.isArray(items)) return [];
+    return items.map(normalizeBankAccount).filter(Boolean);
+  } catch (error) {
+    console.error('[Payment] PAYMENT_BANK_ACCOUNTS khong hop le:', error.message);
+    return [];
+  }
+};
+
+const parseNumberedBankAccounts = () => {
+  const accounts = [];
+  for (let index = 1; index <= 10; index += 1) {
+    const account = normalizeBankAccount(
+      {
+        key: process.env[`PAYMENT_BANK_${index}_KEY`],
+        label: process.env[`PAYMENT_BANK_${index}_LABEL`],
+        bankBin: process.env[`PAYMENT_BANK_${index}_BIN`],
+        accountNo: process.env[`PAYMENT_BANK_${index}_ACCOUNT_NO`],
+        accountName: process.env[`PAYMENT_BANK_${index}_ACCOUNT_NAME`],
+      },
+      index - 1,
+    );
+    if (account) accounts.push(account);
+  }
+  return accounts;
+};
+
+const getPaymentAccounts = ({
+  bankBin = process.env.DONATE_BANK_BIN || DEFAULTS.bankBin,
+  accountNo = process.env.DONATE_ACCOUNT_NO || DEFAULTS.accountNo,
+  accountName = process.env.DONATE_ACCOUNT_NAME || DEFAULTS.accountName,
+} = {}) => {
+  const configured = [...parseJsonBankAccounts(), ...parseNumberedBankAccounts()];
+  const unique = new Map();
+
+  configured.forEach((account) => {
+    if (!unique.has(account.key)) unique.set(account.key, account);
+  });
+
+  const accounts = Array.from(unique.values());
+  if (accounts.length > 0) return accounts;
+
+  const legacy = normalizeBankAccount(
+    {
+      key: process.env.PAYMENT_BANK_DEFAULT_KEY || 'default',
+      label: process.env.PAYMENT_BANK_DEFAULT_LABEL || 'Mặc định',
+      bankBin,
+      accountNo,
+      accountName,
+    },
+    0,
+  );
+  return legacy ? [legacy] : [];
+};
+
+const resolvePaymentAccount = (bankKey, fallback = {}) => {
+  const accounts = getPaymentAccounts(fallback);
+  if (accounts.length === 0) return null;
+
+  const cleanKey = sanitizeText(bankKey).toLowerCase();
+  return accounts.find((account) => account.key === cleanKey) || accounts[0];
+};
+
+const PAYMENT_ACCOUNTS_SETTING_KEY = 'payment_bank_accounts';
+
+const getStoredPaymentAccounts = async () => {
+  try {
+    const setting = await Setting.findOne({
+      where: { key: PAYMENT_ACCOUNTS_SETTING_KEY },
+    });
+    if (!setting?.value) return [];
+
+    const parsed = JSON.parse(setting.value);
+    const items = Array.isArray(parsed) ? parsed : parsed?.accounts;
+    if (!Array.isArray(items)) return [];
+    return items.map(normalizeBankAccount).filter(Boolean);
+  } catch (error) {
+    console.error('[Payment] Khong doc duoc cau hinh ngan hang:', error.message);
+    return [];
+  }
+};
+
+const getEffectivePaymentAccounts = async (fallback = {}) => {
+  const stored = await getStoredPaymentAccounts();
+  return stored.length > 0 ? stored : getPaymentAccounts(fallback);
+};
+
+const resolveEffectivePaymentAccount = async (bankKey, fallback = {}) => {
+  const accounts = await getEffectivePaymentAccounts(fallback);
+  if (accounts.length === 0) return null;
+
+  const cleanKey = sanitizeText(bankKey).toLowerCase();
+  return accounts.find((account) => account.key === cleanKey) || accounts[0];
+};
+
+const savePaymentAccounts = async (items = []) => {
+  const normalized = (Array.isArray(items) ? items : [])
+    .map(normalizeBankAccount)
+    .filter(Boolean);
+  const unique = new Map();
+
+  normalized.forEach((account) => {
+    if (!unique.has(account.key)) unique.set(account.key, account);
+  });
+
+  const accounts = Array.from(unique.values());
+  const [setting] = await Setting.findOrCreate({
+    where: { key: PAYMENT_ACCOUNTS_SETTING_KEY },
+    defaults: { value: JSON.stringify(accounts) },
+  });
+
+  if (setting.value !== JSON.stringify(accounts)) {
+    setting.value = JSON.stringify(accounts);
+    await setting.save();
+  }
+
+  return accounts;
+};
+
 const sanitizeDonorName = (value) => {
   const clean = sanitizeText(value).replace(/\s+/g, ' ');
   return clean.slice(0, 120);
@@ -46,6 +192,11 @@ const getDonateConfig = () => {
     bankBin: sanitizeText(process.env.DONATE_BANK_BIN || DEFAULTS.bankBin),
     accountNo: sanitizeText(process.env.DONATE_ACCOUNT_NO || DEFAULTS.accountNo),
     accountName: sanitizeText(process.env.DONATE_ACCOUNT_NAME || DEFAULTS.accountName),
+    paymentAccounts: getPaymentAccounts({
+      bankBin: process.env.DONATE_BANK_BIN || DEFAULTS.bankBin,
+      accountNo: process.env.DONATE_ACCOUNT_NO || DEFAULTS.accountNo,
+      accountName: process.env.DONATE_ACCOUNT_NAME || DEFAULTS.accountName,
+    }),
   };
 };
 
@@ -201,6 +352,11 @@ module.exports = {
   DONATION_STATUS,
   sanitizeDonorName,
   getDonateConfig,
+  getPaymentAccounts,
+  getEffectivePaymentAccounts,
+  resolvePaymentAccount,
+  resolveEffectivePaymentAccount,
+  savePaymentAccounts,
   generateOrderCode,
   buildTransferContent,
   buildVietQrUrl,

@@ -40,6 +40,7 @@ const adminLoginLimiter = rateLimit({
 });
 
 // Public routes
+router.get("/payment-accounts", controller.publicGetPaymentAccounts);
 router.get("/products", controller.publicGetProducts);
 router.post("/orders", orderLimiter, verifyTurnstile, controller.publicCreateOrder);
 router.get("/orders/:payment_ref/status", controller.publicGetOrderStatus);
