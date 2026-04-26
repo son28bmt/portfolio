@@ -1,6 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Landmark, Plus, Save, Trash2 } from 'lucide-react';
+import { BadgeCheck, Info, Landmark, Plus, RefreshCw, Save, Trash2 } from 'lucide-react';
 import api from '../../services/api';
+
+const BACKEND_UPGRADE_MESSAGE =
+  'Backend production chưa có API quản lý ngân hàng. Hãy deploy backend mới để lưu cấu hình từ admin.';
 
 const emptyAccount = () => ({
   key: '',
@@ -17,21 +20,77 @@ const normalizeKey = (value) =>
     .replace(/[^a-z0-9_-]+/g, '_')
     .replace(/^_+|_+$/g, '');
 
+const normalizeAccount = (account = {}, index = 0) => ({
+  key: normalizeKey(account.key || account.id || account.code || `bank_${index + 1}`),
+  label: String(account.label || account.title || account.bankName || `Tài khoản #${index + 1}`).trim(),
+  bankBin: String(account.bankBin || account.bank_bin || account.bin || '').trim(),
+  accountNo: String(account.accountNo || account.account_no || account.number || '').trim(),
+  accountName: String(account.accountName || account.account_name || account.name || '').trim(),
+});
+
+const readAccounts = (data) => {
+  const rawItems = Array.isArray(data?.items)
+    ? data.items
+    : Array.isArray(data?.paymentAccounts)
+      ? data.paymentAccounts
+      : Array.isArray(data)
+        ? data
+        : [];
+
+  return rawItems.map(normalizeAccount).filter((item) => item.bankBin && item.accountNo && item.accountName);
+};
+
+const getErrorMessage = (error, fallback) =>
+  error?.response?.data?.message || error?.response?.data?.error || error?.message || fallback;
+
+const isNotFound = (error) => error?.response?.status === 404;
+
 const BankAccounts = () => {
   const [items, setItems] = useState([emptyAccount()]);
+  const [integratedItems, setIntegratedItems] = useState([]);
+  const [adminApiReady, setAdminApiReady] = useState(true);
+  const [sourceLabel, setSourceLabel] = useState('');
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
 
+  const applyAccounts = (accounts, source) => {
+    setIntegratedItems(accounts);
+    setSourceLabel(source);
+    setItems(accounts.length > 0 ? accounts : [emptyAccount()]);
+  };
+
   const fetchAccounts = async () => {
     setLoading(true);
+    setNotice('');
     setError('');
+
     try {
       const { data } = await api.get('/admin/payment/bank-accounts');
-      const accounts = Array.isArray(data?.items) ? data.items : [];
-      setItems(accounts.length > 0 ? accounts : [emptyAccount()]);
+      setAdminApiReady(true);
+      applyAccounts(readAccounts(data), 'Cấu hình admin');
     } catch (err) {
-      setError(err?.response?.data?.message || 'Không thể tải cấu hình ngân hàng.');
+      if (!isNotFound(err)) {
+        setError(getErrorMessage(err, 'Không thể tải cấu hình ngân hàng.'));
+        setLoading(false);
+        return;
+      }
+
+      setAdminApiReady(false);
+      try {
+        const { data } = await api.get('/payment-accounts');
+        const accounts = readAccounts(data);
+        applyAccounts(accounts, 'API thanh toán public');
+        setNotice(
+          accounts.length > 0
+            ? 'Đang hiển thị ngân hàng hệ thống đang dùng. Muốn lưu từ admin, cần deploy backend mới.'
+            : BACKEND_UPGRADE_MESSAGE,
+        );
+      } catch (fallbackErr) {
+        setIntegratedItems([]);
+        setSourceLabel('');
+        setError(getErrorMessage(fallbackErr, BACKEND_UPGRADE_MESSAGE));
+      }
     } finally {
       setLoading(false);
     }
@@ -86,11 +145,14 @@ const BankAccounts = () => {
 
     try {
       const { data } = await api.put('/admin/payment/bank-accounts', { items: payload });
-      const accounts = Array.isArray(data?.items) ? data.items : [];
+      const accounts = readAccounts(data);
+      setAdminApiReady(true);
+      setIntegratedItems(accounts);
+      setSourceLabel('Cấu hình admin');
       setItems(accounts.length > 0 ? accounts : [emptyAccount()]);
       setNotice('Đã lưu danh sách tài khoản ngân hàng.');
     } catch (err) {
-      setError(err?.response?.data?.message || 'Không thể lưu cấu hình ngân hàng.');
+      setError(isNotFound(err) ? BACKEND_UPGRADE_MESSAGE : getErrorMessage(err, 'Không thể lưu cấu hình ngân hàng.'));
     } finally {
       setLoading(false);
     }
@@ -108,14 +170,25 @@ const BankAccounts = () => {
             Thêm tài khoản đã kết nối trong SePay để hệ thống tự hiển thị lựa chọn khi tạo QR thanh toán và nạp quỹ.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={addItem}
-          className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-bold text-white/80 transition hover:bg-white/10"
-        >
-          <Plus className="h-4 w-4" />
-          Thêm tài khoản
-        </button>
+        <div className="flex flex-wrap gap-3">
+          <button
+            type="button"
+            onClick={fetchAccounts}
+            disabled={loading}
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-bold text-white/80 transition hover:bg-white/10 disabled:opacity-60"
+          >
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+            Tải lại
+          </button>
+          <button
+            type="button"
+            onClick={addItem}
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-bold text-white/80 transition hover:bg-white/10"
+          >
+            <Plus className="h-4 w-4" />
+            Thêm tài khoản
+          </button>
+        </div>
       </div>
 
       {(notice || error) && (
@@ -130,6 +203,71 @@ const BankAccounts = () => {
               {error}
             </div>
           )}
+        </div>
+      )}
+
+      <section className="glass rounded-[24px] border border-white/10 p-5">
+        <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <div className="flex items-center gap-2">
+              <BadgeCheck className="h-5 w-5 text-green-300" />
+              <h2 className="font-bold">Ngân hàng đang tích hợp</h2>
+            </div>
+            <p className="mt-1 text-sm text-white/40">
+              Danh sách này là dữ liệu hệ thống đang dùng để tạo VietQR cho thanh toán và nạp quỹ.
+            </p>
+          </div>
+          <div className="inline-flex w-fit items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs font-bold text-white/55">
+            <Info className="h-3.5 w-3.5" />
+            {sourceLabel || 'Chưa có nguồn dữ liệu'}
+          </div>
+        </div>
+
+        {integratedItems.length > 0 ? (
+          <div className="grid gap-3 md:grid-cols-2">
+            {integratedItems.map((item, index) => (
+              <article
+                key={`${item.key || item.accountNo}-${index}`}
+                className="rounded-2xl border border-white/10 bg-white/[0.03] p-4"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-bold text-white">{item.label || `Tài khoản #${index + 1}`}</p>
+                    <p className="mt-1 truncate text-xs text-white/40">{item.key || 'default'}</p>
+                  </div>
+                  <span className="shrink-0 rounded-full border border-green-400/20 bg-green-400/10 px-3 py-1 text-xs font-bold text-green-300">
+                    Đang dùng
+                  </span>
+                </div>
+                <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+                  <div>
+                    <dt className="text-xs font-bold uppercase tracking-[0.18em] text-white/30">BIN</dt>
+                    <dd className="mt-1 text-white/75">{item.bankBin}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs font-bold uppercase tracking-[0.18em] text-white/30">Số tài khoản</dt>
+                    <dd className="mt-1 text-white/75">{item.accountNo}</dd>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <dt className="text-xs font-bold uppercase tracking-[0.18em] text-white/30">Chủ tài khoản</dt>
+                    <dd className="mt-1 truncate text-white/75">{item.accountName}</dd>
+                  </div>
+                </dl>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.02] p-6 text-sm text-white/45">
+            Chưa đọc được ngân hàng đã tích hợp. Nếu backend mới chưa deploy, hệ thống vẫn có thể dùng cấu hình trong env
+            nhưng admin chưa xem/lưu được qua API quản lý.
+          </div>
+        )}
+      </section>
+
+      {!adminApiReady && (
+        <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-4 text-sm font-medium text-amber-200">
+          API admin `/admin/payment/bank-accounts` chưa có trên backend đang chạy. Sau khi deploy backend mới, nút lưu cấu
+          hình sẽ hoạt động và danh sách trên sẽ lấy trực tiếp từ cấu hình admin.
         </div>
       )}
 
