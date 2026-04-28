@@ -19,9 +19,18 @@ const isLocalRequest = (req) => {
   );
 };
 
+const buildError = (status, error, message) => ({
+  status,
+  body: {
+    error,
+    message,
+    reply: message,
+  },
+});
+
 /**
  * Cloudflare Turnstile verification middleware.
- * Fail-closed in production, but allow localhost/dev to work without blocking orders.
+ * Fail-closed in production, but allow localhost/dev to work without blocking local testing.
  */
 const verifyTurnstile = async (req, res, next) => {
   const configuredSecret = String(process.env.TURNSTILE_SECRET_KEY || '').trim();
@@ -29,26 +38,29 @@ const verifyTurnstile = async (req, res, next) => {
   const isProduction = process.env.NODE_ENV === 'production';
   const isLocalDev = !isProduction && isLocalRequest(req);
 
-  // Local development convenience: allow localhost even if token is missing or invalid.
   if (isLocalDev && !turnstileToken) {
     return next();
   }
 
   if (!configuredSecret) {
     if (isProduction) {
-      return res.status(503).json({
-        error: 'Turnstile secret is not configured on server.',
-        reply: 'Máy chủ thiếu TURNSTILE_SECRET_KEY nên đang tạm khóa endpoint bảo vệ.',
-      });
+      const result = buildError(
+        503,
+        'Turnstile secret is not configured on server.',
+        'Máy chủ thiếu TURNSTILE_SECRET_KEY nên endpoint bảo vệ đang tạm khóa.',
+      );
+      return res.status(result.status).json(result.body);
     }
     return next();
   }
 
   if (!turnstileToken) {
-    return res.status(403).json({
-      error: 'Missing Turnstile token.',
-      reply: 'Thiếu mã xác thực Turnstile. Vui lòng thử lại.',
-    });
+    const result = buildError(
+      403,
+      'Missing Turnstile token.',
+      'Thiếu mã xác thực Turnstile. Vui lòng thử lại.',
+    );
+    return res.status(result.status).json(result.body);
   }
 
   let secretKey = configuredSecret;
@@ -70,30 +82,34 @@ const verifyTurnstile = async (req, res, next) => {
 
     if (!verifyRes.data?.success) {
       const errorCodes = verifyRes.data?.['error-codes'] || [];
-      console.warn('[VerifyTurnstile] challenge failed:', errorCodes);
+      console.warn('[VerifyTurnstile] Challenge failed:', errorCodes);
 
       if (isLocalDev) {
         return next();
       }
 
-      return res.status(403).json({
-        error: 'Turnstile verification failed.',
-        reply: 'Xác thực Turnstile thất bại. Vui lòng thử lại.',
-      });
+      const result = buildError(
+        403,
+        'Turnstile verification failed.',
+        'Xác thực Turnstile thất bại. Vui lòng thử lại.',
+      );
+      return res.status(result.status).json(result.body);
     }
 
     return next();
   } catch (err) {
-    console.error('[VerifyTurnstile] system error:', err?.message || err);
+    console.error('[VerifyTurnstile] System error:', err?.message || err);
 
     if (isLocalDev) {
       return next();
     }
 
-    return res.status(503).json({
-      error: 'Turnstile service unavailable.',
-      reply: 'Hệ thống bảo mật tạm thời gián đoạn. Vui lòng thử lại sau.',
-    });
+    const result = buildError(
+      503,
+      'Turnstile service unavailable.',
+      'Hệ thống bảo mật tạm thời gián đoạn. Vui lòng thử lại sau.',
+    );
+    return res.status(result.status).json(result.body);
   }
 };
 

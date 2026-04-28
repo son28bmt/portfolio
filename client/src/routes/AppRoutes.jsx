@@ -69,14 +69,14 @@ const AppRoutes = () => {
                 breadcrumbLabel="Dịch vụ số"
                 pageTitle="Dịch vụ số"
                 pageDescription="Chọn nền tảng, lọc đúng nhóm dịch vụ rồi bấm vào gói bạn muốn mua. Phần cấu hình và thanh toán sẽ hiện ngay ở khung bên phải."
-                alternateLink="/cua-hang/tu-them"
+                alternateLink="/cua-hang/account"
                 alternateLabel="Account & key"
               />
             </PageTransition>
           }
         />
         <Route
-          path="/cua-hang/tu-them"
+          path="/cua-hang/account"
           element={
             <PageTransition>
               <Marketplace

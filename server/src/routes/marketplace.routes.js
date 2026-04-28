@@ -41,6 +41,7 @@ const adminLoginLimiter = rateLimit({
 
 // Public routes
 router.get("/payment-accounts", controller.publicGetPaymentAccounts);
+router.get("/section-status", controller.publicGetSectionStatus);
 router.get("/products", controller.publicGetProducts);
 router.post("/orders", orderLimiter, verifyTurnstile, controller.publicCreateOrder);
 router.get("/orders/:payment_ref/status", controller.publicGetOrderStatus);
@@ -55,6 +56,9 @@ router.post("/admin/login", adminLoginLimiter, controller.adminLogin);
 
 // Admin protected CRUD
 router.use("/admin", protectMarketplaceAdmin);
+
+router.get("/admin/section-status", controller.adminGetSectionStatus);
+router.put("/admin/section-status", controller.adminUpdateSectionStatus);
 
 router.get("/admin/products", controller.adminGetProducts);
 router.post("/admin/products", controller.adminCreateProduct);

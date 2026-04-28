@@ -76,7 +76,7 @@ Client hiện đã tách thành các lane:
 
 - `/cua-hang`: hub
 - `/cua-hang/dich-vu`: dịch vụ đang bán
-- `/cua-hang/tu-them`: hàng nội bộ tự thêm
+- `/cua-hang/account`: hàng nội bộ account
 - `/cua-hang/card`: placeholder “đang phát triển”
 
 ### 4.4 Admin hiện tại

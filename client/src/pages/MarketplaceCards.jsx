@@ -14,6 +14,8 @@ import {
 } from 'lucide-react';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import useMarketplaceSectionStatus from '../hooks/useMarketplaceSectionStatus';
+import MarketplaceMaintenance from '../components/common/MarketplaceMaintenance';
 
 const formatVnd = (value) =>
   Number(value || 0).toLocaleString('vi-VN', {
@@ -69,6 +71,9 @@ const TrackerBadge = ({ status, label }) => {
 
 const MarketplaceCards = () => {
   const { isAuthenticated, account, refreshAccount } = useAuth();
+  const { getSection, loading: sectionStatusLoading } = useMarketplaceSectionStatus();
+  const sectionStatus = getSection('card');
+  const isSectionMaintenance = sectionStatus.enabled === false;
 
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -150,9 +155,19 @@ const MarketplaceCards = () => {
   };
 
   useEffect(() => {
+    if (sectionStatusLoading) {
+      setLoading(false);
+      return;
+    }
+
+    if (isSectionMaintenance) {
+      setLoading(false);
+      return;
+    }
+
     fetchProducts();
     fetchPaymentAccounts();
-  }, []);
+  }, [isSectionMaintenance, sectionStatusLoading]);
 
   useEffect(() => {
     let sse;
@@ -456,6 +471,14 @@ const MarketplaceCards = () => {
       </div>
     );
   };
+
+  if (sectionStatusLoading) {
+    return <div className="py-20 text-center text-white/50">Đang tải trạng thái cửa hàng...</div>;
+  }
+
+  if (isSectionMaintenance) {
+    return <MarketplaceMaintenance title="Card và mã số" message={sectionStatus.message} />;
+  }
 
   return (
     <div className="mx-auto max-w-[1480px] space-y-8 px-4 py-10 sm:px-6 xl:px-8">

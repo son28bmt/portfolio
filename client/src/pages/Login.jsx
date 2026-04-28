@@ -35,17 +35,17 @@ const Login = () => {
 
   return (
     <div className="mx-auto max-w-xl py-12 md:py-20">
-      <div className="glass rounded-[32px] overflow-hidden border border-white/10 shadow-2xl">
+      <div className="glass overflow-hidden rounded-[32px] border border-white/10 shadow-2xl">
         <div className="bg-gradient-to-r from-primary/25 to-secondary/20 px-6 py-8 md:px-10">
           <p className="text-xs uppercase tracking-[0.3em] text-white/50">Member Access</p>
-          <h1 className="mt-3 text-3xl md:text-4xl font-black">Đăng nhập để nhận ưu đãi</h1>
-          <p className="mt-3 max-w-lg text-sm md:text-base text-white/65">
+          <h1 className="mt-3 text-3xl font-black md:text-4xl">Đăng nhập để nhận ưu đãi</h1>
+          <p className="mt-3 max-w-lg text-sm text-white/65 md:text-base">
             Mua hàng vẫn có thể guest checkout, nhưng đăng nhập sẽ giúp bạn quản lý quỹ nội bộ,
             lịch sử mua và các ưu đãi sau này.
           </p>
         </div>
 
-        <div className="px-6 py-8 md:px-10 md:py-10 space-y-5">
+        <div className="space-y-5 px-6 py-8 md:px-10 md:py-10">
           {fromMarketplace && (
             <div className="rounded-2xl border border-secondary/20 bg-secondary/10 px-4 py-3 text-sm text-secondary">
               Bạn vừa hoàn tất đơn guest checkout. Đăng nhập để tiếp tục dùng quỹ nội bộ và theo dõi

@@ -49,7 +49,7 @@ const supplierKindLabels = {
 
 const sectionLabels = {
   service: 'Dịch vụ số',
-  custom: 'Sản phẩm tự thêm',
+  custom: 'Sản phẩm account',
   card: 'Card và mã số',
 };
 

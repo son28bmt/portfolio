@@ -66,7 +66,7 @@ const sendTelegramMessageNow = async (text, options = {}) => {
   if (!config.token || !config.chatId) {
     if (!hasWarnedMissingConfig) {
       hasWarnedMissingConfig = true;
-      console.warn('[Telegram] Thieu TELEGRAM_BOT_TOKEN hoac TELEGRAM_CHAT_ID, bo qua notify.');
+      console.warn('[Telegram] Thiếu TELEGRAM_BOT_TOKEN hoặc TELEGRAM_CHAT_ID, bỏ qua notify.');
     }
     return { ok: false, skipped: true, reason: 'missing_config' };
   }
@@ -99,7 +99,7 @@ const queueTelegramNotification = (builder) => {
     .then(builder)
     .catch((error) => {
       console.error(
-        '[Telegram] Gui notify that bai:',
+        '[Telegram] Gửi notify thất bại:',
         error?.response?.data || error?.message || error,
       );
     });
@@ -168,6 +168,32 @@ const notifyTelegramOrderStatus = ({ order, title, message, product, extraLines 
     note(message),
     ...extraLines,
     buildOrderLink(order.payment_ref || order.paymentRef),
+  ]);
+};
+
+const notifyTelegramAuthEvent = ({ event = 'login', account, req } = {}) => {
+  if (!account) return;
+  const enabledRaw = String(process.env.TELEGRAM_AUTH_NOTIFICATIONS_ENABLED || 'true')
+    .trim()
+    .toLowerCase();
+  if (enabledRaw === 'false') return;
+
+  const isRegister = event === 'register';
+  const userAgent = sanitizeText(req?.headers?.['user-agent'], 220);
+  const ip =
+    sanitizeText(req?.headers?.['x-forwarded-for'], 120).split(',')[0].trim() ||
+    sanitizeText(req?.ip || req?.socket?.remoteAddress, 120);
+
+  queueTelegramLines([
+    sectionTitle('[USER]', isRegister ? 'Người dùng mới đăng ký' : 'Người dùng đăng nhập'),
+    divider(),
+    bullet('Tài khoản', account.username),
+    bullet('Email', account.email),
+    bullet('Họ tên', account.fullName),
+    bullet('ID', account.id),
+    bullet('IP', ip),
+    bullet('Thiết bị', userAgent),
+    bullet('Lúc', formatDateTime(new Date())),
   ]);
 };
 
@@ -259,6 +285,7 @@ module.exports = {
   sendTelegramMessageNow,
   notifyTelegramOrderCreated,
   notifyTelegramOrderStatus,
+  notifyTelegramAuthEvent,
   notifyTelegramBlogChanged,
   notifyTelegramProjectChanged,
   notifyTelegramProjectDownload,

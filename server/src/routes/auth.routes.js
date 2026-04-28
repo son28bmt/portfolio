@@ -1,6 +1,7 @@
 const express = require('express');
 const rateLimit = require('express-rate-limit');
 const { register, login } = require('../controllers/auth.controller');
+const { verifyTurnstile } = require('../middleware/turnstile.middleware');
 
 const router = express.Router();
 
@@ -10,21 +11,21 @@ const loginLimiter = rateLimit({
   keyGenerator: (req) => req.ip,
   validate: { default: false },
   message: {
-    message: 'Ban da thu dang nhap qua nhieu lan. Vui long thu lai sau 15 phut.',
+    message: 'Bạn đã thử đăng nhập quá nhiều lần. Vui lòng thử lại sau 15 phút.',
   },
 });
 
 const registerLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
-  max: 10,
+  max: 3,
   keyGenerator: (req) => req.ip,
   validate: { default: false },
   message: {
-    message: 'Ban da dang ky qua nhieu lan. Vui long thu lai sau 1 gio.',
+    message: 'Bạn đã đăng ký quá nhiều lần. Vui lòng thử lại sau 1 giờ.',
   },
 });
 
-router.post('/register', registerLimiter, register);
+router.post('/register', registerLimiter, verifyTurnstile, register);
 router.post('/login', loginLimiter, login);
 
 module.exports = router;

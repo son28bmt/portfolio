@@ -6,6 +6,7 @@ import {
   PackagePlus,
   ShoppingCart,
   WalletCards,
+  Wrench,
 } from 'lucide-react';
 import { io } from 'socket.io-client';
 import api from '../../services/api';
@@ -16,6 +17,7 @@ import TabProducts from './components/TabProducts';
 import TabStock from './components/TabStock';
 import TabSupplier from './components/TabSupplier';
 import TabWallet from './components/TabWallet';
+import TabMaintenance from './components/TabMaintenance';
 
 const tabs = [
   { key: 'supplier', label: 'Nhà cung cấp', icon: ActivitySquare },
@@ -24,6 +26,7 @@ const tabs = [
   { key: 'stock', label: 'Kho hàng', icon: PackagePlus },
   { key: 'orders', label: 'Đơn hàng', icon: ShoppingCart },
   { key: 'wallet', label: 'Quỹ nội bộ', icon: WalletCards },
+  { key: 'maintenance', label: 'Bảo trì', icon: Wrench },
 ];
 
 const MarketplaceManager = () => {
@@ -124,6 +127,9 @@ const MarketplaceManager = () => {
         )}
         {activeTab === 'wallet' && (
           <TabWallet setError={setError} setNotice={setNotice} refreshKey={refreshKey} />
+        )}
+        {activeTab === 'maintenance' && (
+          <TabMaintenance setError={setError} setNotice={setNotice} refreshKey={refreshKey} />
         )}
       </div>
     </div>

@@ -24,6 +24,10 @@ const {
   normalizeFulfillmentSource,
   buildProductSourceConfig,
 } = require('../services/marketplace-fulfillment.service');
+const {
+  getMarketplaceSectionStatus,
+  saveMarketplaceSectionStatus,
+} = require('../services/marketplace-section-status.service');
 const { listSmmServices, getSmmBalance } = require('../services/smm-panel.service');
 const { listCardProducts, getCardBalance } = require('../services/card-partner.service');
 const { addClient } = require('../services/sse.service');
@@ -35,7 +39,7 @@ const signAdminToken = (adminId) =>
 
 const handleError = (res, error) => {
   const status = Number(error?.status || 500);
-  return res.status(status).json({ message: error?.message || 'Co loi xay ra.' });
+  return res.status(status).json({ message: error?.message || 'Có lỗi xảy ra.' });
 };
 
 const toInt = (value) => {
@@ -72,6 +76,15 @@ const publicGetPaymentAccounts = async (req, res) => {
   }
 };
 
+const publicGetSectionStatus = async (req, res) => {
+  try {
+    const sections = await getMarketplaceSectionStatus();
+    return res.json({ sections });
+  } catch (error) {
+    return handleError(res, error);
+  }
+};
+
 const publicCreateOrder = async (req, res) => {
   try {
     const {
@@ -95,7 +108,7 @@ const publicCreateOrder = async (req, res) => {
     });
 
     return res.status(201).json({
-      message: 'Tao don hang thanh cong, vui long quet ma de thanh toan.',
+      message: 'Tạo đơn hàng thành công, vui lòng quét mã để thanh toán.',
       order: result.order,
       qr_url: result.qrUrl,
       payment_ref: result.paymentRef,
@@ -116,13 +129,13 @@ const publicCreateOrder = async (req, res) => {
 const publicGetOrderStatus = async (req, res) => {
   try {
     const paymentRef = String(req.params.payment_ref || '').trim();
-    if (!paymentRef) return res.status(400).json({ message: 'Thieu ma thanh toan.' });
+    if (!paymentRef) return res.status(400).json({ message: 'Thiếu mã thanh toán.' });
 
     const order = await Order.findOne({
       where: { payment_ref: paymentRef },
       attributes: ['status', 'fulfillmentStatus'],
     });
-    if (!order) return res.status(404).json({ message: 'Khong tim thay don hang.' });
+    if (!order) return res.status(404).json({ message: 'Không tìm thấy đơn hàng.' });
 
     return res.json({
       status: order.status,
@@ -144,7 +157,7 @@ const publicGetOrderSummary = async (req, res) => {
 
 const publicGetOrderSSE = (req, res) => {
   const paymentRef = String(req.params.payment_ref || '').trim();
-  if (!paymentRef) return res.status(400).json({ message: 'Thieu ma thanh toan.' });
+  if (!paymentRef) return res.status(400).json({ message: 'Thiếu mã thanh toán.' });
   addClient(req, res, 'market', paymentRef);
 };
 
@@ -163,17 +176,17 @@ const adminLogin = async (req, res) => {
     const password = String(req.body?.password || '').trim();
 
     if (!username || !password) {
-      return res.status(400).json({ message: 'Vui long nhap day du tai khoan va mat khau.' });
+      return res.status(400).json({ message: 'Vui lòng nhập đầy đủ tài khoản và mật khẩu.' });
     }
 
     const admin = await Admin.findOne({ where: { username } });
     if (!admin || !(await admin.comparePassword(password))) {
-      return res.status(401).json({ message: 'Sai tai khoan hoac mat khau.' });
+      return res.status(401).json({ message: 'Sai tài khoản hoặc mật khẩu.' });
     }
 
     const token = signAdminToken(admin.id);
     return res.json({
-      message: 'Dang nhap thanh cong.',
+      message: 'Đăng nhập thành công.',
       token,
       admin: { id: admin.id, username: admin.username },
     });
@@ -186,6 +199,24 @@ const adminGetProducts = async (req, res) => {
   try {
     const products = await getAdminProducts();
     return res.json(products);
+  } catch (error) {
+    return handleError(res, error);
+  }
+};
+
+const adminGetSectionStatus = async (req, res) => {
+  try {
+    const sections = await getMarketplaceSectionStatus();
+    return res.json({ sections });
+  } catch (error) {
+    return handleError(res, error);
+  }
+};
+
+const adminUpdateSectionStatus = async (req, res) => {
+  try {
+    const sections = await saveMarketplaceSectionStatus(req.body?.sections || req.body || {});
+    return res.json({ sections });
   } catch (error) {
     return handleError(res, error);
   }
@@ -205,12 +236,12 @@ const adminCreateProduct = async (req, res) => {
     const sourceConfig = parseSourceConfigFromBody(req.body || {}, sourceType);
 
     if (!name || cleanCategoryId === null || Number(price) <= 0) {
-      return res.status(400).json({ message: 'Thieu du lieu san pham hop le.' });
+      return res.status(400).json({ message: 'Thiếu dữ liệu sản phẩm hợp lệ.' });
     }
 
     const category = await Category.findByPk(cleanCategoryId);
     if (!category) {
-      return res.status(404).json({ message: 'Danh muc khong ton tai.' });
+      return res.status(404).json({ message: 'Danh mục không tồn tại.' });
     }
 
     const product = await Product.create({
@@ -232,10 +263,10 @@ const adminCreateProduct = async (req, res) => {
 const adminUpdateProduct = async (req, res) => {
   try {
     const id = toInt(req.params.id);
-    if (!id) return res.status(400).json({ message: 'ID san pham khong hop le.' });
+    if (!id) return res.status(400).json({ message: 'ID sản phẩm không hợp lệ.' });
 
     const product = await Product.findByPk(id);
-    if (!product) return res.status(404).json({ message: 'Khong tim thay san pham.' });
+    if (!product) return res.status(404).json({ message: 'Không tìm thấy sản phẩm.' });
 
     const payload = {};
     if (req.body.name !== undefined) payload.name = String(req.body.name).trim();
@@ -255,7 +286,7 @@ const adminUpdateProduct = async (req, res) => {
 
     if (payload.categoryId !== undefined) {
       const category = await Category.findByPk(payload.categoryId);
-      if (!category) return res.status(404).json({ message: 'Danh muc khong ton tai.' });
+      if (!category) return res.status(404).json({ message: 'Danh mục không tồn tại.' });
     }
 
     await product.update(payload);
@@ -314,7 +345,7 @@ const adminSyncSmmServices = async (req, res) => {
   try {
     const result = await syncSmmPanelServicesToCatalog(req.body || {});
     return res.json({
-      message: 'Da dong bo catalog tu SMM panel vao admin.',
+      message: 'Đã đồng bộ catalog từ SMM panel vào admin.',
       ...result,
     });
   } catch (error) {
@@ -326,7 +357,7 @@ const adminSyncCardProducts = async (req, res) => {
   try {
     const result = await syncCardCatalogToMarketplace(req.body || {});
     return res.json({
-      message: 'Da dong bo catalog card vao admin.',
+      message: 'Đã đồng bộ catalog card vào admin.',
       ...result,
     });
   } catch (error) {
@@ -341,7 +372,7 @@ const adminBatchRefreshSupplierOrders = async (req, res) => {
       minAgeMs: req.body?.minAgeMs,
     });
     return res.json({
-      message: 'Da quet hang doi supplier.',
+      message: 'Đã quét hàng đợi supplier.',
       ...summary,
     });
   } catch (error) {
@@ -352,13 +383,13 @@ const adminBatchRefreshSupplierOrders = async (req, res) => {
 const adminDeleteProduct = async (req, res) => {
   try {
     const id = toInt(req.params.id);
-    if (!id) return res.status(400).json({ message: 'ID san pham khong hop le.' });
+    if (!id) return res.status(400).json({ message: 'ID sản phẩm không hợp lệ.' });
 
     const product = await Product.findByPk(id);
-    if (!product) return res.status(404).json({ message: 'Khong tim thay san pham.' });
+    if (!product) return res.status(404).json({ message: 'Không tìm thấy sản phẩm.' });
 
     await product.destroy();
-    return res.json({ message: 'Da xoa san pham.' });
+    return res.json({ message: 'Đã xóa sản phẩm.' });
   } catch (error) {
     return handleError(res, error);
   }
@@ -383,11 +414,11 @@ const adminCreateStockItem = async (req, res) => {
     const cleanQuantity = Number.isFinite(rawQuantity) ? Math.max(1, Math.floor(rawQuantity)) : 1;
 
     if (!cleanProductId || !cleanData) {
-      return res.status(400).json({ message: 'Thieu du lieu kho hang hop le.' });
+      return res.status(400).json({ message: 'Thiếu dữ liệu kho hàng hợp lệ.' });
     }
 
     const product = await Product.findByPk(cleanProductId);
-    if (!product) return res.status(404).json({ message: 'San pham khong ton tai.' });
+    if (!product) return res.status(404).json({ message: 'Sản phẩm không tồn tại.' });
 
     const finalStatus = status === 'sold' ? 'sold' : 'available';
     const dataLines = cleanData
@@ -422,7 +453,7 @@ const adminCreateStockItem = async (req, res) => {
     });
 
     return res.status(201).json({
-      message: `Da them ${createdItems.length} muc vao kho hang.`,
+      message: `Đã thêm ${createdItems.length} mục vào kho hàng.`,
       createdCount: createdItems.length,
       items: createdItems,
     });
@@ -434,10 +465,10 @@ const adminCreateStockItem = async (req, res) => {
 const adminUpdateStockItem = async (req, res) => {
   try {
     const id = toInt(req.params.id);
-    if (!id) return res.status(400).json({ message: 'ID stock item khong hop le.' });
+    if (!id) return res.status(400).json({ message: 'ID stock item không hợp lệ.' });
 
     const item = await StockItem.findByPk(id);
-    if (!item) return res.status(404).json({ message: 'Khong tim thay stock item.' });
+    if (!item) return res.status(404).json({ message: 'Không tìm thấy stock item.' });
 
     const beforeStatus = item.status;
     const payload = {};
@@ -446,9 +477,9 @@ const adminUpdateStockItem = async (req, res) => {
 
     if (req.body.product_id !== undefined || req.body.productId !== undefined) {
       const nextProductId = toInt(req.body.product_id ?? req.body.productId);
-      if (!nextProductId) return res.status(400).json({ message: 'product_id khong hop le.' });
+      if (!nextProductId) return res.status(400).json({ message: 'product_id không hợp lệ.' });
       const product = await Product.findByPk(nextProductId);
-      if (!product) return res.status(404).json({ message: 'San pham khong ton tai.' });
+      if (!product) return res.status(404).json({ message: 'Sản phẩm không tồn tại.' });
       payload.productId = nextProductId;
     }
 
@@ -476,10 +507,10 @@ const adminUpdateStockItem = async (req, res) => {
 const adminDeleteStockItem = async (req, res) => {
   try {
     const id = toInt(req.params.id);
-    if (!id) return res.status(400).json({ message: 'ID stock item khong hop le.' });
+    if (!id) return res.status(400).json({ message: 'ID stock item không hợp lệ.' });
 
     const item = await StockItem.findByPk(id);
-    if (!item) return res.status(404).json({ message: 'Khong tim thay stock item.' });
+    if (!item) return res.status(404).json({ message: 'Không tìm thấy stock item.' });
 
     if (item.status === 'available') {
       const product = await Product.findByPk(item.productId);
@@ -489,7 +520,7 @@ const adminDeleteStockItem = async (req, res) => {
     }
 
     await item.destroy();
-    return res.json({ message: 'Da xoa stock item.' });
+    return res.json({ message: 'Đã xóa stock item.' });
   } catch (error) {
     return handleError(res, error);
   }
@@ -507,11 +538,11 @@ const adminGetCategories = async (req, res) => {
 const adminCreateCategory = async (req, res) => {
   try {
     const name = String(req.body?.name || '').trim();
-    if (!name) return res.status(400).json({ message: 'Ten danh muc khong duoc de trong.' });
+    if (!name) return res.status(400).json({ message: 'Tên danh mục không được để trống.' });
     const storeSection = normalizeStoreSection(req.body?.storeSection);
 
     const existed = await Category.findOne({ where: { name } });
-    if (existed) return res.status(409).json({ message: 'Danh muc da ton tai.' });
+    if (existed) return res.status(409).json({ message: 'Danh mục đã tồn tại.' });
 
     const category = await Category.create({ name, storeSection });
     return res.status(201).json(category);
@@ -523,12 +554,12 @@ const adminCreateCategory = async (req, res) => {
 const adminUpdateCategory = async (req, res) => {
   try {
     const id = toInt(req.params.id);
-    if (!id) return res.status(400).json({ message: 'ID danh muc khong hop le.' });
+    if (!id) return res.status(400).json({ message: 'ID danh mục không hợp lệ.' });
     const category = await Category.findByPk(id);
-    if (!category) return res.status(404).json({ message: 'Khong tim thay danh muc.' });
+    if (!category) return res.status(404).json({ message: 'Không tìm thấy danh mục.' });
 
     const name = String(req.body?.name || '').trim();
-    if (!name) return res.status(400).json({ message: 'Ten danh muc khong duoc de trong.' });
+    if (!name) return res.status(400).json({ message: 'Tên danh mục không được để trống.' });
     const storeSection = normalizeStoreSection(req.body?.storeSection ?? category.storeSection);
 
     category.name = name;
@@ -543,11 +574,11 @@ const adminUpdateCategory = async (req, res) => {
 const adminDeleteCategory = async (req, res) => {
   try {
     const id = toInt(req.params.id);
-    if (!id) return res.status(400).json({ message: 'ID danh muc khong hop le.' });
+    if (!id) return res.status(400).json({ message: 'ID danh mục không hợp lệ.' });
     const category = await Category.findByPk(id);
-    if (!category) return res.status(404).json({ message: 'Khong tim thay danh muc.' });
+    if (!category) return res.status(404).json({ message: 'Không tìm thấy danh mục.' });
     await category.destroy();
-    return res.json({ message: 'Da xoa danh muc.' });
+    return res.json({ message: 'Đã xóa danh mục.' });
   } catch (error) {
     return handleError(res, error);
   }
@@ -573,14 +604,14 @@ const adminGetOrders = async (req, res) => {
 const adminGetOrderById = async (req, res) => {
   try {
     const id = toInt(req.params.id);
-    if (!id) return res.status(400).json({ message: 'ID don hang khong hop le.' });
+    if (!id) return res.status(400).json({ message: 'ID đơn hàng không hợp lệ.' });
     const order = await Order.findByPk(id, {
       include: [
         { model: Product, as: 'product' },
         { model: StockItem, as: 'stockItem' },
       ],
     });
-    if (!order) return res.status(404).json({ message: 'Khong tim thay don hang.' });
+    if (!order) return res.status(404).json({ message: 'Không tìm thấy đơn hàng.' });
     return res.json(order);
   } catch (error) {
     return handleError(res, error);
@@ -592,7 +623,7 @@ const adminCreateOrder = async (req, res) => {
     const { email, product_id: productIdRaw, productId } = req.body || {};
     const cleanProductId = toInt(productIdRaw ?? productId);
     if (!cleanProductId || !email) {
-      return res.status(400).json({ message: 'Thieu du lieu tao don.' });
+      return res.status(400).json({ message: 'Thiếu dữ liệu tạo đơn.' });
     }
     const result = await createOrderIntent({ email, productId: cleanProductId });
     return res.status(201).json(result.order);
@@ -604,9 +635,9 @@ const adminCreateOrder = async (req, res) => {
 const adminUpdateOrder = async (req, res) => {
   try {
     const id = toInt(req.params.id);
-    if (!id) return res.status(400).json({ message: 'ID don hang khong hop le.' });
+    if (!id) return res.status(400).json({ message: 'ID đơn hàng không hợp lệ.' });
     const order = await Order.findByPk(id);
-    if (!order) return res.status(404).json({ message: 'Khong tim thay don hang.' });
+    if (!order) return res.status(404).json({ message: 'Không tìm thấy đơn hàng.' });
 
     const payload = {};
     if (req.body.email !== undefined) payload.email = String(req.body.email).trim().toLowerCase();
@@ -624,11 +655,11 @@ const adminUpdateOrder = async (req, res) => {
 const adminDeleteOrder = async (req, res) => {
   try {
     const id = toInt(req.params.id);
-    if (!id) return res.status(400).json({ message: 'ID don hang khong hop le.' });
+    if (!id) return res.status(400).json({ message: 'ID đơn hàng không hợp lệ.' });
     const order = await Order.findByPk(id);
-    if (!order) return res.status(404).json({ message: 'Khong tim thay don hang.' });
+    if (!order) return res.status(404).json({ message: 'Không tìm thấy đơn hàng.' });
     await order.destroy();
-    return res.json({ message: 'Da xoa don hang.' });
+    return res.json({ message: 'Đã xóa đơn hàng.' });
   } catch (error) {
     return handleError(res, error);
   }
@@ -637,12 +668,15 @@ const adminDeleteOrder = async (req, res) => {
 module.exports = {
   publicGetProducts,
   publicGetPaymentAccounts,
+  publicGetSectionStatus,
   publicCreateOrder,
   publicGetOrderStatus,
   publicGetOrderSummary,
   publicGetOrderSSE,
   webhookSePay,
   adminLogin,
+  adminGetSectionStatus,
+  adminUpdateSectionStatus,
   adminGetProducts,
   adminCreateProduct,
   adminUpdateProduct,

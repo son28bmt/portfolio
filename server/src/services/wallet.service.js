@@ -35,6 +35,7 @@ const {
   notifyTelegramOrderStatus,
   notifyTelegramWalletTopupPaid,
 } = require('./telegram.service');
+const { assertMarketplaceSectionOpenForProduct } = require('./marketplace-section-status.service');
 
 const TOPUP_STATUS = Object.freeze({
   PENDING: 'pending',
@@ -396,6 +397,8 @@ const walletCheckout = async (userId, { productId, orderInput = {} }) => {
       error.status = 404;
       throw error;
     }
+
+    await assertMarketplaceSectionOpenForProduct(product);
 
     const sourceType = normalizeFulfillmentSource(product.sourceType);
     const provider = getFulfillmentProvider(sourceType);

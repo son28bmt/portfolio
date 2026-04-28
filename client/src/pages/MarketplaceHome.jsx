@@ -7,7 +7,9 @@ import {
   PackageSearch,
   ShoppingBag,
   Sparkles,
+  Wrench,
 } from 'lucide-react';
+import useMarketplaceSectionStatus from '../hooks/useMarketplaceSectionStatus';
 
 const storeLanes = [
   {
@@ -43,8 +45,8 @@ const storeLanes = [
     subtitle: 'Đang hoạt động',
     description:
       'Khu dành cho tài khoản, file, tool hoặc các sản phẩm bạn tự nhập và tự quản lý trong kho nội bộ.',
-    href: '/cua-hang/tu-them',
-    cta: 'Vào khu tự thêm',
+    href: '/cua-hang/account',
+    cta: 'Vào khu account',
     accent:
       'border-emerald-400/20 bg-[linear-gradient(180deg,rgba(10,36,29,0.96),rgba(8,18,18,0.98))] shadow-[0_0_42px_rgba(52,211,153,0.10)]',
     iconWrap: 'border-emerald-400/25 bg-emerald-400/12 text-emerald-200',
@@ -55,6 +57,8 @@ const storeLanes = [
 ];
 
 const MarketplaceHome = () => {
+  const { getSection } = useMarketplaceSectionStatus();
+
   return (
     <div className="mx-auto max-w-[1480px] space-y-8 px-4 py-10 sm:px-6 xl:px-8">
       <section className="overflow-hidden rounded-[32px] border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.12),transparent_26%),linear-gradient(180deg,rgba(8,15,30,0.98),rgba(4,8,18,0.98))] p-6 shadow-[0_0_48px_rgba(34,211,238,0.06)] md:p-8 xl:p-10">
@@ -94,6 +98,13 @@ const MarketplaceHome = () => {
       <section className="grid gap-5 xl:grid-cols-3">
         {storeLanes.map((lane) => {
           const Icon = lane.icon;
+          const sectionKey = lane.href.endsWith('/card')
+            ? 'card'
+            : lane.href.endsWith('/account')
+              ? 'custom'
+              : 'service';
+          const status = getSection(sectionKey);
+          const isMaintenance = status.enabled === false;
 
           return (
             <article key={lane.title} className={`flex h-full flex-col rounded-[30px] border p-6 ${lane.accent}`}>
@@ -101,14 +112,20 @@ const MarketplaceHome = () => {
                 <div className={`flex h-14 w-14 items-center justify-center rounded-2xl border ${lane.iconWrap}`}>
                   <Icon className="h-6 w-6" />
                 </div>
-                <div className={`rounded-full border px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.22em] ${lane.statusWrap}`}>
-                  {lane.subtitle}
+                <div
+                  className={`rounded-full border px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.22em] ${
+                    isMaintenance ? 'border-orange-400/20 bg-orange-400/10 text-orange-200' : lane.statusWrap
+                  }`}
+                >
+                  {isMaintenance ? 'Đang bảo trì' : lane.subtitle}
                 </div>
               </div>
 
               <div className="mt-6 flex-1">
                 <h2 className="text-2xl font-black text-white">{lane.title}</h2>
-                <p className="mt-3 text-sm leading-7 text-white/65">{lane.description}</p>
+                <p className="mt-3 text-sm leading-7 text-white/65">
+                  {isMaintenance ? status.message : lane.description}
+                </p>
 
                 <div className="mt-6 space-y-3">
                   {lane.bullets.map((bullet) => (
@@ -122,13 +139,20 @@ const MarketplaceHome = () => {
                 </div>
               </div>
 
-              <Link
-                to={lane.href}
-                className="mt-8 inline-flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm font-bold text-white transition-colors hover:bg-white/10"
-              >
-                {lane.cta}
-                <ArrowRight className="h-4 w-4" />
-              </Link>
+              {isMaintenance ? (
+                <div className="mt-8 inline-flex items-center justify-between gap-3 rounded-2xl border border-orange-400/20 bg-orange-400/10 px-4 py-3 text-sm font-bold text-orange-200">
+                  Đang bảo trì
+                  <Wrench className="h-4 w-4" />
+                </div>
+              ) : (
+                <Link
+                  to={lane.href}
+                  className="mt-8 inline-flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm font-bold text-white transition-colors hover:bg-white/10"
+                >
+                  {lane.cta}
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              )}
             </article>
           );
         })}

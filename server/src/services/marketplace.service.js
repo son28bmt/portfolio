@@ -31,6 +31,7 @@ const {
   normalizeOrderInput,
   getFulfillmentProvider,
 } = require('./marketplace-fulfillment.service');
+const { assertMarketplaceSectionOpenForProduct } = require('./marketplace-section-status.service');
 
 const raise = (status, message) => {
   const error = new Error(message);
@@ -202,6 +203,8 @@ const createOrderIntent = async ({ email, productId, orderInput = {}, bankKey = 
   if (!product) {
     raise(404, 'San pham khong ton tai.');
   }
+
+  await assertMarketplaceSectionOpenForProduct(product);
 
   const sourceType = normalizeFulfillmentSource(product.sourceType);
   const provider = getFulfillmentProvider(sourceType);

@@ -71,7 +71,7 @@ const getAccountBundle = async (userId, transaction) => {
 
   const user = await User.findByPk(userId, { transaction });
   if (!user) {
-    const error = new Error('Tai khoan khong ton tai.');
+    const error = new Error('Tài khoản không tồn tại.');
     error.status = 404;
     throw error;
   }
@@ -95,19 +95,19 @@ const registerUser = async ({ username, password, email, fullName }) => {
   const cleanPassword = String(password || '');
 
   if (!cleanUsername || cleanUsername.length < 3) {
-    const error = new Error('Username phai co it nhat 3 ky tu hop le.');
+    const error = new Error('Username phải có ít nhất 3 ký tự hợp lệ.');
     error.status = 400;
     throw error;
   }
 
   if (!cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
-    const error = new Error('Email khong hop le.');
+    const error = new Error('Email không hợp lệ.');
     error.status = 400;
     throw error;
   }
 
   if (cleanPassword.length < 6) {
-    const error = new Error('Mat khau phai co it nhat 6 ky tu.');
+    const error = new Error('Mật khẩu phải có ít nhất 6 ký tự.');
     error.status = 400;
     throw error;
   }
@@ -118,7 +118,7 @@ const registerUser = async ({ username, password, email, fullName }) => {
       transaction,
     });
     if (userExists) {
-      const error = new Error('Username da ton tai.');
+      const error = new Error('Username đã tồn tại.');
       error.status = 409;
       throw error;
     }
@@ -128,7 +128,7 @@ const registerUser = async ({ username, password, email, fullName }) => {
       transaction,
     });
     if (emailExists) {
-      const error = new Error('Email da duoc su dung.');
+      const error = new Error('Email đã được sử dụng.');
       error.status = 409;
       throw error;
     }
@@ -170,7 +170,7 @@ const updateAccountMe = async (userId, payload = {}) => {
   const cleanPhone = payload.phone !== undefined ? sanitizePhone(payload.phone) : undefined;
 
   if (cleanEmail !== undefined && cleanEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
-    const error = new Error('Email khong hop le.');
+    const error = new Error('Email không hợp lệ.');
     error.status = 400;
     throw error;
   }
@@ -187,7 +187,7 @@ const updateAccountMe = async (userId, payload = {}) => {
         transaction,
       });
       if (emailExists) {
-        const error = new Error('Email da duoc su dung.');
+        const error = new Error('Email đã được sử dụng.');
         error.status = 409;
         throw error;
       }
@@ -210,28 +210,28 @@ const changeAccountPassword = async (userId, currentPassword, newPassword) => {
   const cleanNext = String(newPassword || '');
 
   if (cleanNext.length < 6) {
-    const error = new Error('Mat khau moi phai co it nhat 6 ky tu.');
+    const error = new Error('Mật khẩu mới phải có ít nhất 6 ký tự.');
     error.status = 400;
     throw error;
   }
 
   const user = await User.findByPk(userId);
   if (!user) {
-    const error = new Error('Tai khoan khong ton tai.');
+    const error = new Error('Tài khoản không tồn tại.');
     error.status = 404;
     throw error;
   }
 
   const matched = await user.comparePassword(cleanCurrent);
   if (!matched) {
-    const error = new Error('Mat khau hien tai khong dung.');
+    const error = new Error('Mật khẩu hiện tại không đúng.');
     error.status = 400;
     throw error;
   }
 
   user.password = cleanNext;
   await user.save();
-  return { message: 'Da doi mat khau thanh cong.' };
+  return { message: 'Đã đổi mật khẩu thành công.' };
 };
 
 module.exports = {

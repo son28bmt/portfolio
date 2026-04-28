@@ -12,7 +12,7 @@ const sectionLabels = Object.fromEntries(sectionOptions.map((item) => [item.valu
 
 const sectionDescriptions = {
   service: 'Danh mục dùng cho khu dịch vụ số và các sản phẩm lấy từ supplier / panel.',
-  custom: 'Danh mục dùng cho những sản phẩm bạn tự thêm và tự quản lý trong kho.',
+  custom: 'Danh mục dùng cho những sản phẩm account và tự quản lý trong kho.',
   card: 'Danh mục dành cho card, mã số, key và các sản phẩm giao ngay.',
 };
 

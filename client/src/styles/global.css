@@ -18,6 +18,21 @@ body {
   min-height: 100vh;
 }
 
+select {
+  color-scheme: dark;
+}
+
+select option,
+select optgroup {
+  background-color: #161616;
+  color: #ffffff;
+}
+
+select option:checked {
+  background-color: #2a1238;
+  color: #ffffff;
+}
+
 h1, h2, h3, h4, h5, h6 {
   @apply font-display font-bold;
 }

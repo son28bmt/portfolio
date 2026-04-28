@@ -94,12 +94,23 @@ export const AuthProvider = ({ children }) => {
     return freshAccount;
   }, [applyAuth, refreshAccount]);
 
-  const register = useCallback(async ({ username, password, email, fullName }) => {
+  const register = useCallback(async ({
+    username,
+    password,
+    email,
+    fullName,
+    turnstileToken,
+    website,
+  }) => {
     const { data } = await api.post('/auth/register', {
       username,
       password,
       email,
       fullName,
+      turnstileToken,
+      website,
+    }, {
+      headers: turnstileToken ? { 'x-turnstile-token': turnstileToken } : undefined,
     });
 
     const nextAccount = data?.account || null;
