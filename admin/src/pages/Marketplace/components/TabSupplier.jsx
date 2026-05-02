@@ -79,6 +79,7 @@ const isSupplierBalanceLow = (item) =>
 const TabSupplier = ({ setError, setNotice, refreshKey }) => {
   const [smmServices, setSmmServices] = useState([]);
   const [cardProducts, setCardProducts] = useState([]);
+  const [dbCardProducts, setDbCardProducts] = useState([]);
   const [supplierOrders, setSupplierOrders] = useState([]);
   const [smmBalanceInfo, setSmmBalanceInfo] = useState(null);
   const [cardBalanceInfo, setCardBalanceInfo] = useState(null);
@@ -86,6 +87,7 @@ const TabSupplier = ({ setError, setNotice, refreshKey }) => {
   const [queueRefreshing, setQueueRefreshing] = useState(false);
   const [syncingSmm, setSyncingSmm] = useState(false);
   const [syncingCard, setSyncingCard] = useState(false);
+  const [deletingCard, setDeletingCard] = useState(false);
   const [smmSearch, setSmmSearch] = useState('');
   const [cardSearch, setCardSearch] = useState('');
   const [queueFilter, setQueueFilter] = useState({
@@ -102,7 +104,7 @@ const TabSupplier = ({ setError, setNotice, refreshKey }) => {
     }
 
     try {
-      const [smmServicesRes, smmBalanceRes, ordersRes, cardProductsRes, cardBalanceRes] =
+      const [smmServicesRes, smmBalanceRes, ordersRes, cardProductsRes, cardBalanceRes, dbProductsRes] =
         await Promise.allSettled([
           api.get('/admin/supplier/smm-panel/services'),
           api.get('/admin/supplier/smm-panel/balance'),
@@ -117,6 +119,7 @@ const TabSupplier = ({ setError, setNotice, refreshKey }) => {
           }),
           api.get('/admin/supplier/card-partner/products'),
           api.get('/admin/supplier/card-partner/balance'),
+          api.get('/admin/products'),
         ]);
 
       if (smmServicesRes.status === 'fulfilled') {
@@ -133,6 +136,13 @@ const TabSupplier = ({ setError, setNotice, refreshKey }) => {
       }
       if (cardBalanceRes.status === 'fulfilled') {
         setCardBalanceInfo(cardBalanceRes.value.data || null);
+      }
+      if (dbProductsRes.status === 'fulfilled') {
+        const allProducts = Array.isArray(dbProductsRes.value.data) ? dbProductsRes.value.data : [];
+        setDbCardProducts(allProducts.filter(p => 
+          p.sourceType === 'supplier_api' && 
+          (p.sourceConfig?.cardProviderCode === 'card_partner' || p.sourceConfig?.supplierKind === 'digital_code')
+        ));
       }
 
       const failures = [smmServicesRes, smmBalanceRes, ordersRes, cardProductsRes, cardBalanceRes].filter(
@@ -234,6 +244,55 @@ const TabSupplier = ({ setError, setNotice, refreshKey }) => {
       setError(err?.response?.data?.message || 'Không thể đồng bộ catalog card.');
     } finally {
       setSyncingCard(false);
+    }
+  };
+
+  const deleteAllCardProducts = async () => {
+    if (!window.confirm('CẢNH BÁO: Bạn có chắc muốn XÓA TOÀN BỘ sản phẩm Card đã đồng bộ? Thao tác này không thể hoàn tác.')) return;
+
+    setDeletingCard(true);
+    setError('');
+    setNotice('');
+
+    try {
+      const { data } = await api.delete('/admin/supplier/card-partner/products');
+      setNotice(data.message || 'Đã xóa toàn bộ sản phẩm card.');
+      await fetchSupplierData({ silent: true });
+    } catch (err) {
+      setError(err?.response?.data?.message || 'Không thể xóa sản phẩm card.');
+    } finally {
+      setDeletingCard(false);
+    }
+  };
+
+  const deleteSingleProduct = async (product) => {
+    if (!window.confirm(`Xóa sản phẩm "${product.name}"?`)) return;
+
+    setError('');
+    setNotice('');
+
+    try {
+      await api.delete(`/admin/products/${product.id}`);
+      setNotice(`Đã xóa "${product.name}".`);
+      await fetchSupplierData({ silent: true });
+    } catch (err) {
+      setError(err?.response?.data?.message || 'Không thể xóa sản phẩm.');
+    }
+  };
+
+  const editProductPrice = async (product) => {
+    const nextPrice = window.prompt(`Nhập giá bán mới cho "${product.name}" (VND)`, product.price);
+    if (nextPrice === null) return;
+
+    setError('');
+    setNotice('');
+
+    try {
+      await api.put(`/admin/products/${product.id}`, { price: nextPrice });
+      setNotice(`Đã cập nhật giá cho "${product.name}".`);
+      await fetchSupplierData({ silent: true });
+    } catch (err) {
+      setError(err?.response?.data?.message || 'Không thể cập nhật giá.');
     }
   };
 
@@ -610,16 +669,26 @@ const TabSupplier = ({ setError, setNotice, refreshKey }) => {
           </section>
 
           <section className="glass space-y-4 rounded-[24px] p-6">
-            <div className="flex items-start gap-3">
-              <div className="rounded-2xl border border-fuchsia-400/20 bg-fuchsia-400/10 p-3 text-fuchsia-200">
-                <CreditCard className="h-5 w-5" />
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <div className="rounded-2xl border border-fuchsia-400/20 bg-fuchsia-400/10 p-3 text-fuchsia-200">
+                  <CreditCard className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold">Đồng bộ catalog card</h3>
+                  <p className="mt-1 text-sm text-white/45">
+                    Dùng Product List của card partner để tạo sản phẩm card trong cửa hàng.
+                  </p>
+                </div>
               </div>
-              <div>
-                <h3 className="text-lg font-bold">Đồng bộ catalog card</h3>
-                <p className="mt-1 text-sm text-white/45">
-                  Dùng Product List của card partner để tạo sản phẩm card, giftcode và mã số trong cửa hàng.
-                </p>
-              </div>
+              <button
+                type="button"
+                onClick={deleteAllCardProducts}
+                disabled={deletingCard}
+                className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-2.5 text-xs font-bold text-red-400 hover:bg-red-500 hover:text-white disabled:opacity-60"
+              >
+                Xóa toàn bộ Card
+              </button>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -674,25 +743,66 @@ const TabSupplier = ({ setError, setNotice, refreshKey }) => {
 
             <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-white/75">
               <p className="font-bold text-white">Tóm tắt catalog hiện tại</p>
-              <p className="mt-2">
+              <p className="mt-2 text-white/45">
                 {filteredCardProducts.length.toLocaleString('vi-VN')} nhóm card • {cardValueCount.toLocaleString('vi-VN')} mệnh giá
+              </p>
+              <p className="mt-1 text-xs text-white/45">
+                Đã đồng bộ {dbCardProducts.length} sản phẩm card vào hệ thống.
               </p>
             </div>
 
             <div className="space-y-3 rounded-xl border border-white/10 bg-black/10 p-3">
               {filteredCardProducts.slice(0, 20).map((item) => (
                 <div key={`${item.serviceCode}-${item.slug || item.name}`} className="rounded-xl border border-white/10 bg-white/5 px-4 py-3">
-                  <p className="font-medium text-white">{item.name}</p>
-                  <p className="mt-1 text-xs text-white/45">{item.serviceCode || 'Chưa có serviceCode'}</p>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {item.values.slice(0, 12).map((subItem) => (
-                      <span
-                        key={`${item.serviceCode}-${subItem.value}-${subItem.id || 'v'}`}
-                        className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/70"
-                      >
-                        {Number(subItem.value).toLocaleString('vi-VN')}đ
-                      </span>
-                    ))}
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1">
+                      <p className="font-medium text-white">{item.name}</p>
+                      <p className="mt-1 text-xs text-white/45">{item.serviceCode || 'Chưa có serviceCode'}</p>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {item.values.slice(0, 12).map((subItem) => {
+                          const dbProduct = dbCardProducts.find(p => 
+                            String(p.sourceConfig?.serviceCode || '').toLowerCase() === String(item.serviceCode || '').toLowerCase() &&
+                            Number(p.sourceConfig?.cardValue || 0) === Number(subItem.value)
+                          );
+
+                          return (
+                            <div key={`${item.serviceCode}-${subItem.value}-${subItem.id || 'v'}`} className="group relative">
+                              <span
+                                className={`inline-block rounded-full border px-3 py-1 text-xs transition-colors ${
+                                  dbProduct 
+                                    ? 'border-green-500/40 bg-green-500/10 text-green-300' 
+                                    : 'border-white/10 bg-white/5 text-white/70'
+                                }`}
+                              >
+                                {Number(subItem.value).toLocaleString('vi-VN')}đ
+                              </span>
+                              
+                              {dbProduct && (
+                                <div className="absolute bottom-full left-1/2 mb-2 hidden w-32 -translate-x-1/2 rounded-lg border border-white/10 bg-slate-900 p-2 shadow-xl group-hover:block z-10">
+                                  <p className="mb-2 text-[10px] font-bold text-white/60">Quản lý sản phẩm</p>
+                                  <div className="flex flex-col gap-1">
+                                    <button
+                                      type="button"
+                                      onClick={() => editProductPrice(dbProduct)}
+                                      className="w-full rounded bg-white/5 py-1 text-[10px] text-white hover:bg-white/10"
+                                    >
+                                      Sửa giá
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => deleteSingleProduct(dbProduct)}
+                                      className="w-full rounded bg-red-500/20 py-1 text-[10px] text-red-300 hover:bg-red-500 hover:text-white"
+                                    >
+                                      Xóa
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
                   </div>
                 </div>
               ))}

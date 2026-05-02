@@ -665,6 +665,43 @@ const adminDeleteOrder = async (req, res) => {
   }
 };
 
+const adminDeleteAllCardProducts = async (req, res) => {
+  try {
+    const { sequelize } = require('../config/db');
+    const { Op } = require('sequelize');
+    
+    // In Sequelize, querying JSON fields with { sourceConfig: { ... } } might not work 
+    // depending on the dialect and config. Using Op.and or literal might be safer.
+    // For now, let's find all and filter if needed, or use a more specific query.
+    
+    const products = await Product.findAll({
+      where: {
+        sourceType: 'supplier_api'
+      }
+    });
+
+    const cardProducts = products.filter(p => 
+      p.sourceConfig && 
+      (p.sourceConfig.cardProviderCode === 'card_partner' || p.sourceConfig.supplierKind === 'digital_code')
+    );
+
+    const ids = cardProducts.map(p => p.id);
+    if (ids.length === 0) {
+      return res.json({ message: 'Không có sản phẩm card nào để xóa.', count: 0 });
+    }
+
+    await Product.destroy({
+      where: {
+        id: { [Op.in]: ids }
+      }
+    });
+
+    return res.json({ message: `Đã xóa ${ids.length} sản phẩm card.`, count: ids.length });
+  } catch (error) {
+    return handleError(res, error);
+  }
+};
+
 module.exports = {
   publicGetProducts,
   publicGetPaymentAccounts,
@@ -702,4 +739,6 @@ module.exports = {
   adminSyncSmmServices,
   adminSyncCardProducts,
   adminBatchRefreshSupplierOrders,
+  adminDeleteAllCardProducts,
 };
+
