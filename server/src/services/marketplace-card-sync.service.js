@@ -55,8 +55,18 @@ const getExistingCardMap = async () => {
 
   const map = new Map();
   products.forEach((product) => {
-    const config = product?.sourceConfig || {};
+    let config = product?.sourceConfig;
+    if (typeof config === 'string') {
+      try {
+        config = JSON.parse(config);
+      } catch (e) {
+        config = {};
+      }
+    }
+    config = config || {};
+
     if (String(config?.supplierKind || '').toLowerCase() !== SUPPLIER_KINDS.DIGITAL_CODE) return;
+    
     const key = `${sanitizeText(config.serviceCode, 80).toLowerCase()}:${Number(config.cardValue || 0)}`;
     if (key !== ':0') {
       map.set(key, product);
