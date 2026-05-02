@@ -667,36 +667,46 @@ const adminDeleteOrder = async (req, res) => {
 
 const adminDeleteAllCardProducts = async (req, res) => {
   try {
-    const { sequelize } = require('../config/db');
     const { Op } = require('sequelize');
     
-    // In Sequelize, querying JSON fields with { sourceConfig: { ... } } might not work 
-    // depending on the dialect and config. Using Op.and or literal might be safer.
-    // For now, let's find all and filter if needed, or use a more specific query.
-    
+    // Fetch all products that MIGHT be cards
     const products = await Product.findAll({
       where: {
         sourceType: 'supplier_api'
       }
     });
 
-    const cardProducts = products.filter(p => 
-      p.sourceConfig && 
-      (p.sourceConfig.cardProviderCode === 'card_partner' || p.sourceConfig.supplierKind === 'digital_code')
-    );
+    const cardProducts = products.filter(p => {
+      try {
+        const config = typeof p.sourceConfig === 'string' ? JSON.parse(p.sourceConfig) : (p.sourceConfig || {});
+        const provider = String(config.cardProviderCode || config.providerCode || '').toLowerCase();
+        const kind = String(config.supplierKind || '').toLowerCase();
+        
+        // Match card_partner provider or digital_code kind
+        return provider === 'card_partner' || kind === 'digital_code';
+      } catch (e) {
+        return false;
+      }
+    });
 
     const ids = cardProducts.map(p => p.id);
     if (ids.length === 0) {
-      return res.json({ message: 'Không có sản phẩm card nào để xóa.', count: 0 });
+      return res.json({ 
+        message: 'Không tìm thấy sản phẩm card nào đã đồng bộ để xóa.', 
+        count: 0 
+      });
     }
 
-    await Product.destroy({
+    const deletedCount = await Product.destroy({
       where: {
         id: { [Op.in]: ids }
       }
     });
 
-    return res.json({ message: `Đã xóa ${ids.length} sản phẩm card.`, count: ids.length });
+    return res.json({ 
+      message: `Đã xóa thành công ${deletedCount} sản phẩm card khỏi hệ thống.`, 
+      count: deletedCount 
+    });
   } catch (error) {
     return handleError(res, error);
   }

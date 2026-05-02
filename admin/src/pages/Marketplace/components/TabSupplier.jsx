@@ -139,10 +139,11 @@ const TabSupplier = ({ setError, setNotice, refreshKey }) => {
       }
       if (dbProductsRes.status === 'fulfilled') {
         const allProducts = Array.isArray(dbProductsRes.value.data) ? dbProductsRes.value.data : [];
-        setDbCardProducts(allProducts.filter(p => 
-          p.sourceType === 'supplier_api' && 
-          (p.sourceConfig?.cardProviderCode === 'card_partner' || p.sourceConfig?.supplierKind === 'digital_code')
-        ));
+        setDbCardProducts(allProducts.filter(p => {
+          if (p.sourceType !== 'supplier_api') return false;
+          const config = typeof p.sourceConfig === 'string' ? JSON.parse(p.sourceConfig) : (p.sourceConfig || {});
+          return config.cardProviderCode === 'card_partner' || config.supplierKind === 'digital_code';
+        }));
       }
 
       const failures = [smmServicesRes, smmBalanceRes, ordersRes, cardProductsRes, cardBalanceRes].filter(
@@ -760,10 +761,15 @@ const TabSupplier = ({ setError, setNotice, refreshKey }) => {
                       <p className="mt-1 text-xs text-white/45">{item.serviceCode || 'Chưa có serviceCode'}</p>
                       <div className="mt-3 flex flex-wrap gap-2">
                         {item.values.slice(0, 12).map((subItem) => {
-                          const dbProduct = dbCardProducts.find(p => 
-                            String(p.sourceConfig?.serviceCode || '').toLowerCase() === String(item.serviceCode || '').toLowerCase() &&
-                            Number(p.sourceConfig?.cardValue || 0) === Number(subItem.value)
-                          );
+                          const dbProduct = dbCardProducts.find(p => {
+                            try {
+                              const config = typeof p.sourceConfig === 'string' ? JSON.parse(p.sourceConfig) : (p.sourceConfig || {});
+                              return String(config.serviceCode || '').toLowerCase() === String(item.serviceCode || '').toLowerCase() &&
+                                     Number(config.cardValue || 0) === Number(subItem.value || 0);
+                            } catch (e) {
+                              return false;
+                            }
+                          });
 
                           return (
                             <div key={`${item.serviceCode}-${subItem.value}-${subItem.id || 'v'}`} className="group relative">
