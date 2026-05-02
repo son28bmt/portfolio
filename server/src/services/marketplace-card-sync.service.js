@@ -57,7 +57,7 @@ const getExistingCardMap = async () => {
   products.forEach((product) => {
     const config = product?.sourceConfig || {};
     if (String(config?.supplierKind || '').toLowerCase() !== SUPPLIER_KINDS.DIGITAL_CODE) return;
-    const key = `${sanitizeText(config.serviceCode, 80)}:${Number(config.cardValue || 0)}`;
+    const key = `${sanitizeText(config.serviceCode, 80).toLowerCase()}:${Number(config.cardValue || 0)}`;
     if (key !== ':0') {
       map.set(key, product);
     }
@@ -82,7 +82,7 @@ const syncCardCatalogToMarketplace = async (input = {}) => {
     const category = await ensureCategory(providerProduct.name, categoryMap);
 
     for (const valueItem of providerProduct.cardvalue) {
-      const key = `${sanitizeText(valueItem.serviceCode, 80)}:${Number(valueItem.value || 0)}`;
+      const key = `${sanitizeText(valueItem.serviceCode, 80).toLowerCase()}:${Number(valueItem.value || 0)}`;
       const existingProduct = existingMap.get(key) || null;
 
       const payload = {
