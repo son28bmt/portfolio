@@ -69,6 +69,10 @@ const syncCardCatalogToMarketplace = async (input = {}) => {
   await ensureMarketplaceSchema();
 
   const options = normalizeSyncOptions(input);
+  const targetServiceCodes = Array.isArray(input.targetServiceCodes) 
+    ? input.targetServiceCodes.map(c => String(c || '').trim().toLowerCase()) 
+    : null;
+
   const cardProducts = await listCardProducts();
   const categoryMap = await getCategoryMap();
   const existingMap = await getExistingCardMap();
@@ -79,6 +83,13 @@ const syncCardCatalogToMarketplace = async (input = {}) => {
   const items = [];
 
   for (const providerProduct of cardProducts) {
+    const serviceCodeLower = String(providerProduct.serviceCode || '').trim().toLowerCase();
+    
+    // If targetServiceCodes is provided, filter out groups that don't match
+    if (targetServiceCodes && !targetServiceCodes.includes(serviceCodeLower)) {
+      continue;
+    }
+
     const category = await ensureCategory(providerProduct.name, categoryMap);
 
     for (const valueItem of providerProduct.cardvalue) {

@@ -224,21 +224,29 @@ const TabSupplier = ({ setError, setNotice, refreshKey }) => {
     }
   };
 
-  const syncCardCatalog = async () => {
+  const [categoryMarkups, setCategoryMarkups] = useState({});
+
+  const syncCardCatalog = async (targetServiceCode = null) => {
     setSyncingCard(true);
     setError('');
     setNotice('');
 
     try {
+      const markupPercent = targetServiceCode && categoryMarkups[targetServiceCode] !== undefined 
+        ? Number(categoryMarkups[targetServiceCode]) 
+        : Number(cardSyncForm.markupPercent || 0);
+
       const { data } = await api.post('/admin/supplier/card-partner/sync-products', {
         rateMultiplier: Number(cardSyncForm.rateMultiplier || 1),
-        markupPercent: Number(cardSyncForm.markupPercent || 0),
+        markupPercent,
         markupFixed: Number(cardSyncForm.markupFixed || 0),
         updateExisting: cardSyncForm.updateExisting,
+        targetServiceCodes: targetServiceCode ? [targetServiceCode] : null
       });
 
+      const label = targetServiceCode ? `nhóm ${targetServiceCode}` : 'toàn bộ catalog card';
       setNotice(
-        `Đã đồng bộ catalog card: tạo ${data.created || 0}, cập nhật ${data.updated || 0}, bỏ qua ${data.skipped || 0}.`,
+        `Đã đồng bộ ${label}: tạo ${data.created || 0}, cập nhật ${data.updated || 0}, bỏ qua ${data.skipped || 0}.`,
       );
       await fetchSupplierData({ silent: true });
     } catch (err) {
@@ -752,62 +760,86 @@ const TabSupplier = ({ setError, setNotice, refreshKey }) => {
               </p>
             </div>
 
-            <div className="space-y-3 rounded-xl border border-white/10 bg-black/10 p-3">
-              {filteredCardProducts.slice(0, 20).map((item) => (
-                <div key={`${item.serviceCode}-${item.slug || item.name}`} className="rounded-xl border border-white/10 bg-white/5 px-4 py-3">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1">
-                      <p className="font-medium text-white">{item.name}</p>
-                      <p className="mt-1 text-xs text-white/45">{item.serviceCode || 'Chưa có serviceCode'}</p>
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        {item.values.slice(0, 12).map((subItem) => {
-                          const dbProduct = dbCardProducts.find(p => {
-                            try {
-                              const config = typeof p.sourceConfig === 'string' ? JSON.parse(p.sourceConfig) : (p.sourceConfig || {});
-                              return String(config.serviceCode || '').toLowerCase() === String(item.serviceCode || '').toLowerCase() &&
-                                     Number(config.cardValue || 0) === Number(subItem.value || 0);
-                            } catch (e) {
-                              return false;
-                            }
-                          });
-
-                          return (
-                            <div key={`${item.serviceCode}-${subItem.value}-${subItem.id || 'v'}`} className="group relative">
-                              <span
-                                className={`inline-block rounded-full border px-3 py-1 text-xs transition-colors ${
-                                  dbProduct 
-                                    ? 'border-green-500/40 bg-green-500/10 text-green-300' 
-                                    : 'border-white/10 bg-white/5 text-white/70'
-                                }`}
-                              >
-                                {Number(subItem.value).toLocaleString('vi-VN')}đ
-                              </span>
-                              
-                              {dbProduct && (
-                                <div className="absolute bottom-full left-1/2 mb-2 hidden w-32 -translate-x-1/2 rounded-lg border border-white/10 bg-slate-900 p-2 shadow-xl group-hover:block z-10">
-                                  <p className="mb-2 text-[10px] font-bold text-white/60">Quản lý sản phẩm</p>
-                                  <div className="flex flex-col gap-1">
-                                    <button
-                                      type="button"
-                                      onClick={() => editProductPrice(dbProduct)}
-                                      className="w-full rounded bg-white/5 py-1 text-[10px] text-white hover:bg-white/10"
-                                    >
-                                      Sửa giá
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => deleteSingleProduct(dbProduct)}
-                                      className="w-full rounded bg-red-500/20 py-1 text-[10px] text-red-300 hover:bg-red-500 hover:text-white"
-                                    >
-                                      Xóa
-                                    </button>
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
+            <div className="space-y-4 rounded-xl border border-white/10 bg-black/10 p-3">
+              {filteredCardProducts.slice(0, 30).map((item) => (
+                <div key={`${item.serviceCode}-${item.slug || item.name}`} className="rounded-xl border border-white/10 bg-white/5 p-4">
+                  <div className="flex flex-col gap-4">
+                    <div className="flex items-center justify-between border-b border-white/5 pb-3">
+                      <div>
+                        <p className="font-bold text-white">{item.name}</p>
+                        <p className="mt-1 text-[10px] uppercase tracking-wider text-white/30">{item.serviceCode || 'Chưa có serviceCode'}</p>
                       </div>
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 transition-focus-within focus-within:border-fuchsia-500/50">
+                          <span className="text-[10px] font-bold uppercase text-white/40">Lợi nhuận</span>
+                          <input
+                            type="number"
+                            value={categoryMarkups[item.serviceCode] ?? cardSyncForm.markupPercent}
+                            onChange={(e) => setCategoryMarkups(prev => ({ ...prev, [item.serviceCode]: e.target.value }))}
+                            className="w-10 bg-transparent text-center text-xs font-bold text-fuchsia-400 focus:outline-none"
+                            placeholder="0"
+                          />
+                          <span className="text-[10px] font-bold text-white/40">%</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => syncCardCatalog(item.serviceCode)}
+                          disabled={syncingCard}
+                          className="rounded-xl bg-fuchsia-500/10 px-4 py-2 text-[10px] font-bold text-fuchsia-300 transition-colors hover:bg-fuchsia-500 hover:text-white disabled:opacity-60"
+                        >
+                          Đồng bộ nhóm này
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2">
+                      {item.values.map((subItem) => {
+                        const dbProduct = dbCardProducts.find(p => {
+                          try {
+                            const config = typeof p.sourceConfig === 'string' ? JSON.parse(p.sourceConfig) : (p.sourceConfig || {});
+                            return String(config.serviceCode || '').toLowerCase() === String(item.serviceCode || '').toLowerCase() &&
+                                   Number(config.cardValue || 0) === Number(subItem.value || 0);
+                          } catch (e) {
+                            return false;
+                          }
+                        });
+
+                        return (
+                          <div key={`${item.serviceCode}-${subItem.value}-${subItem.id || 'v'}`} className="group relative">
+                            <span
+                              className={`inline-block rounded-full border px-3 py-1 text-xs transition-colors ${
+                                dbProduct 
+                                  ? 'border-green-500/40 bg-green-500/10 text-green-300' 
+                                  : 'border-white/10 bg-white/5 text-white/70'
+                              }`}
+                            >
+                              {Number(subItem.value).toLocaleString('vi-VN')}đ
+                            </span>
+                            
+                            {dbProduct && (
+                              <div className="absolute bottom-full left-1/2 mb-2 hidden w-32 -translate-x-1/2 rounded-lg border border-white/10 bg-slate-900 p-2 shadow-xl group-hover:block z-20">
+                                <p className="mb-2 text-[10px] font-bold text-white/60">Quản lý sản phẩm</p>
+                                <div className="flex flex-col gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => editProductPrice(dbProduct)}
+                                    className="w-full rounded bg-white/5 py-1 text-[10px] text-white hover:bg-white/10"
+                                  >
+                                    Sửa giá
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => deleteSingleProduct(dbProduct)}
+                                    className="w-full rounded bg-red-500/20 py-1 text-[10px] text-red-300 hover:bg-red-500 hover:text-white"
+                                  >
+                                    Xóa
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 </div>
