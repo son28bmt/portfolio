@@ -25,7 +25,8 @@ const normalizeSyncOptions = (input = {}) => ({
 
 const computeLocalPrice = (value, options) => {
   const cost = Math.max(0, Number(value || 0)) * options.rateMultiplier;
-  const withPercent = cost * (1 + options.markupPercent / 100);
+  // Apply as discount: price = cost * (1 - percent / 100)
+  const withPercent = cost * (1 - options.markupPercent / 100);
   return Math.max(0, Math.round(withPercent + options.markupFixed));
 };
 

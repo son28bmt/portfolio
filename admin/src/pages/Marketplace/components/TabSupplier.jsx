@@ -714,7 +714,7 @@ const TabSupplier = ({ setError, setNotice, refreshKey }) => {
                 step="0.01"
                 value={cardSyncForm.markupPercent}
                 onChange={(e) => setCardSyncForm((prev) => ({ ...prev, markupPercent: e.target.value }))}
-                placeholder="Cộng lời theo %"
+                placeholder="Chiết khấu % (giảm giá)"
                 className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm outline-none focus:border-primary"
               />
               <input
@@ -771,7 +771,7 @@ const TabSupplier = ({ setError, setNotice, refreshKey }) => {
                       </div>
                       <div className="flex items-center gap-3">
                         <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 transition-focus-within focus-within:border-fuchsia-500/50">
-                          <span className="text-[10px] font-bold uppercase text-white/40">Lợi nhuận</span>
+                          <span className="text-[10px] font-bold uppercase text-white/40">Chiết khấu</span>
                           <input
                             type="number"
                             value={categoryMarkups[item.serviceCode] ?? cardSyncForm.markupPercent}
