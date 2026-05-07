@@ -20,6 +20,11 @@ import useMarketplaceSectionStatus from '../hooks/useMarketplaceSectionStatus';
 import MarketplaceMaintenance from '../components/common/MarketplaceMaintenance';
 
 const PLATFORM_RULES = [
+  { key: 'viettel', label: 'Viettel', keywords: ['viettel'] },
+  { key: 'mobifone', label: 'Mobifone', keywords: ['mobifone', 'mobi'] },
+  { key: 'vinaphone', label: 'Vinaphone', keywords: ['vinaphone', 'vina'] },
+  { key: 'garena', label: 'Garena', keywords: ['garena'] },
+  { key: 'zing', label: 'Zing', keywords: ['zing'] },
   { key: 'facebook', label: 'Facebook', keywords: ['facebook', 'fb '] },
   { key: 'instagram', label: 'Instagram', keywords: ['instagram', 'insta'] },
   { key: 'tiktok', label: 'TikTok', keywords: ['tiktok', 'tik tok'] },
@@ -94,6 +99,12 @@ const getPlatformAccent = (platformKey) =>
         'border-fuchsia-400/25 bg-fuchsia-500/10 text-fuchsia-200 shadow-[0_0_24px_rgba(217,70,239,0.12)]',
       tiktok: 'border-cyan-400/25 bg-cyan-500/10 text-cyan-200 shadow-[0_0_24px_rgba(34,211,238,0.12)]',
       youtube: 'border-red-400/25 bg-red-500/10 text-red-200 shadow-[0_0_24px_rgba(248,113,113,0.12)]',
+      viettel: 'border-red-500/25 bg-red-600/10 text-red-200 shadow-[0_0_24px_rgba(220,38,38,0.12)]',
+      mobifone: 'border-blue-500/25 bg-blue-600/10 text-blue-200 shadow-[0_0_24px_rgba(37,99,235,0.12)]',
+      vinaphone:
+        'border-blue-400/25 bg-blue-500/10 text-blue-200 shadow-[0_0_24px_rgba(59,130,246,0.12)]',
+      garena: 'border-red-600/25 bg-red-700/10 text-red-200 shadow-[0_0_24px_rgba(185,28,28,0.12)]',
+      zing: 'border-purple-500/25 bg-purple-600/10 text-purple-200 shadow-[0_0_24px_rgba(147,51,234,0.12)]',
       telegram:
         'border-sky-300/25 bg-sky-400/10 text-sky-100 shadow-[0_0_24px_rgba(125,211,252,0.12)]',
       threads:
@@ -155,7 +166,7 @@ const Marketplace = ({
 }) => {
   const { isAuthenticated, account, refreshAccount } = useAuth();
   const { getSection, loading: sectionStatusLoading } = useMarketplaceSectionStatus();
-  const sectionKey = catalogMode === 'local' ? 'custom' : 'service';
+  const sectionKey = catalogMode === 'local' ? 'custom' : catalogMode === 'topup' ? 'topup' : 'service';
   const sectionStatus = getSection(sectionKey);
   const isSectionMaintenance = sectionStatus.enabled === false;
 
@@ -265,7 +276,17 @@ const Marketplace = ({
 
   const catalogProducts = useMemo(() => {
     if (catalogMode === 'supplier') {
-      return products.filter((item) => item?.sourceType === 'supplier_api');
+      return products.filter((item) => {
+        const config = normalizeSourceConfig(item?.sourceConfig);
+        return item?.sourceType === 'supplier_api' && config.supplierKind !== 'topup';
+      });
+    }
+
+    if (catalogMode === 'topup') {
+      return products.filter((item) => {
+        const config = normalizeSourceConfig(item?.sourceConfig);
+        return item?.sourceType === 'supplier_api' && config.supplierKind === 'topup';
+      });
     }
 
     if (catalogMode === 'local') {
@@ -1047,21 +1068,25 @@ const Marketplace = ({
                 </div>
               </div>
 
+              <div>
+                <label className="text-xs font-bold uppercase tracking-wider text-white/50">
+                  {selectedSourceConfig.supplierKind === 'topup'
+                    ? 'Số điện thoại / Tài khoản'
+                    : selectedSourceConfig.targetLabel || 'Link mục tiêu'}
+                </label>
+                <input
+                  value={targetLink}
+                  onChange={(e) => setTargetLink(e.target.value)}
+                  placeholder={
+                    selectedSourceConfig.supplierKind === 'topup' ? '0912345678' : 'https://...'
+                  }
+                  className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm focus:border-primary focus:outline-none"
+                  required={selectedSourceConfig.requiresTargetLink !== false}
+                />
+              </div>
+
               {isSupplierPanel && (
                 <>
-                  <div>
-                    <label className="text-xs font-bold uppercase tracking-wider text-white/50">
-                      {selectedSourceConfig.targetLabel || 'Link mục tiêu'}
-                    </label>
-                    <input
-                      value={targetLink}
-                      onChange={(e) => setTargetLink(e.target.value)}
-                      placeholder="https://..."
-                      className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm focus:border-primary focus:outline-none"
-                      required={selectedSourceConfig.requiresTargetLink !== false}
-                    />
-                  </div>
-
                   <div>
                     <label className="text-xs font-bold uppercase tracking-wider text-white/50">
                       Số lượng

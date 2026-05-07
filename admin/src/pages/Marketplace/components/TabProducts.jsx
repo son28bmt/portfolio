@@ -43,11 +43,13 @@ const sourceTypeLabels = {
 };
 
 const supplierKindLabels = {
+  topup: 'Topup',
   smm_panel: 'Panel SMM',
   digital_code: 'Card / mã số',
 };
 
 const sectionLabels = {
+  topup: 'Topup',
   service: 'Dịch vụ số',
   custom: 'Sản phẩm account',
   card: 'Card và mã số',

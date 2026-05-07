@@ -6,6 +6,7 @@ const SETTING_KEY = 'marketplace_section_status';
 const SECTION_KEYS = Object.freeze({
   SERVICE: 'service',
   CARD: 'card',
+  TOPUP: 'topup',
   CUSTOM: 'custom',
 });
 
@@ -17,6 +18,10 @@ const DEFAULT_SECTION_STATUS = Object.freeze({
   [SECTION_KEYS.CARD]: {
     enabled: true,
     message: 'Khu card và mã số đang bảo trì. Vui lòng quay lại sau.',
+  },
+  [SECTION_KEYS.TOPUP]: {
+    enabled: true,
+    message: 'Khu topup dang bao tri. Vui long quay lai sau.',
   },
   [SECTION_KEYS.CUSTOM]: {
     enabled: true,
@@ -81,6 +86,10 @@ const resolveSectionKeyForProduct = (product) => {
 
   if (sourceType === 'supplier_api' && supplierKind === 'digital_code') {
     return SECTION_KEYS.CARD;
+  }
+
+  if (sourceType === 'supplier_api' && supplierKind === 'topup') {
+    return SECTION_KEYS.TOPUP;
   }
 
   if (sourceType === 'supplier_api') {

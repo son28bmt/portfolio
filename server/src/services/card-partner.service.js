@@ -11,12 +11,23 @@ const toInt = (value, fallback = 0) => {
 
 const md5 = (value) => crypto.createHash('md5').update(String(value || ''), 'utf8').digest('hex');
 
-const getCardPartnerConfig = () => {
-  const baseUrl = normalizeUrl(process.env.CARD_PROVIDER_BASE_URL);
-  const partnerId = sanitizeText(process.env.CARD_PROVIDER_PARTNER_ID, 80);
-  const partnerKey = sanitizeText(process.env.CARD_PROVIDER_PARTNER_KEY, 255);
-  const walletNumber = sanitizeText(process.env.CARD_PROVIDER_WALLET_NUMBER, 120);
+const getCardPartnerConfig = (kind = 'card') => {
+  let baseUrl = normalizeUrl(process.env.CARD_PROVIDER_BASE_URL);
   const timeoutMs = Math.max(3000, Number(process.env.CARD_PROVIDER_TIMEOUT_MS) || 15000);
+  const walletNumber = sanitizeText(process.env.CARD_PROVIDER_WALLET_NUMBER, 120);
+
+  let partnerId = sanitizeText(process.env.CARD_PROVIDER_PARTNER_ID, 80);
+  let partnerKey = sanitizeText(process.env.CARD_PROVIDER_PARTNER_KEY, 255);
+
+  if (kind === 'topup') {
+    const topupUrl = normalizeUrl(process.env.TOPUP_PROVIDER_BASE_URL);
+    if (topupUrl) baseUrl = topupUrl;
+
+    const topupId = sanitizeText(process.env.TOPUP_PROVIDER_PARTNER_ID, 80);
+    const topupKey = sanitizeText(process.env.TOPUP_PROVIDER_PARTNER_KEY, 255);
+    if (topupId) partnerId = topupId;
+    if (topupKey) partnerKey = topupKey;
+  }
 
   return {
     baseUrl,
@@ -27,14 +38,12 @@ const getCardPartnerConfig = () => {
   };
 };
 
-const assertCardPartnerConfigured = () => {
-  const config = getCardPartnerConfig();
-  if (!config.baseUrl || !config.partnerId || !config.partnerKey || !config.walletNumber) {
-    const error = new Error(
-      'Thieu cau hinh CARD_PROVIDER_BASE_URL, CARD_PROVIDER_PARTNER_ID, CARD_PROVIDER_PARTNER_KEY hoac CARD_PROVIDER_WALLET_NUMBER.',
-    );
-    error.status = 500;
-    throw error;
+const assertCardPartnerConfigured = (kind = 'card') => {
+  const config = getCardPartnerConfig(kind);
+  if (!config.baseUrl || !config.partnerId || !config.partnerKey) {
+    const nextError = new Error(`Card partner provider (${kind}) is not fully configured in environment variables.`);
+    nextError.status = 500;
+    throw nextError;
   }
   return config;
 };
@@ -51,8 +60,9 @@ const buildParams = (payload = {}) => {
   return params;
 };
 
-const callCardPartner = async ({ command, requestId = '', payload = {}, method = 'post', path = '' }) => {
-  const config = assertCardPartnerConfigured();
+const callCardPartner = async ({ command, requestId = '', payload = {}, method = 'post', path = '', useJson = false, kind = 'card' }) => {
+  const config = assertCardPartnerConfigured(kind);
+  
   const sign = buildSign({
     partnerKey: config.partnerKey,
     partnerId: config.partnerId,
@@ -70,8 +80,9 @@ const callCardPartner = async ({ command, requestId = '', payload = {}, method =
     basePayload.request_id = requestId;
   }
 
+  const url = `${config.baseUrl}${path}`;
+
   if (method === 'get') {
-    const url = `${config.baseUrl}${path}`;
     const { data } = await axios.get(url, {
       timeout: config.timeoutMs,
       params: {
@@ -81,20 +92,30 @@ const callCardPartner = async ({ command, requestId = '', payload = {}, method =
     return data;
   }
 
-  const body = buildParams({
-    ...basePayload,
-    sign,
-  });
+  const body = useJson 
+    ? { ...basePayload, sign }
+    : buildParams({ ...basePayload, sign });
 
   try {
-    const { data } = await axios.post(`${config.baseUrl}${path}`, body.toString(), {
+    const { data } = await axios.post(url, useJson ? body : body.toString(), {
       timeout: config.timeoutMs,
       headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
+        'Content-Type': useJson ? 'application/json' : 'application/x-www-form-urlencoded',
       },
     });
+    
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(`[CARD PARTNER DEBUG] (${kind}) URL: ${url}`);
+      console.log(`[CARD PARTNER DEBUG] (${kind}) Response:`, JSON.stringify(data).slice(0, 500));
+    }
+    
     return data;
   } catch (error) {
+    if (process.env.NODE_ENV !== 'production') {
+      console.error(`[CARD PARTNER ERROR] (${kind}) URL: ${url}`);
+      console.error(`[CARD PARTNER ERROR] (${kind}) Status: ${error?.response?.status}`);
+      console.error(`[CARD PARTNER ERROR] (${kind}) Data:`, JSON.stringify(error?.response?.data));
+    }
     const nextError = new Error(
       error?.response?.data?.message ||
         error?.response?.data?.error ||
@@ -104,6 +125,32 @@ const callCardPartner = async ({ command, requestId = '', payload = {}, method =
     nextError.status = error?.response?.status || 502;
     throw nextError;
   }
+};
+
+const topup = async ({ requestId, serviceCode, amount, phone, qty = 1 }) => {
+  const data = await callCardPartner({
+    kind: 'topup',
+    command: 'topup',
+    requestId,
+    path: '',
+    useJson: true,
+    payload: {
+      service_code: serviceCode,
+      amount: String(amount),
+      qty: String(qty),
+      account_info: {
+        phone: phone,
+      },
+    },
+  });
+
+  return {
+    status: data?.status,
+    message: data?.message || data?.error,
+    orderCode: data?.data?.order_code,
+    requestId: data?.data?.request_id || requestId,
+    raw: data,
+  };
 };
 
 const normalizeCardValueItem = (item, parent = {}) => ({
@@ -137,6 +184,7 @@ const normalizeCardRecord = (item) => ({
 
 const listCardProducts = async () => {
   const data = await callCardPartner({
+    kind: 'card',
     command: 'productlist',
     method: 'get',
     path: '/products',
@@ -144,9 +192,23 @@ const listCardProducts = async () => {
   return Array.isArray(data) ? data.map(normalizeCardProduct) : [];
 };
 
+const listTopupProducts = async () => {
+  const response = await callCardPartner({
+    kind: 'topup',
+    command: 'productlist',
+    path: '',
+    useJson: true,
+    payload: {},
+  });
+
+  const data = Array.isArray(response) ? response : (response?.data || []);
+  return Array.isArray(data) ? data.map(normalizeCardProduct) : [];
+};
+
 const getCardBalance = async () => {
-  const config = assertCardPartnerConfigured();
+  const config = assertCardPartnerConfigured('card');
   const data = await callCardPartner({
+    kind: 'card',
     command: 'getbalance',
     payload: {
       wallet_number: config.walletNumber,
@@ -160,8 +222,28 @@ const getCardBalance = async () => {
   };
 };
 
+const getTopupBalance = async () => {
+  const config = assertCardPartnerConfigured('topup');
+  const data = await callCardPartner({
+    kind: 'topup',
+    command: 'getbalance',
+    path: '',
+    useJson: true,
+    payload: {
+      wallet_number: config.walletNumber,
+    },
+  });
+
+  return {
+    balance: toInt(data?.data?.balance),
+    currency: sanitizeText(data?.data?.currency_code || data?.data?.currency, 20) || 'VND',
+    raw: data,
+  };
+};
+
 const checkCardAvailable = async ({ serviceCode, value, qty = 1 }) => {
   const data = await callCardPartner({
+    kind: 'card',
     command: 'checkavailable',
     payload: {
       service_code: serviceCode,
@@ -178,8 +260,9 @@ const checkCardAvailable = async ({ serviceCode, value, qty = 1 }) => {
 };
 
 const buyCard = async ({ requestId, serviceCode, value, qty = 1 }) => {
-  const config = assertCardPartnerConfigured();
+  const config = assertCardPartnerConfigured('card');
   const data = await callCardPartner({
+    kind: 'card',
     command: 'buycard',
     requestId,
     payload: {
@@ -202,6 +285,7 @@ const buyCard = async ({ requestId, serviceCode, value, qty = 1 }) => {
 
 const redownloadCard = async ({ requestId, orderCode }) => {
   const data = await callCardPartner({
+    kind: 'card',
     command: 'redownload',
     requestId,
     payload: {
@@ -223,8 +307,11 @@ module.exports = {
   getCardPartnerConfig,
   assertCardPartnerConfigured,
   listCardProducts,
+  listTopupProducts,
   getCardBalance,
+  getTopupBalance,
   checkCardAvailable,
   buyCard,
   redownloadCard,
+  topup,
 };

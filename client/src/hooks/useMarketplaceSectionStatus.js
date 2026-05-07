@@ -10,6 +10,10 @@ const defaultSections = {
     enabled: true,
     message: 'Khu card và mã số đang bảo trì. Vui lòng quay lại sau.',
   },
+  topup: {
+    enabled: true,
+    message: 'Khu topup dang bao tri. Vui long quay lai sau.',
+  },
   custom: {
     enabled: true,
     message: 'Khu Account & key đang bảo trì. Vui lòng quay lại sau.',

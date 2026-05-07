@@ -20,6 +20,7 @@ const FULFILLMENT_SOURCES = {
 const SUPPLIER_KINDS = {
   SMM_PANEL: 'smm_panel',
   DIGITAL_CODE: 'digital_code',
+  TOPUP: 'topup',
 };
 
 const SMM_PRICING_MODELS = {
@@ -93,6 +94,7 @@ const normalizeFulfillmentSource = (value) => {
 const normalizeSupplierKind = (value) => {
   const raw = String(value || '').trim().toLowerCase();
   if (raw === SUPPLIER_KINDS.DIGITAL_CODE) return SUPPLIER_KINDS.DIGITAL_CODE;
+  if (raw === SUPPLIER_KINDS.TOPUP) return SUPPLIER_KINDS.TOPUP;
   return SUPPLIER_KINDS.SMM_PANEL;
 };
 
@@ -136,6 +138,26 @@ const buildProductSourceConfig = ({ sourceType, sourceConfig } = {}) => {
       defaultQuantity: Math.max(1, toInt(normalizedConfig.defaultQuantity) || 1),
       allowsQuantity: Boolean(normalizedConfig.allowsQuantity),
       requiresTargetLink: false,
+      requiresComments: false,
+      pricingModel: SMM_PRICING_MODELS.FIXED,
+    };
+  }
+
+  if (supplierKind === SUPPLIER_KINDS.TOPUP) {
+    return {
+      ...normalizedConfig,
+      ...baseConfig,
+      supplierKind: SUPPLIER_KINDS.TOPUP,
+      serviceCode: sanitizeText(normalizedConfig.serviceCode, 80) || null,
+      topupAmount: toInt(normalizedConfig.topupAmount || normalizedConfig.cardValue),
+      currencyCode: sanitizeText(normalizedConfig.currencyCode, 20) || 'VND',
+      productSlug: sanitizeText(normalizedConfig.productSlug, 180) || null,
+      imageUrl: sanitizeText(normalizedConfig.imageUrl, 1000) || null,
+      serviceName: sanitizeText(normalizedConfig.serviceName, 255) || '',
+      categoryName: sanitizeText(normalizedConfig.categoryName, 255) || '',
+      defaultQuantity: Math.max(1, toInt(normalizedConfig.defaultQuantity) || 1),
+      allowsQuantity: false,
+      requiresTargetLink: true,
       requiresComments: false,
       pricingModel: SMM_PRICING_MODELS.FIXED,
     };
@@ -417,7 +439,8 @@ const supplierApiProvider = {
       sourceConfig: product.sourceConfig,
     });
 
-    if (normalizeSupplierKind(config.supplierKind) === SUPPLIER_KINDS.DIGITAL_CODE) {
+    const supplierKind = normalizeSupplierKind(config.supplierKind);
+    if (supplierKind === SUPPLIER_KINDS.DIGITAL_CODE) {
       assertCardPartnerConfigured();
       if (!config.serviceCode || !config.cardValue) {
         throw createMarketplaceError(400, 'San pham card chua cau hinh serviceCode hoac cardValue.');
@@ -434,6 +457,14 @@ const supplierApiProvider = {
           409,
           availability.message || 'San pham card tam thoi het hang hoac khong du ton kho.',
         );
+      }
+      return;
+    }
+
+    if (supplierKind === SUPPLIER_KINDS.TOPUP) {
+      assertCardPartnerConfigured('topup');
+      if (!config.serviceCode || !config.topupAmount) {
+        throw createMarketplaceError(400, 'San pham topup chua cau hinh serviceCode hoac topupAmount.');
       }
       return;
     }
@@ -465,6 +496,29 @@ const supplierApiProvider = {
           serviceCode: config.serviceCode,
           cardValue: config.cardValue,
           qty: quantity,
+        },
+      };
+    }
+
+    if (normalizeSupplierKind(config.supplierKind) === SUPPLIER_KINDS.TOPUP) {
+      const phone = sanitizeText(orderInput?.targetLink || orderInput?.phone, 120);
+      if (!phone) {
+        throw createMarketplaceError(400, 'Vui long nhap so dien thoai hoac tai khoan can nap.');
+      }
+
+      const amount = Math.round(Number(product?.price || 0));
+      if (!amount || amount <= 0) {
+        throw createMarketplaceError(400, 'San pham topup chua co gia hop le.');
+      }
+
+      return {
+        amount,
+        requestInput: {
+          supplierKind: SUPPLIER_KINDS.TOPUP,
+          serviceCode: config.serviceCode,
+          topupAmount: config.topupAmount,
+          phone,
+          qty: 1,
         },
       };
     }
@@ -570,6 +624,58 @@ const supplierApiProvider = {
       return {
         ok: false,
         ...mapCardProviderFailure({ status: result.status, message: result.message }),
+      };
+    }
+
+    if (normalizeSupplierKind(config.supplierKind) === SUPPLIER_KINDS.TOPUP) {
+      const { topup } = require('./card-partner.service');
+      const quantity = Math.max(1, Number(requestInput.qty || config.defaultQuantity || 1));
+      const phone = sanitizeText(requestInput.phone || requestInput.targetLink, 120);
+
+      if (!phone) {
+        return {
+          ok: false,
+          code: 'invalid_request_input',
+          message: 'Thieu so dien thoai hoac tai khoan de nap topup.',
+          fulfillmentStatus: FULFILLMENT_STATUSES.FAILED,
+        };
+      }
+
+      const result = await topup({
+        requestId: order.payment_ref,
+        serviceCode: config.serviceCode,
+        amount: config.topupAmount,
+        phone,
+        qty: quantity,
+      });
+
+      if (result.status === 1) {
+        return {
+          ok: true,
+          fulfillmentStatus: FULFILLMENT_STATUSES.DELIVERED,
+          deliveryPayload: {
+            requestInput,
+            externalProvider: 'card_partner',
+            externalOrderId: result.orderCode,
+            externalStatus: 'completed',
+            lastStatusSyncAt: new Date().toISOString(),
+            deliveryText: `Nạp thành công ${config.serviceName} ${Number(
+              config.topupAmount,
+            ).toLocaleString()}đ cho tài khoản ${phone}. Mã đơn: ${result.orderCode}`,
+            externalRaw: result.raw,
+          },
+        };
+      }
+
+      return {
+        ok: false,
+        message: result.message || 'Lỗi khi thực hiện nạp topup.',
+        fulfillmentStatus: FULFILLMENT_STATUSES.MANUAL_REVIEW,
+        deliveryPayload: {
+          externalStatus: 'failed',
+          lastError: result.message,
+          externalRaw: result.raw,
+        },
       };
     }
 

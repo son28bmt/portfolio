@@ -3,6 +3,7 @@ import { ChevronDown, ChevronRight, Pencil, Plus, Trash2 } from 'lucide-react';
 import api from '../../../services/api';
 
 const sectionOptions = [
+  { value: 'topup', label: 'Topup' },
   { value: 'service', label: 'Dịch vụ số' },
   { value: 'custom', label: 'Tài khoản' },
   { value: 'card', label: 'Card và mã số' },
@@ -11,18 +12,21 @@ const sectionOptions = [
 const sectionLabels = Object.fromEntries(sectionOptions.map((item) => [item.value, item.label]));
 
 const sectionDescriptions = {
+  topup: 'Danh muc danh cho san pham nap tien/topup truc tiep.',
   service: 'Danh mục dùng cho khu dịch vụ số và các sản phẩm lấy từ supplier / panel.',
   custom: 'Danh mục dùng cho những sản phẩm account và tự quản lý trong kho.',
   card: 'Danh mục dành cho card, mã số, key và các sản phẩm giao ngay.',
 };
 
 const sectionBadgeClasses = {
+  topup: 'border-amber-400/20 bg-amber-400/10 text-amber-200',
   service: 'border-cyan-400/20 bg-cyan-400/10 text-cyan-200',
   custom: 'border-emerald-400/20 bg-emerald-400/10 text-emerald-200',
   card: 'border-fuchsia-400/20 bg-fuchsia-400/10 text-fuchsia-200',
 };
 
 const defaultOpenSections = {
+  topup: false,
   service: true,
   custom: true,
   card: false,

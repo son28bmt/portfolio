@@ -6,6 +6,7 @@ import {
   Layers3,
   PackageSearch,
   ShoppingBag,
+  Smartphone,
   Sparkles,
   Wrench,
 } from 'lucide-react';
@@ -27,6 +28,20 @@ const storeLanes = [
     bullets: ['Dịch vụ social đang bán', 'Thanh toán QR và quỹ nội bộ', 'Tra cứu đơn ngay trên web'],
   },
   {
+    title: 'Nạp tiền nhanh',
+    subtitle: 'Đang hoạt động',
+    description:
+      'Nạp tiền điện thoại, data hoặc nạp tiền game trực tiếp vào tài khoản. Nhập số điện thoại và thanh toán.',
+    href: '/cua-hang/topup',
+    cta: 'Vào khu nạp tiền',
+    accent:
+      'border-blue-400/25 bg-[linear-gradient(180deg,rgba(5,20,48,0.96),rgba(5,10,28,0.98))] shadow-[0_0_42px_rgba(59,130,246,0.12)]',
+    iconWrap: 'border-blue-400/30 bg-blue-400/12 text-blue-200',
+    statusWrap: 'border-blue-400/20 bg-blue-400/10 text-blue-100/80',
+    icon: Smartphone,
+    bullets: ['Nạp trực tiếp vào SĐT', 'Hỗ trợ tất cả nhà mạng', 'Nạp tiền game nhanh chóng'],
+  },
+  {
     title: 'Card và mã số',
     subtitle: 'Đang hoạt động',
     description:
@@ -38,7 +53,7 @@ const storeLanes = [
     iconWrap: 'border-fuchsia-400/25 bg-fuchsia-400/12 text-fuchsia-200',
     statusWrap: 'border-fuchsia-400/20 bg-fuchsia-400/10 text-fuchsia-100/80',
     icon: CreditCard,
-    bullets: ['Nhận mã ngay sau khi nhà cung cấp trả về', 'Hỗ trợ tra cứu lại dữ liệu đã giao', 'Phù hợp cho card và giftcode'],
+    bullets: ['Nhận mã ngay sau khi mua', 'Hỗ trợ tra cứu lại mã', 'Phù hợp cho card và giftcode'],
   },
   {
     title: 'Account & key',
@@ -52,7 +67,7 @@ const storeLanes = [
     iconWrap: 'border-emerald-400/25 bg-emerald-400/12 text-emerald-200',
     statusWrap: 'border-emerald-400/20 bg-emerald-400/10 text-emerald-100/80',
     icon: PackageSearch,
-    bullets: ['Kho nội bộ tự quản lý', 'Giao hàng theo dữ liệu bạn nhập', 'Phù hợp cho tài khoản, file, key riêng'],
+    bullets: ['Kho nội bộ tự quản lý', 'Giao hàng tự động', 'Phù hợp cho tài khoản, key'],
   },
 ];
 
@@ -73,36 +88,42 @@ const MarketplaceHome = () => {
               <ShoppingBag className="h-8 w-8 text-primary md:h-10 md:w-10" />
             </h1>
             <p className="mt-4 max-w-2xl text-sm leading-7 text-white/65 md:text-base">
-              Chọn đúng khu để mua nhanh hơn. Dịch vụ số, card và mã số, cùng các Account & key
-              hiện đã có lane riêng để dễ quản lý và mở rộng về sau.
+              Chọn đúng khu để mua nhanh hơn. Dịch vụ số, nạp tiền nhanh, card và mã số, cùng các Account & key
+              hiện đã có lane riêng để dễ quản lý.
             </p>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid gap-3 grid-cols-2 sm:grid-cols-4">
             <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-4">
               <p className="text-xs uppercase tracking-[0.22em] text-white/35">Khu 1</p>
               <p className="mt-2 text-lg font-bold text-white">Dịch vụ số</p>
             </div>
             <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-4">
               <p className="text-xs uppercase tracking-[0.22em] text-white/35">Khu 2</p>
-              <p className="mt-2 text-lg font-bold text-white">Card và mã số</p>
+              <p className="mt-2 text-lg font-bold text-white">Nạp tiền</p>
             </div>
             <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-4">
               <p className="text-xs uppercase tracking-[0.22em] text-white/35">Khu 3</p>
-              <p className="mt-2 text-lg font-bold text-white">Account & key</p>
+              <p className="mt-2 text-lg font-bold text-white">Card</p>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-4">
+              <p className="text-xs uppercase tracking-[0.22em] text-white/35">Khu 4</p>
+              <p className="mt-2 text-lg font-bold text-white">Account</p>
             </div>
           </div>
         </div>
       </section>
 
-      <section className="grid gap-5 xl:grid-cols-3">
+      <section className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
         {storeLanes.map((lane) => {
           const Icon = lane.icon;
           const sectionKey = lane.href.endsWith('/card')
             ? 'card'
-            : lane.href.endsWith('/account')
-              ? 'custom'
-              : 'service';
+            : lane.href.endsWith('/topup')
+              ? 'topup'
+              : lane.href.endsWith('/account')
+                ? 'custom'
+                : 'service';
           const status = getSection(sectionKey);
           const isMaintenance = status.enabled === false;
 
@@ -157,7 +178,6 @@ const MarketplaceHome = () => {
           );
         })}
       </section>
-
       <section className="rounded-[28px] border border-white/10 bg-white/[0.03] p-5 md:p-6">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>

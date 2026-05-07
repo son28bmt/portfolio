@@ -29,7 +29,7 @@ const {
   saveMarketplaceSectionStatus,
 } = require('../services/marketplace-section-status.service');
 const { listSmmServices, getSmmBalance } = require('../services/smm-panel.service');
-const { listCardProducts, getCardBalance } = require('../services/card-partner.service');
+const { listCardProducts, listTopupProducts, getCardBalance } = require('../services/card-partner.service');
 const { addClient } = require('../services/sse.service');
 
 const signAdminToken = (adminId) =>
@@ -49,7 +49,7 @@ const toInt = (value) => {
 
 const normalizeStoreSection = (value) => {
   const clean = String(value || '').trim().toLowerCase();
-  if (['service', 'custom', 'card'].includes(clean)) return clean;
+  if (['service', 'custom', 'card', 'topup'].includes(clean)) return clean;
   return 'service';
 };
 
@@ -325,8 +325,24 @@ const adminGetSmmBalance = async (req, res) => {
 
 const adminGetCardProducts = async (req, res) => {
   try {
-    const items = await listCardProducts();
-    return res.json({ items });
+    const results = await Promise.allSettled([
+      listCardProducts(),
+      listTopupProducts(),
+    ]);
+
+    const cardItems = results[0].status === 'fulfilled' ? results[0].value : [];
+    const topupItems = results[1].status === 'fulfilled' ? results[1].value : [];
+
+    if (results[0].status === 'rejected') {
+      console.error('[MARKETPLACE] Card products fetch failed:', results[0].reason?.message || results[0].reason);
+    }
+    if (results[1].status === 'rejected') {
+      console.error('[MARKETPLACE] Topup products fetch failed:', results[1].reason?.message || results[1].reason);
+    }
+
+    return res.json({ 
+      items: [...cardItems, ...topupItems] 
+    });
   } catch (error) {
     return handleError(res, error);
   }
@@ -712,6 +728,58 @@ const adminDeleteAllCardProducts = async (req, res) => {
   }
 };
 
+const { syncTopupCatalogToMarketplace } = require('../services/marketplace-topup-sync.service');
+
+const adminSyncTopupProducts = async (req, res) => {
+  try {
+    const result = await syncTopupCatalogToMarketplace(req.body);
+    return res.json(result);
+  } catch (error) {
+    return handleError(res, error);
+  }
+};
+
+const adminDeleteAllTopupProducts = async (req, res) => {
+  try {
+    const { Op } = require('sequelize');
+    const products = await Product.findAll({
+      where: {
+        sourceType: 'supplier_api',
+      },
+    });
+
+    const topupProducts = products.filter((p) => {
+      try {
+        const config = typeof p.sourceConfig === 'string' ? JSON.parse(p.sourceConfig) : p.sourceConfig || {};
+        return String(config.supplierKind || '').toLowerCase() === 'topup';
+      } catch (e) {
+        return false;
+      }
+    });
+
+    const ids = topupProducts.map((p) => p.id);
+    if (ids.length === 0) {
+      return res.json({
+        message: 'Không tìm thấy sản phẩm topup nào đã đồng bộ để xóa.',
+        count: 0,
+      });
+    }
+
+    const deletedCount = await Product.destroy({
+      where: {
+        id: { [Op.in]: ids },
+      },
+    });
+
+    return res.json({
+      message: `Đã xóa thành công ${deletedCount} sản phẩm topup khỏi hệ thống.`,
+      count: deletedCount,
+    });
+  } catch (error) {
+    return handleError(res, error);
+  }
+};
+
 module.exports = {
   publicGetProducts,
   publicGetPaymentAccounts,
@@ -750,5 +818,6 @@ module.exports = {
   adminSyncCardProducts,
   adminBatchRefreshSupplierOrders,
   adminDeleteAllCardProducts,
+  adminSyncTopupProducts,
+  adminDeleteAllTopupProducts,
 };
-

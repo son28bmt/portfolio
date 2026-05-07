@@ -33,7 +33,7 @@ const getTempmailBaseUrl = () => {
   return raw.replace(/\/+$/, '');
 };
 
-const buildAjaxUrl = () => `${getTempmailBaseUrl()}/ajax.php`;
+const buildAjaxUrl = () => `${getTempmailBaseUrl()}/tool/ajax.php`;
 const buildHealthUrl = () => `${getTempmailBaseUrl()}/health`;
 
 const toFormBody = (payload = {}) => {

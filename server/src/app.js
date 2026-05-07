@@ -124,6 +124,13 @@ app.use('/api/chat', chatRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/account', accountRoutes);
 app.use('/api/wallet', walletRoutes);
+// Marketplace
+app.use('/api', marketplaceRoutes);
+app.use('/', (req, res, next) => {
+  if (req.path.startsWith('/api')) return next();
+  marketplaceRoutes(req, res, next);
+});
+
 app.use('/api/admin/wallet', adminWalletRoutes);
 app.use('/api/admin/users', adminUserRoutes);
 app.use('/api/admin/payment', adminPaymentRoutes);
@@ -136,13 +143,6 @@ app.use('/api/ai', aiRoutes);
 app.use('/api/tempmail', tempmailRoutes);
 app.use('/api/donate', donateRoutes);
 app.use('/api/shop', shopRoutes);
-
-// Marketplace (Handle both /api and root, but cleanup)
-app.use('/api', marketplaceRoutes);
-app.use('/', (req, res, next) => {
-  if (req.path.startsWith('/api')) return next();
-  marketplaceRoutes(req, res, next);
-});
 
 app.get('/api/ping', (req, res) => {
   res.json({ message: 'CORS and API are working!', timestamp: new Date() });

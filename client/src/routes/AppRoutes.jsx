@@ -90,6 +90,21 @@ const AppRoutes = () => {
             </PageTransition>
           }
         />
+        <Route
+          path="/cua-hang/topup"
+          element={
+            <PageTransition>
+              <Marketplace
+                catalogMode="topup"
+                breadcrumbLabel="Nạp tiền nhanh"
+                pageTitle="Nạp tiền nhanh"
+                pageDescription="Nạp tiền điện thoại, data hoặc nạp tiền game trực tiếp vào tài khoản. Nhập số điện thoại/tài khoản và thanh toán."
+                alternateLink="/cua-hang/card"
+                alternateLabel="Khu card"
+              />
+            </PageTransition>
+          }
+        />
         <Route path="/cua-hang/card" element={<PageTransition><MarketplaceCards /></PageTransition>} />
         <Route path="/dang-nhap" element={<PageTransition><Login /></PageTransition>} />
         <Route path="/dang-ky" element={<PageTransition><Register /></PageTransition>} />

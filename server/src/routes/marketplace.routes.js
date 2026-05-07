@@ -7,6 +7,13 @@ const { ensureMarketplaceSchema } = require("../services/marketplace-schema.serv
 
 const router = express.Router();
 
+router.use((req, res, next) => {
+  if (process.env.NODE_ENV !== 'production') {
+    console.log(`[MARKETPLACE] ${req.method} ${req.path} (Original: ${req.originalUrl})`);
+  }
+  next();
+});
+
 router.use(async (req, res, next) => {
   try {
     await ensureMarketplaceSchema();
@@ -54,42 +61,54 @@ router.post(["/webhook/sepay", "/order/webhook/sepay", "/orders/webhook/sepay"],
 // Admin login
 router.post("/admin/login", adminLoginLimiter, controller.adminLogin);
 
-// Admin protected CRUD
-router.use("/admin", protectMarketplaceAdmin);
+// Admin Routes (với middleware bảo vệ)
+const adminRouter = express.Router();
+adminRouter.use(protectMarketplaceAdmin);
 
-router.get("/admin/section-status", controller.adminGetSectionStatus);
-router.put("/admin/section-status", controller.adminUpdateSectionStatus);
+// Ghi log để debug
+adminRouter.use((req, res, next) => {
+  console.log(`[MARKETPLACE ADMIN DEBUG] ${req.method} ${req.path}`);
+  next();
+});
 
-router.get("/admin/products", controller.adminGetProducts);
-router.post("/admin/products", controller.adminCreateProduct);
-router.put("/admin/products/:id", controller.adminUpdateProduct);
-router.delete("/admin/products/:id", controller.adminDeleteProduct);
+adminRouter.get("/section-status", controller.adminGetSectionStatus);
+adminRouter.put("/section-status", controller.adminUpdateSectionStatus);
 
-router.get("/admin/stock_items", controller.adminGetStockItems);
-router.post("/admin/stock_items", controller.adminCreateStockItem);
-router.put("/admin/stock_items/:id", controller.adminUpdateStockItem);
-router.delete("/admin/stock_items/:id", controller.adminDeleteStockItem);
+adminRouter.get("/products/?", controller.adminGetProducts);
+adminRouter.post("/products/?", controller.adminCreateProduct);
+adminRouter.put("/products/:id/?", controller.adminUpdateProduct);
+adminRouter.delete("/products/:id/?", controller.adminDeleteProduct);
 
-router.get("/admin/categories", controller.adminGetCategories);
-router.post("/admin/categories", controller.adminCreateCategory);
-router.put("/admin/categories/:id", controller.adminUpdateCategory);
-router.delete("/admin/categories/:id", controller.adminDeleteCategory);
+adminRouter.get("/stock_items", controller.adminGetStockItems);
+adminRouter.post("/stock_items", controller.adminCreateStockItem);
+adminRouter.put("/stock_items/:id", controller.adminUpdateStockItem);
+adminRouter.delete("/stock_items/:id", controller.adminDeleteStockItem);
 
-router.get("/admin/orders", controller.adminGetOrders);
-router.get("/admin/orders/:id", controller.adminGetOrderById);
-router.post("/admin/orders", controller.adminCreateOrder);
-router.post("/admin/orders/:id/refresh-fulfillment", controller.adminRefreshSupplierOrder);
-router.put("/admin/orders/:id", controller.adminUpdateOrder);
-router.delete("/admin/orders/:id", controller.adminDeleteOrder);
+adminRouter.get("/categories/?", controller.adminGetCategories);
+adminRouter.post("/categories/?", controller.adminCreateCategory);
+adminRouter.put("/categories/:id/?", controller.adminUpdateCategory);
+adminRouter.delete("/categories/:id/?", controller.adminDeleteCategory);
 
-router.get("/admin/supplier/smm-panel/services", controller.adminGetSmmServices);
-router.get("/admin/supplier/smm-panel/balance", controller.adminGetSmmBalance);
-router.post("/admin/supplier/smm-panel/sync-services", controller.adminSyncSmmServices);
-router.post("/admin/supplier/smm-panel/refresh-processing", controller.adminBatchRefreshSupplierOrders);
-router.get("/admin/supplier/card-partner/products", controller.adminGetCardProducts);
-router.delete("/admin/supplier/card-partner/products", controller.adminDeleteAllCardProducts);
-router.get("/admin/supplier/card-partner/balance", controller.adminGetCardBalance);
-router.post("/admin/supplier/card-partner/sync-products", controller.adminSyncCardProducts);
+adminRouter.get("/orders", controller.adminGetOrders);
+adminRouter.get("/orders/:id", controller.adminGetOrderById);
+adminRouter.post("/orders", controller.adminCreateOrder);
+adminRouter.post("/orders/:id/refresh-fulfillment", controller.adminRefreshSupplierOrder);
+adminRouter.put("/orders/:id", controller.adminUpdateOrder);
+adminRouter.delete("/orders/:id", controller.adminDeleteOrder);
 
+adminRouter.get("/supplier/smm-panel/services/?", controller.adminGetSmmServices);
+adminRouter.get("/supplier/smm-panel/balance/?", controller.adminGetSmmBalance);
+adminRouter.post("/supplier/smm-panel/sync-services/?", controller.adminSyncSmmServices);
+adminRouter.post("/supplier/smm-panel/refresh-processing/?", controller.adminBatchRefreshSupplierOrders);
+
+adminRouter.get("/supplier/card-partner/products/?", controller.adminGetCardProducts);
+adminRouter.delete("/supplier/card-partner/products/?", controller.adminDeleteAllCardProducts);
+adminRouter.get("/supplier/card-partner/balance/?", controller.adminGetCardBalance);
+adminRouter.post("/supplier/card-partner/sync-products/?", controller.adminSyncCardProducts);
+adminRouter.post("/supplier/card-partner/sync-topup/?", controller.adminSyncTopupProducts);
+adminRouter.delete("/supplier/card-partner/topup/?", controller.adminDeleteAllTopupProducts);
+
+// Gắn adminRouter vào prefix /admin
+router.use("/admin", adminRouter);
 
 module.exports = router;

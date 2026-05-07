@@ -11,6 +11,10 @@ const defaultSections = {
     enabled: true,
     message: 'Khu card và mã số đang bảo trì. Vui lòng quay lại sau.',
   },
+  topup: {
+    enabled: true,
+    message: 'Khu topup dang bao tri. Vui long quay lai sau.',
+  },
   custom: {
     enabled: true,
     message: 'Khu Account & key đang bảo trì. Vui lòng quay lại sau.',
@@ -31,6 +35,12 @@ const sectionMeta = [
     tone: 'fuchsia',
   },
   {
+    key: 'topup',
+    label: 'Topup',
+    description: 'Anh huong /cua-hang/topup va cac san pham nap tien truc tiep.',
+    tone: 'amber',
+  },
+  {
     key: 'custom',
     label: 'Account & key',
     description: 'Ảnh hưởng /cua-hang/account và các sản phẩm kho nội bộ.',
@@ -41,6 +51,7 @@ const sectionMeta = [
 const toneClasses = {
   cyan: 'border-cyan-400/20 bg-cyan-400/10 text-cyan-200',
   fuchsia: 'border-fuchsia-400/20 bg-fuchsia-400/10 text-fuchsia-200',
+  amber: 'border-amber-400/20 bg-amber-400/10 text-amber-200',
   emerald: 'border-emerald-400/20 bg-emerald-400/10 text-emerald-200',
 };
 

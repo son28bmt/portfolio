@@ -7,6 +7,9 @@ import {
   RotateCcw,
   ShieldAlert,
   Wallet,
+  Smartphone,
+  Zap,
+  Search,
 } from 'lucide-react';
 import api from '../../../services/api';
 
@@ -87,9 +90,13 @@ const TabSupplier = ({ setError, setNotice, refreshKey }) => {
   const [queueRefreshing, setQueueRefreshing] = useState(false);
   const [syncingSmm, setSyncingSmm] = useState(false);
   const [syncingCard, setSyncingCard] = useState(false);
+  const [syncingTopup, setSyncingTopup] = useState(false);
   const [deletingCard, setDeletingCard] = useState(false);
+  const [deletingTopup, setDeletingTopup] = useState(false);
   const [smmSearch, setSmmSearch] = useState('');
   const [cardSearch, setCardSearch] = useState('');
+  const [topupSearch, setTopupSearch] = useState('');
+  const [dbTopupProducts, setDbTopupProducts] = useState([]);
   const [queueFilter, setQueueFilter] = useState({
     fulfillmentStatus: 'processing',
     email: '',
@@ -139,10 +146,16 @@ const TabSupplier = ({ setError, setNotice, refreshKey }) => {
       }
       if (dbProductsRes.status === 'fulfilled') {
         const allProducts = Array.isArray(dbProductsRes.value.data) ? dbProductsRes.value.data : [];
-        setDbCardProducts(allProducts.filter(p => {
-          if (p.sourceType !== 'supplier_api') return false;
+        const supplierProducts = allProducts.filter(p => p.sourceType === 'supplier_api');
+        
+        setDbCardProducts(supplierProducts.filter(p => {
           const config = typeof p.sourceConfig === 'string' ? JSON.parse(p.sourceConfig) : (p.sourceConfig || {});
           return config.cardProviderCode === 'card_partner' || config.supplierKind === 'digital_code';
+        }));
+
+        setDbTopupProducts(supplierProducts.filter(p => {
+          const config = typeof p.sourceConfig === 'string' ? JSON.parse(p.sourceConfig) : (p.sourceConfig || {});
+          return config.supplierKind === 'topup';
         }));
       }
 
@@ -173,15 +186,35 @@ const TabSupplier = ({ setError, setNotice, refreshKey }) => {
 
   const filteredCardProducts = useMemo(() => {
     const query = cardSearch.trim().toLowerCase();
-    if (!query) return cardProducts;
-
     return cardProducts.filter((item) => {
+      const sc = String(item.serviceCode || '').toLowerCase();
+      const name = String(item.name || '').toLowerCase();
+      const isTopup = sc.includes('topup') || sc.includes('recharge') || name.includes('nạp') || name.includes('topup');
+      if (isTopup) return false;
+
+      if (!query) return true;
       const valuesText = item.values.map((subItem) => subItem.value).join(' ');
       return `${item.name} ${item.serviceCode} ${item.slug} ${valuesText}`
         .toLowerCase()
         .includes(query);
     });
   }, [cardProducts, cardSearch]);
+
+  const filteredTopupProducts = useMemo(() => {
+    const query = topupSearch.trim().toLowerCase();
+    return cardProducts.filter((item) => {
+      const sc = String(item.serviceCode || '').toLowerCase();
+      const name = String(item.name || '').toLowerCase();
+      const isTopup = sc.includes('topup') || sc.includes('recharge') || name.includes('nạp') || name.includes('topup');
+      if (!isTopup) return false;
+
+      if (!query) return true;
+      const valuesText = item.values.map((subItem) => subItem.value).join(' ');
+      return `${item.name} ${item.serviceCode} ${item.slug} ${valuesText}`
+        .toLowerCase()
+        .includes(query);
+    });
+  }, [cardProducts, topupSearch]);
 
   const supplierBalanceLowOrders = useMemo(
     () => supplierOrders.filter((item) => isSupplierBalanceLow(item)),
@@ -274,6 +307,53 @@ const TabSupplier = ({ setError, setNotice, refreshKey }) => {
     }
   };
 
+  const syncTopupCatalog = async (targetServiceCode = null) => {
+    setSyncingTopup(true);
+    setError('');
+    setNotice('');
+
+    try {
+      const markupPercent = targetServiceCode && categoryMarkups[targetServiceCode] !== undefined 
+        ? Number(categoryMarkups[targetServiceCode]) 
+        : Number(cardSyncForm.markupPercent || 0);
+
+      const { data } = await api.post('/admin/supplier/card-partner/sync-topup', {
+        rateMultiplier: Number(cardSyncForm.rateMultiplier || 1),
+        markupPercent,
+        markupFixed: Number(cardSyncForm.markupFixed || 0),
+        updateExisting: cardSyncForm.updateExisting,
+        targetServiceCodes: targetServiceCode ? [targetServiceCode] : null,
+      });
+
+      setNotice(
+        `Đã đồng bộ Topup: tạo ${data.created || 0}, cập nhật ${data.updated || 0}, bỏ qua ${data.skipped || 0}.`,
+      );
+      await fetchSupplierData({ silent: true });
+    } catch (err) {
+      setError(err?.response?.data?.message || 'Không thể đồng bộ catalog topup.');
+    } finally {
+      setSyncingTopup(false);
+    }
+  };
+
+  const deleteAllTopupProducts = async () => {
+    if (!window.confirm('CẢNH BÁO: Bạn có chắc muốn XÓA TOÀN BỘ sản phẩm Topup đã đồng bộ?')) return;
+
+    setDeletingTopup(true);
+    setError('');
+    setNotice('');
+
+    try {
+      const { data } = await api.delete('/admin/supplier/card-partner/topup');
+      setNotice(data.message || 'Đã xóa toàn bộ sản phẩm topup.');
+      await fetchSupplierData({ silent: true });
+    } catch (err) {
+      setError(err?.response?.data?.message || 'Không thể xóa sản phẩm topup.');
+    } finally {
+      setDeletingTopup(false);
+    }
+  };
+
   const deleteSingleProduct = async (product) => {
     if (!window.confirm(`Xóa sản phẩm "${product.name}"?`)) return;
 
@@ -339,6 +419,7 @@ const TabSupplier = ({ setError, setNotice, refreshKey }) => {
       setError(err?.response?.data?.message || 'Không thể làm mới đơn nhà cung cấp.');
     }
   };
+
 
   return (
     <div className="animate-in fade-in zoom-in-95 space-y-6 duration-300">
@@ -844,10 +925,141 @@ const TabSupplier = ({ setError, setNotice, refreshKey }) => {
                   </div>
                 </div>
               ))}
+            </div>
+          </section>
 
-              {filteredCardProducts.length === 0 && (
+          <section className="glass border-t-2 border-primary/20 space-y-4 rounded-[24px] p-6">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <div className="rounded-2xl border border-primary/20 bg-primary/10 p-3 text-primary">
+                  <Smartphone className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold">Đồng bộ Nạp Topup</h3>
+                  <p className="mt-1 text-sm text-white/45">
+                    Nạp tiền trực tiếp vào tài khoản / số điện thoại.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={deleteAllTopupProducts}
+                disabled={deletingTopup}
+                className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-2 text-xs font-bold text-red-300 hover:bg-red-500 hover:text-white disabled:opacity-60"
+              >
+                {deletingTopup ? 'Đang xóa...' : 'Xóa toàn bộ Topup'}
+              </button>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/20" />
+                <input
+                  type="text"
+                  placeholder="Tìm dịch vụ nạp tiền..."
+                  value={topupSearch}
+                  onChange={(e) => setTopupSearch(e.target.value)}
+                  className="w-full rounded-xl border border-white/10 bg-white/5 py-2.5 pl-10 pr-4 text-sm outline-none focus:border-primary"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => syncTopupCatalog()}
+                disabled={syncingTopup}
+                className="flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-primary/20 hover:bg-primary/90 disabled:opacity-60"
+              >
+                <Zap className={`h-4 w-4 ${syncingTopup ? 'animate-pulse' : ''}`} />
+                {syncingTopup ? 'Đang đồng bộ...' : 'Đồng bộ Topup'}
+              </button>
+            </div>
+
+            <div className="space-y-4 rounded-xl border border-white/10 bg-black/10 p-3">
+              {filteredTopupProducts.slice(0, 30).map((item) => (
+                <div key={`topup-${item.serviceCode}`} className="rounded-xl border border-white/10 bg-white/5 p-4">
+                  <div className="flex flex-col gap-4">
+                    <div className="flex items-center justify-between border-b border-white/5 pb-3">
+                      <div>
+                        <p className="font-bold text-white">{item.name}</p>
+                        <p className="mt-1 text-[10px] uppercase tracking-wider text-white/30">{item.serviceCode}</p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 transition-focus-within focus-within:border-primary/50">
+                          <span className="text-[10px] font-bold uppercase text-white/40">Chiết khấu</span>
+                          <input
+                            type="number"
+                            value={categoryMarkups[item.serviceCode] ?? cardSyncForm.markupPercent}
+                            onChange={(e) => setCategoryMarkups(prev => ({ ...prev, [item.serviceCode]: e.target.value }))}
+                            className="w-10 bg-transparent text-center text-xs font-bold text-primary focus:outline-none"
+                            placeholder="0"
+                          />
+                          <span className="text-[10px] font-bold text-white/40">%</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => syncTopupCatalog(item.serviceCode)}
+                          disabled={syncingTopup}
+                          className="rounded-xl bg-primary/10 px-4 py-2 text-[10px] font-bold text-primary transition-colors hover:bg-primary hover:text-white disabled:opacity-60"
+                        >
+                          Đồng bộ nhóm này
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2">
+                      {item.values.map((subItem) => {
+                        const dbProduct = dbTopupProducts.find(p => {
+                          try {
+                            const config = typeof p.sourceConfig === 'string' ? JSON.parse(p.sourceConfig) : (p.sourceConfig || {});
+                            return String(config.serviceCode || '').toLowerCase() === String(item.serviceCode || '').toLowerCase() &&
+                                   Number(config.topupAmount || 0) === Number(subItem.value || 0);
+                          } catch (e) {
+                            return false;
+                          }
+                        });
+
+                        return (
+                          <div key={`topup-val-${item.serviceCode}-${subItem.value}`} className="group relative">
+                            <span
+                              className={`inline-block rounded-full border px-3 py-1 text-xs transition-colors ${
+                                dbProduct 
+                                  ? 'border-primary/40 bg-primary/10 text-primary-300' 
+                                  : 'border-white/10 bg-white/5 text-white/70'
+                              }`}
+                            >
+                              {Number(subItem.value).toLocaleString('vi-VN')}đ
+                            </span>
+                            {dbProduct && (
+                              <div className="absolute bottom-full left-1/2 mb-2 hidden w-32 -translate-x-1/2 rounded-lg border border-white/10 bg-slate-900 p-2 shadow-xl group-hover:block z-20">
+                                <p className="mb-2 text-[10px] font-bold text-white/60">Quản lý nạp</p>
+                                <div className="flex flex-col gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => editProductPrice(dbProduct)}
+                                    className="w-full rounded bg-white/5 py-1 text-[10px] text-white hover:bg-white/10"
+                                  >
+                                    Sửa giá
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => deleteSingleProduct(dbProduct)}
+                                    className="w-full rounded bg-red-500/20 py-1 text-[10px] text-red-300 hover:bg-red-500 hover:text-white"
+                                  >
+                                    Xóa
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              ))}
+              
+              {filteredTopupProducts.length === 0 && (
                 <div className="px-4 py-8 text-center text-sm text-white/40">
-                  Không có sản phẩm card nào khớp với bộ lọc.
+                  Không có dịch vụ nạp tiền nào khớp với bộ lọc.
                 </div>
               )}
             </div>
