@@ -340,8 +340,21 @@ const adminGetCardProducts = async (req, res) => {
       console.error('[MARKETPLACE] Topup products fetch failed:', results[1].reason?.message || results[1].reason);
     }
 
+    const providerErrors = results
+      .map((result, index) => {
+        if (result.status !== 'rejected') return null;
+        const reason = result.reason || {};
+        return {
+          provider: index === 0 ? 'card' : 'topup',
+          status: reason.providerStatus || reason.status || null,
+          message: reason.message || 'Khong the tai du lieu nha cung cap.',
+        };
+      })
+      .filter(Boolean);
+
     return res.json({ 
-      items: [...cardItems, ...topupItems] 
+      items: [...cardItems, ...topupItems],
+      providerErrors,
     });
   } catch (error) {
     return handleError(res, error);

@@ -140,6 +140,13 @@ const TabSupplier = ({ setError, setNotice, refreshKey }) => {
       }
       if (cardProductsRes.status === 'fulfilled') {
         setCardProducts(normalizeCardProducts(cardProductsRes.value.data?.items));
+        const providerErrors = Array.isArray(cardProductsRes.value.data?.providerErrors)
+          ? cardProductsRes.value.data.providerErrors
+          : [];
+        const topupError = providerErrors.find((item) => item.provider === 'topup');
+        if (topupError && !silent) {
+          setError(`Topup provider: ${topupError.message}`);
+        }
       }
       if (cardBalanceRes.status === 'fulfilled') {
         setCardBalanceInfo(cardBalanceRes.value.data || null);

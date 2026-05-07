@@ -60,6 +60,38 @@ const buildParams = (payload = {}) => {
   return params;
 };
 
+const CARD_PROVIDER_STATUS_MESSAGES = {
+  102: 'So du nha cung cap khong du.',
+  109: 'Request id bi trung.',
+  114: 'IP server chua duoc dang ky/whitelist voi nha cung cap.',
+  116: 'Sai chu ky nha cung cap.',
+  118: 'San pham nha cung cap da het hang.',
+  121: 'Sai hoac thieu service_code.',
+  122: 'Sai hoac thieu menh gia.',
+  123: 'Sai hoac thieu so luong.',
+  124: 'Tai khoan nha cung cap chua duoc phe duyet hoac bi khoa.',
+};
+
+const getProviderStatusMessage = (status, fallback = '') => {
+  const code = Number(status || 0);
+  return sanitizeText(fallback, 500) || CARD_PROVIDER_STATUS_MESSAGES[code] || `Nha cung cap tra ve status ${code}.`;
+};
+
+const assertSuccessfulProviderResponse = (data, { command, kind }) => {
+  if (!data || Array.isArray(data)) return;
+
+  const status = Number(data.status || 0);
+  if (!status || status === 1) return;
+
+  const error = new Error(getProviderStatusMessage(data.status, data.message || data.error));
+  error.status = 502;
+  error.providerStatus = status;
+  error.providerKind = kind;
+  error.providerCommand = command;
+  error.providerRaw = data;
+  throw error;
+};
+
 const callCardPartner = async ({ command, requestId = '', payload = {}, method = 'post', path = '', useJson = false, kind = 'card' }) => {
   const config = assertCardPartnerConfigured(kind);
   
@@ -200,6 +232,7 @@ const listTopupProducts = async () => {
     useJson: true,
     payload: {},
   });
+  assertSuccessfulProviderResponse(response, { command: 'productlist', kind: 'topup' });
 
   const data = Array.isArray(response) ? response : (response?.data || []);
   return Array.isArray(data) ? data.map(normalizeCardProduct) : [];
