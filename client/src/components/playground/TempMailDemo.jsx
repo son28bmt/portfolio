@@ -421,10 +421,10 @@ const TempMailDemo = () => {
   }, [sidToken]);
 
   return (
-    <div className="glass rounded-[24px] md:rounded-[32px] p-5 md:p-7 border border-white/10 h-[620px] md:h-[700px] overflow-hidden flex flex-col gap-5">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+    <div className="glass relative rounded-[20px] md:rounded-[32px] p-4 sm:p-5 md:p-7 border border-white/10 min-h-[680px] h-auto lg:h-[700px] overflow-visible lg:overflow-hidden flex flex-col gap-4 md:gap-5">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 shrink-0">
         <div>
-          <h3 className="text-2xl font-bold flex items-center gap-2">
+          <h3 className="text-xl sm:text-2xl font-bold flex items-center gap-2">
             Mail ảo Playground
             <MailPlus className="w-5 h-5 text-primary" />
           </h3>
@@ -436,7 +436,7 @@ const TempMailDemo = () => {
           type="button"
           onClick={() => refreshInbox(sidToken)}
           disabled={!sidToken || loadingList}
-          className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-sm font-semibold text-white/70 hover:text-white hover:bg-white/10 transition disabled:opacity-40"
+          className="w-full md:w-auto px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-sm font-semibold text-white/70 hover:text-white hover:bg-white/10 transition disabled:opacity-40"
         >
           <span className="inline-flex items-center gap-2">
             <RefreshCw className={`w-4 h-4 ${loadingList ? 'animate-spin' : ''}`} />
@@ -458,8 +458,8 @@ const TempMailDemo = () => {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-[300px_minmax(0,1fr)] gap-5 flex-1 min-h-0">
-        <div className="space-y-3 overflow-y-auto custom-scrollbar pr-1">
+      <div className="grid grid-cols-1 lg:grid-cols-[300px_minmax(0,1fr)] gap-4 lg:gap-5 lg:flex-1 lg:min-h-0">
+        <div className="space-y-3 lg:overflow-y-auto custom-scrollbar lg:pr-1">
           <div className="bg-white/[0.04] border border-white/10 rounded-2xl p-4 space-y-3">
             <label className="text-xs uppercase tracking-wider text-white/40 font-bold">Domain mailbox</label>
             <select
@@ -550,15 +550,15 @@ const TempMailDemo = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 xl:grid-cols-[300px_minmax(0,1fr)] gap-4 min-h-0">
-          <div className="bg-white/[0.04] border border-white/10 rounded-2xl p-3 flex flex-col min-h-0">
+        <div className="grid grid-cols-1 xl:grid-cols-[300px_minmax(0,1fr)] gap-4 lg:min-h-0">
+          <div className="bg-white/[0.04] border border-white/10 rounded-2xl p-3 flex flex-col min-h-[220px] lg:min-h-0">
             <div className="flex items-center justify-between mb-3">
               <p className="text-sm font-bold text-white/70 flex items-center gap-2">
                 <Inbox className="w-4 h-4 text-secondary" />
                 Inbox ({emails.length})
               </p>
             </div>
-            <div className="flex-1 overflow-y-auto custom-scrollbar space-y-2 pr-1">
+            <div className="flex-1 max-h-[320px] lg:max-h-none overflow-y-auto custom-scrollbar space-y-2 pr-1">
               {emails.length === 0 && (
                 <p className="text-xs text-white/40 py-6 text-center">Chưa có email nào.</p>
               )}
@@ -581,7 +581,7 @@ const TempMailDemo = () => {
             </div>
           </div>
 
-          <div className="bg-white/[0.04] border border-white/10 rounded-2xl p-4 flex flex-col min-h-0">
+          <div className="bg-white/[0.04] border border-white/10 rounded-2xl p-4 flex flex-col min-h-[260px] lg:min-h-0">
             {!activeEmail ? (
               <div className="flex-1 flex items-center justify-center text-center text-white/40 text-sm">
                 Chọn một email trong inbox để xem nội dung.
@@ -594,13 +594,13 @@ const TempMailDemo = () => {
                   <p className="text-xs text-white/40 mt-1">{formatMailTime(activeEmail.mail_timestamp)}</p>
                 </div>
 
-                <div className="flex-1 min-h-0 overflow-hidden py-4 space-y-3">
+                <div className="flex-1 min-h-[260px] lg:min-h-0 overflow-visible lg:overflow-hidden py-4 space-y-3">
                   {activeEmail.mail_body ? (
                     <iframe
                       title={`mail-html-${activeEmail.mail_id || 'preview'}`}
                       sandbox=""
                       srcDoc={String(activeEmail.mail_body || '')}
-                      className="w-full h-full min-h-[360px] bg-white rounded-xl border border-white/15"
+                      className="w-full h-[420px] lg:h-full min-h-[300px] bg-white rounded-xl border border-white/15"
                     />
                   ) : (
                     <div className="h-full min-h-[220px] rounded-xl border border-white/10 bg-black/20 flex items-center justify-center text-sm text-white/50">
