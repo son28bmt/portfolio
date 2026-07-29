@@ -174,11 +174,21 @@ const ProjectDetail = () => {
                   {project.iosUrl && (
                     <a
                       href={`${import.meta.env.VITE_API_BASE_URL || 'https://api.nguyenquangson.id.vn/api'}/projects/${project.id}/download/ios`}
-                      className="flex-1 sm:flex-none p-4 sm:p-5 bg-white/5 border border-white/10 rounded-2xl text-white hover:bg-white/10 transition-all group flex justify-center"
+                      className="flex-1 sm:flex-none p-4 sm:p-5 bg-white/5 border border-white/10 rounded-2xl text-white hover:bg-white/10 transition-all group flex justify-center gap-2 items-center"
                       title="Download iOS"
                     >
-                      <Download className="w-5 h-5 sm:w-6 sm:h-6 group-hover:scale-110 transition-transform" />
+                      <Download className="w-5 h-5 sm:w-6 sm:h-6 group-hover:scale-110 transition-transform text-secondary" />
                       <span>Tải Xuống iOS</span>
+                    </a>
+                  )}
+                  {project.fileUrl && (
+                    <a
+                      href={`${import.meta.env.VITE_API_BASE_URL || 'https://api.nguyenquangson.id.vn/api'}/projects/${project.id}/download/file`}
+                      className="flex-1 sm:flex-none p-4 sm:p-5 bg-white/5 border border-white/10 rounded-2xl text-white hover:bg-white/10 transition-all group flex justify-center gap-2 items-center"
+                      title="Tải File Đính Kèm"
+                    >
+                      <Download className="w-5 h-5 sm:w-6 sm:h-6 group-hover:scale-110 transition-transform text-emerald-400" />
+                      <span>Tải File Đính Kèm</span>
                     </a>
                   )}
                 </div>

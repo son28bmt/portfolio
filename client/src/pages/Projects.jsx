@@ -49,6 +49,7 @@ const normalizeProject = (project) => {
     images: mergedImages,
     apkUrl: project.apkUrl || null,
     iosUrl: project.iosUrl || null,
+    fileUrl: project.fileUrl || null,
   };
 };
 
@@ -210,7 +211,7 @@ const Projects = () => {
                         <Maximize2 className="w-5 h-5" />
                       </button>
                     )}
-                    {(project.apkUrl || project.iosUrl) && (
+                    {(project.apkUrl || project.iosUrl || project.fileUrl) && (
                       <div className="flex gap-2">
                         {project.apkUrl && (
                           <a
@@ -232,6 +233,17 @@ const Projects = () => {
                             title="Tải iOS (IPA)"
                           >
                             <Smartphone className="w-5 h-5" />
+                          </a>
+                        )}
+                        {project.fileUrl && (
+                          <a
+                            href={`${import.meta.env.VITE_API_BASE_URL || 'https://api.nguyenquangson.id.vn/api'}/projects/${project.id}/download/file`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="p-3 bg-emerald-600 text-white rounded-full hover:scale-110 transition-transform shadow-xl"
+                            title="Tải File Đính Kèm"
+                          >
+                            <Download className="w-5 h-5" />
                           </a>
                         )}
                       </div>

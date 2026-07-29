@@ -206,7 +206,7 @@ router.post('/upload-images', protect, requireAdmin, uploadFilesMiddleware, asyn
     }
 
     const folder = req.body.folder || 'projects';
-    const isAppUpload = /^projects\/apps\//i.test(String(folder));
+    const isAppUpload = /^projects\/(apps|files)\//i.test(String(folder));
     const urls = await Promise.all(
       req.files.map(async (file) => {
         const uploadedUrl = await uploadBufferToR2({
@@ -266,27 +266,27 @@ const downloadLimiter = rateLimit({
 router.get('/:id/download/:type', downloadLimiter, async (req, res) => {
   try {
     const { id, type } = req.params;
-    if (!['apk', 'ios'].includes(type)) {
-      return res.status(400).json({ message: 'Loại tệp không hợp lệ. Chọn apk hoặc ios.' });
+    if (!['apk', 'ios', 'file'].includes(type)) {
+      return res.status(400).json({ message: 'Loại tệp không hợp lệ. Chọn apk, ios hoặc file.' });
     }
     const project = await Project.findByPk(id);
     if (!project) return res.status(404).json({ message: 'Dự án không tồn tại.' });
-    const fileUrl = type === 'apk' ? project.apkUrl : project.iosUrl;
+    const fileUrl = type === 'apk' ? project.apkUrl : type === 'ios' ? project.iosUrl : project.fileUrl;
     if (!fileUrl) {
       return res.status(404).json({ message: 'Tệp tải xuống chưa khả dụng cho dự án này.' });
     }
 
     const isBotRequest = /bot|crawl|spider/i.test(req.headers['user-agent'] || '');
     if (!isBotRequest) {
-      await Project.increment(type === 'apk' ? 'apkDownloadCount' : 'iosDownloadCount', {
+      const countField = type === 'apk' ? 'apkDownloadCount' : type === 'ios' ? 'iosDownloadCount' : 'fileDownloadCount';
+      await Project.increment(countField, {
         by: 1,
         where: { id },
       });
       notifyTelegramProjectDownload({
         project: normalizeProjectRecord(project),
         downloadType: type,
-        downloadCount:
-          Number((type === 'apk' ? project.apkDownloadCount : project.iosDownloadCount) || 0) + 1,
+        downloadCount: Number((project[countField]) || 0) + 1,
         ip: req.ip,
       });
     }

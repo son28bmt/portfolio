@@ -64,11 +64,19 @@ const Project = sequelize.define('Project', {
     type: DataTypes.STRING,
     allowNull: true,
   },
+  fileUrl: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
   apkDownloadCount: {
     type: DataTypes.INTEGER,
     defaultValue: 0,
   },
   iosDownloadCount: {
+    type: DataTypes.INTEGER,
+    defaultValue: 0,
+  },
+  fileDownloadCount: {
     type: DataTypes.INTEGER,
     defaultValue: 0,
   },

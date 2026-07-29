@@ -132,8 +132,9 @@ const ProjectList = () => {
                 
                 const apkCount = project.apkDownloadCount || 0;
                 const iosCount = project.iosDownloadCount || 0;
-                const totalCount = apkCount + iosCount;
-                const hasMobile = project.apkUrl || project.iosUrl;
+                const fileCount = project.fileDownloadCount || 0;
+                const totalCount = apkCount + iosCount + fileCount;
+                const hasDownload = project.apkUrl || project.iosUrl || project.fileUrl;
 
                 return (
                 <tr key={project.id} className="hover:bg-white/[0.02] transition-colors group">
@@ -161,18 +162,29 @@ const ProjectList = () => {
                     </span>
                   </td>
                   <td className="px-8 py-6">
-                    {hasMobile ? (
+                    {hasDownload ? (
                       <div className="flex flex-col gap-1">
-                        <div className="flex items-center gap-1.5 text-[10px] text-white/60">
-                           <Smartphone className="w-3 h-3 text-primary" />
-                           <span className="font-medium">APK:</span>
-                           <span className="font-bold text-white">{apkCount}</span>
-                        </div>
-                        <div className="flex items-center gap-1.5 text-[10px] text-white/60">
-                           <Smartphone className="w-3 h-3 text-secondary" />
-                           <span className="font-medium">iOS:</span>
-                           <span className="font-bold text-white">{iosCount}</span>
-                        </div>
+                        {project.apkUrl && (
+                          <div className="flex items-center gap-1.5 text-[10px] text-white/60">
+                             <Smartphone className="w-3 h-3 text-primary" />
+                             <span className="font-medium">APK:</span>
+                             <span className="font-bold text-white">{apkCount}</span>
+                          </div>
+                        )}
+                        {project.iosUrl && (
+                          <div className="flex items-center gap-1.5 text-[10px] text-white/60">
+                             <Smartphone className="w-3 h-3 text-secondary" />
+                             <span className="font-medium">iOS:</span>
+                             <span className="font-bold text-white">{iosCount}</span>
+                          </div>
+                        )}
+                        {project.fileUrl && (
+                          <div className="flex items-center gap-1.5 text-[10px] text-white/60">
+                             <Download className="w-3 h-3 text-emerald-400" />
+                             <span className="font-medium">File:</span>
+                             <span className="font-bold text-white">{fileCount}</span>
+                          </div>
+                        )}
                         <div className="mt-1 pt-1 border-t border-white/5 flex items-center gap-1.5 text-[10px] text-white/40">
                            <Download className="w-3 h-3" />
                            <span className="uppercase font-black text-[8px] tracking-widest">Total: {totalCount}</span>

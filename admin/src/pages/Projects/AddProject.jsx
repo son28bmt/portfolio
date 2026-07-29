@@ -9,12 +9,14 @@ const AddProject = () => {
   const galleryInputRef = useRef(null);
   const apkInputRef = useRef(null);
   const iosInputRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   const [loading, setLoading] = useState(false);
   const [uploadingCover, setUploadingCover] = useState(false);
   const [uploadingGallery, setUploadingGallery] = useState(false);
   const [uploadingApk, setUploadingApk] = useState(false);
   const [uploadingIos, setUploadingIos] = useState(false);
+  const [uploadingFile, setUploadingFile] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -26,6 +28,7 @@ const AddProject = () => {
     images: [],
     apkUrl: '',
     iosUrl: '',
+    fileUrl: '',
   });
 
   const uploadToCloudflareR2 = async (files, folder) => {
@@ -88,10 +91,11 @@ const AddProject = () => {
     if (!file) return;
 
     if (type === 'apk') setUploadingApk(true);
-    else setUploadingIos(true);
+    else if (type === 'ios') setUploadingIos(true);
+    else setUploadingFile(true);
 
     try {
-      const folder = type === 'apk' ? 'projects/apps/android' : 'projects/apps/ios';
+      const folder = type === 'apk' ? 'projects/apps/android' : type === 'ios' ? 'projects/apps/ios' : 'projects/files';
       const [url] = await uploadToCloudflareR2([file], folder);
       if (url) {
         setFormData(prev => ({ ...prev, [`${type}Url`]: url }));
@@ -100,7 +104,8 @@ const AddProject = () => {
       alert(`Tải file ${type.toUpperCase()} thất bại: ` + (err.response?.data?.message || err.message));
     } finally {
       if (type === 'apk') setUploadingApk(false);
-      else setUploadingIos(false);
+      else if (type === 'ios') setUploadingIos(false);
+      else setUploadingFile(false);
       event.target.value = '';
     }
   };
@@ -376,6 +381,30 @@ const AddProject = () => {
                      </button>
                    </div>
                    {uploadingIos && <div className="text-[10px] text-secondary animate-pulse font-bold uppercase">Đang tải IPA...</div>}
+                </div>
+
+                {/* File đính kèm khác */}
+                <div className="space-y-2">
+                   <label className="text-[10px] font-bold text-white/40 uppercase ml-1">File đính kèm khác (ZIP, RAR, PDF, EXE...)</label>
+                   <div className="flex gap-2">
+                     <input 
+                       type="text" 
+                       value={formData.fileUrl}
+                       onChange={(e) => setFormData({...formData, fileUrl: e.target.value})}
+                       className="flex-grow bg-white/5 border border-white/10 rounded-2xl py-2 px-4 text-xs focus:outline-none focus:border-primary transition-all"
+                       placeholder="https://..."
+                     />
+                     <input ref={fileInputRef} type="file" className="hidden" onChange={(e) => handleAppUpload(e, 'file')} />
+                     <button 
+                       type="button" 
+                       onClick={() => fileInputRef.current?.click()}
+                       disabled={uploadingFile}
+                       className="p-2 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 text-white/40 hover:text-white transition-all disabled:opacity-50"
+                     >
+                        <Upload className="w-4 h-4" />
+                     </button>
+                   </div>
+                   {uploadingFile && <div className="text-[10px] text-emerald-400 animate-pulse font-bold uppercase">Đang tải file...</div>}
                 </div>
               </div>
             </div>

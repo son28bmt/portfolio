@@ -256,7 +256,7 @@ const notifyTelegramProjectDownload = ({
       sectionTitle('[DOWNLOAD]', 'Có lượt tải dự án'),
       divider(),
       bullet('Dự án', project.title),
-      bullet('Loại tệp', downloadType === 'ios' ? 'iOS / IPA' : 'Android / APK'),
+      bullet('Loại tệp', downloadType === 'ios' ? 'iOS / IPA' : downloadType === 'file' ? 'Tài liệu / File đính kèm' : 'Android / APK'),
       bullet(`Tổng lượt ${downloadType}`, Number(downloadCount || 0).toLocaleString('vi-VN')),
       bullet('IP', ip),
       projectUrl,
