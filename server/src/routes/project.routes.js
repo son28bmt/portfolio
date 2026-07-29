@@ -95,6 +95,44 @@ const toStringArray = (value, { allowCommaSplit = true } = {}) => {
   return [];
 };
 
+const slugifyText = (text) => {
+  if (!text) return '';
+  return String(text)
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[đĐ]/g, 'd')
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/[^\w-]+/g, '')
+    .replace(/--+/g, '-')
+    .replace(/^-+/, '')
+    .replace(/-+$/, '');
+};
+
+const ensureUniqueSlug = async (baseSlug, currentId = null) => {
+  let slug = baseSlug || `project-${Date.now()}`;
+  let counter = 1;
+  while (true) {
+    const existing = await Project.findOne({ where: { slug } });
+    if (!existing || (currentId && existing.id === currentId)) {
+      return slug;
+    }
+    slug = `${baseSlug || 'project'}-${counter}`;
+    counter += 1;
+  }
+};
+
+const formatSequelizeError = (error) => {
+  if (error?.name === 'SequelizeUniqueConstraintError') {
+    return 'Dự án với tên/tiêu đề này đã tồn tại, vui lòng chọn tên khác.';
+  }
+  if (Array.isArray(error?.errors) && error.errors.length > 0) {
+    return error.errors.map((e) => e.message).join(', ');
+  }
+  return error?.message || 'Thông tin dự án không hợp lệ.';
+};
+
 const normalizeProjectPayload = (body = {}) => {
   const tech = toStringArray(body.tech, { allowCommaSplit: true });
   const images = toStringArray(body.images, { allowCommaSplit: false });
@@ -107,8 +145,9 @@ const normalizeProjectPayload = (body = {}) => {
     tech,
     image: coverImage,
     images: mergedImages,
-    apkUrl: typeof body.apkUrl === 'string' ? body.apkUrl.trim() : null,
-    iosUrl: typeof body.iosUrl === 'string' ? body.iosUrl.trim() : null,
+    apkUrl: typeof body.apkUrl === 'string' ? body.apkUrl.trim() || null : null,
+    iosUrl: typeof body.iosUrl === 'string' ? body.iosUrl.trim() || null : null,
+    fileUrl: typeof body.fileUrl === 'string' ? body.fileUrl.trim() || null : null,
   };
 };
 
@@ -419,7 +458,18 @@ router.get('/:id', async (req, res) => {
 
 router.post('/', protect, requireAdmin, async (req, res) => {
   try {
-    const project = await Project.create(normalizeProjectPayload(req.body));
+    const payload = normalizeProjectPayload(req.body);
+    if (!payload.title || !payload.title.trim()) {
+      return res.status(400).json({ message: 'Vui lòng nhập tiêu đề dự án.' });
+    }
+    if (!payload.description || !payload.description.trim()) {
+      return res.status(400).json({ message: 'Vui lòng nhập mô tả dự án.' });
+    }
+
+    const baseSlug = slugifyText(payload.title);
+    payload.slug = await ensureUniqueSlug(baseSlug);
+
+    const project = await Project.create(payload);
     notifyTelegramProjectChanged({
       project: normalizeProjectRecord(project),
       action: 'created',
@@ -427,15 +477,23 @@ router.post('/', protect, requireAdmin, async (req, res) => {
     });
     return res.status(201).json(normalizeProjectRecord(project));
   } catch (error) {
-    return res.status(400).json({ message: error.message });
+    console.error('❌ Error creating project:', error);
+    return res.status(400).json({ message: formatSequelizeError(error) });
   }
 });
 
 router.put('/:id', protect, requireAdmin, async (req, res) => {
   try {
     const project = await Project.findByPk(req.params.id);
-    if (!project) return res.status(404).json({ message: 'Project not found' });
-    await project.update(normalizeProjectPayload(req.body));
+    if (!project) return res.status(404).json({ message: 'Dự án không tồn tại.' });
+
+    const payload = normalizeProjectPayload(req.body);
+    if (payload.title) {
+      const baseSlug = slugifyText(payload.title);
+      payload.slug = await ensureUniqueSlug(baseSlug, project.id);
+    }
+
+    await project.update(payload);
     notifyTelegramProjectChanged({
       project: normalizeProjectRecord(project),
       action: 'updated',
@@ -443,7 +501,8 @@ router.put('/:id', protect, requireAdmin, async (req, res) => {
     });
     return res.json(normalizeProjectRecord(project));
   } catch (error) {
-    return res.status(400).json({ message: error.message });
+    console.error('❌ Error updating project:', error);
+    return res.status(400).json({ message: formatSequelizeError(error) });
   }
 });
 
