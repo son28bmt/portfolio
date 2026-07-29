@@ -134,6 +134,17 @@ const updateSitemapFiles = async () => {
   }
 };
 
+let triggerDebounceTimer = null;
+
+const triggerAutoSitemapUpdate = () => {
+  if (triggerDebounceTimer) clearTimeout(triggerDebounceTimer);
+  triggerDebounceTimer = setTimeout(() => {
+    updateSitemapFiles().catch((err) => {
+      console.error('❌ Auto-Sitemap update failed:', err?.message || err);
+    });
+  }, 1500);
+};
+
 if (require.main === module) {
   updateSitemapFiles()
     .then(({ totalUrls }) => {
@@ -148,4 +159,5 @@ if (require.main === module) {
 module.exports = {
   updateSitemapFiles,
   generateSitemapXmlContent,
+  triggerAutoSitemapUpdate,
 };

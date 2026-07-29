@@ -88,4 +88,27 @@ Project.beforeValidate((project) => {
   }
 });
 
+const triggerSitemapSafe = () => {
+  try {
+    const { triggerAutoSitemapUpdate } = require('../../scripts/generate-sitemap');
+    triggerAutoSitemapUpdate();
+  } catch (err) {
+    console.error('Auto-sitemap trigger error:', err?.message || err);
+  }
+};
+
+Project.afterCreate(() => {
+  triggerSitemapSafe();
+});
+
+Project.afterUpdate((instance) => {
+  if (instance.changed('title') || instance.changed('slug')) {
+    triggerSitemapSafe();
+  }
+});
+
+Project.afterDestroy(() => {
+  triggerSitemapSafe();
+});
+
 module.exports = Project;

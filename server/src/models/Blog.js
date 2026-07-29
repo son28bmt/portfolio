@@ -50,4 +50,27 @@ const Blog = sequelize.define('Blog', {
   }
 });
 
+const triggerSitemapSafe = () => {
+  try {
+    const { triggerAutoSitemapUpdate } = require('../../scripts/generate-sitemap');
+    triggerAutoSitemapUpdate();
+  } catch (err) {
+    console.error('Auto-sitemap trigger error:', err?.message || err);
+  }
+};
+
+Blog.afterCreate(() => {
+  triggerSitemapSafe();
+});
+
+Blog.afterUpdate((instance) => {
+  if (instance.changed('title') || instance.changed('slug')) {
+    triggerSitemapSafe();
+  }
+});
+
+Blog.afterDestroy(() => {
+  triggerSitemapSafe();
+});
+
 module.exports = Blog;
