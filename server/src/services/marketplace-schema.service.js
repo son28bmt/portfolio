@@ -62,8 +62,35 @@ const ensureMarketplaceSchema = async () => {
       allowNull: true,
     });
 
+    const projectTableName = (await sequelize.getQueryInterface().showAllTables()).find(
+      (t) => t.toLowerCase() === 'projects'
+    ) || 'Projects';
+
+    await ensureColumn(projectTableName, 'fileUrl', {
+      type: DataTypes.STRING,
+      allowNull: true,
+    });
+
+    await ensureColumn(projectTableName, 'fileDownloadCount', {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0,
+    });
+
+    await ensureColumn(projectTableName, 'apkDownloadCount', {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0,
+    });
+
+    await ensureColumn(projectTableName, 'iosDownloadCount', {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0,
+    });
+
     schemaEnsured = true;
-    console.log('[Marketplace] Schema checked and upgraded.');
+    console.log('[Marketplace & Projects] Schema checked and upgraded.');
   })();
 
   try {
