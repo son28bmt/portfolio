@@ -7,6 +7,11 @@ const path = require('path');
 const Project = require('../models/Project');
 const { protect } = require('../middleware/auth.middleware');
 const { requireAdmin } = require('../middleware/require-admin.middleware');
+const { uploadBufferToR2, getPresignedUploadUrl } = require('../services/r2.service');
+const {
+  notifyTelegramProjectChanged,
+  notifyTelegramProjectDownload,
+} = require('../services/telegram.service');
 const { ensureMarketplaceSchema } = require('../services/marketplace-schema.service');
 
 router.use(async (req, res, next) => {
