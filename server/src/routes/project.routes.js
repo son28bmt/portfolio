@@ -20,6 +20,7 @@ const ALLOWED_PROJECT_FILE_TYPES = new Set([
   'image/webp',
   'image/gif',
   'image/avif',
+  'image/svg+xml',
   'application/vnd.android.package-archive',
   'application/octet-stream',
   'application/zip',
@@ -27,6 +28,18 @@ const ALLOWED_PROJECT_FILE_TYPES = new Set([
   'application/apk',
   'application/x-itunes-ipa',
   'application/x-ios-app',
+  'application/x-rar-compressed',
+  'application/vnd.rar',
+  'application/x-rar',
+  'application/x-7z-compressed',
+  'application/pdf',
+  'application/x-msdownload',
+  'application/x-msdos-program',
+  'application/exe',
+  'application/x-exe',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'text/plain',
 ]);
 const MAX_PROJECT_FILE_SIZE_MB = 200;
 
@@ -36,9 +49,6 @@ const upload = multer({
     fileSize: MAX_PROJECT_FILE_SIZE_MB * 1024 * 1024,
   },
   fileFilter: (req, file, cb) => {
-    if (!ALLOWED_PROJECT_FILE_TYPES.has(file.mimetype)) {
-      return cb(new Error('Định dạng tệp không hợp lệ.'));
-    }
     return cb(null, true);
   },
 });

@@ -33,8 +33,8 @@ const AddProject = () => {
 
   const uploadToCloudflareR2 = async (files, folder) => {
     const payload = new FormData();
-    Array.from(files).forEach((file) => payload.append('files', file));
     payload.append('folder', folder);
+    Array.from(files).forEach((file) => payload.append('files', file));
 
     const { data } = await api.post('/projects/upload-images', payload, {
       headers: { 'Content-Type': 'multipart/form-data' },
