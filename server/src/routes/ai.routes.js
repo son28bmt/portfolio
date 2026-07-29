@@ -56,9 +56,9 @@ const MODEL_PROVIDER_KEYS = {
 };
 
 const MODEL_PROVIDER_DEFAULTS = {
-  chatgpt: "gpt-4o",
-  gemini: "gemini-2.0-flash",
-  claude: "claude-sonnet-4-5",
+  chatgpt: "gpt-5.4-mini",
+  gemini: "gemini-2.5-flash",
+  claude: "claude-sonnet-4-6",
   grok: "grok-3",
   deepseek: "deepseek-chat",
 };
