@@ -100,6 +100,8 @@ const getProviderErrorMessage = (error) => {
   return (
     error?.response?.data?.error?.message ||
     error?.response?.data?.message ||
+    (typeof error?.response?.data?.error === "string" ? error.response.data.error : null) ||
+    (typeof error?.response?.data?.detail === "string" ? error.response.data.detail : null) ||
     error?.message ||
     "Unknown upstream error"
   );
@@ -141,9 +143,14 @@ const isUnsafeHostname = (hostname) => {
 };
 
 const sanitizeBaseUrl = (value) => {
-  const raw = String(value || "").trim();
+  let raw = String(value || "").trim();
   if (!raw) return "";
-  return raw.endsWith("/") ? raw.slice(0, -1) : raw;
+  if (raw.endsWith("/")) raw = raw.slice(0, -1);
+  if (raw.toLowerCase().endsWith("/chat/completions")) {
+    raw = raw.slice(0, -"/chat/completions".length);
+  }
+  if (raw.endsWith("/")) raw = raw.slice(0, -1);
+  return raw;
 };
 
 const resolveUpstreamCredentials = ({
@@ -473,9 +480,10 @@ router.post("/chat", aiLimiter, verifyTurnstile, async (req, res) => {
     }
   } catch (err) {
     console.error("Lỗi AI Chat:", err.response?.data || err.message);
-    const errorMsg = err.response?.data?.error?.message || err.message;
+    const errorMsg = getProviderErrorMessage(err);
+    const detailedMsg = typeof errorMsg === "object" ? JSON.stringify(errorMsg) : errorMsg;
     res.status(500).json({
-      reply: `Lỗi kết nối AI: ${errorMsg}`,
+      reply: `Lỗi kết nối AI: ${detailedMsg}`,
     });
   }
 });
