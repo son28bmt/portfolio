@@ -1,7 +1,29 @@
 import React, { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
-import { ArrowLeft, Save, Image as ImageIcon, Github, Globe, Upload, X } from 'lucide-react';
+import { ArrowLeft, Save, Image as ImageIcon, Github, Globe, Upload, X, Download } from 'lucide-react';
+
+const parseFileNameFromUrl = (url) => {
+  if (!url || typeof url !== 'string') return '';
+  try {
+    const urlObj = new URL(url);
+    const downloadName = urlObj.searchParams.get('downloadName');
+    if (downloadName) return decodeURIComponent(downloadName);
+    const pathname = urlObj.pathname;
+    const name = pathname.split('/').pop();
+    return decodeURIComponent(name || '');
+  } catch {
+    const name = url.split('?')[0].split('/').pop();
+    return name || url;
+  }
+};
+
+const getFileExtension = (filename) => {
+  if (!filename) return '';
+  const parts = filename.split('.');
+  if (parts.length > 1) return parts.pop().toUpperCase();
+  return '';
+};
 
 const AddProject = () => {
   const navigate = useNavigate();
@@ -386,6 +408,40 @@ const AddProject = () => {
                 {/* File đính kèm khác */}
                 <div className="space-y-2">
                    <label className="text-[10px] font-bold text-white/40 uppercase ml-1">File đính kèm khác (ZIP, RAR, PDF, EXE...)</label>
+
+                   {formData.fileUrl && (
+                     <div className="p-3 bg-white/5 border border-emerald-500/20 rounded-2xl flex items-center justify-between gap-3">
+                       <div className="flex items-center gap-3 overflow-hidden">
+                         <div className="p-2.5 bg-emerald-500/10 text-emerald-400 rounded-xl font-black text-[10px] uppercase shrink-0">
+                           {getFileExtension(parseFileNameFromUrl(formData.fileUrl)) || 'FILE'}
+                         </div>
+                         <div className="truncate">
+                           <p className="text-xs font-bold text-white truncate">{parseFileNameFromUrl(formData.fileUrl)}</p>
+                           <p className="text-[10px] text-white/40 truncate">{formData.fileUrl}</p>
+                         </div>
+                       </div>
+                       <div className="flex items-center gap-2 shrink-0">
+                         <a
+                           href={formData.fileUrl}
+                           target="_blank"
+                           rel="noopener noreferrer"
+                           className="p-2 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 rounded-xl text-xs font-bold transition-all flex items-center gap-1"
+                           title="Tải về / Xem thử file"
+                         >
+                           <Download className="w-3.5 h-3.5" /> Tải về
+                         </a>
+                         <button
+                           type="button"
+                           onClick={() => setFormData({ ...formData, fileUrl: '' })}
+                           className="p-2 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-xl transition-all"
+                           title="Xóa file đính kèm"
+                         >
+                           <X className="w-4 h-4" />
+                         </button>
+                       </div>
+                     </div>
+                   )}
+
                    <div className="flex gap-2">
                      <input 
                        type="text" 
@@ -400,6 +456,7 @@ const AddProject = () => {
                        onClick={() => fileInputRef.current?.click()}
                        disabled={uploadingFile}
                        className="p-2 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 text-white/40 hover:text-white transition-all disabled:opacity-50"
+                       title="Tải tệp từ máy tính"
                      >
                         <Upload className="w-4 h-4" />
                      </button>

@@ -5,6 +5,28 @@ import { motion, AnimatePresence, useScroll, useSpring } from 'framer-motion'; /
 import { ArrowLeft, Layers, Smartphone, ExternalLink, Download, Globe, Cpu, ChevronRight, Layout, Maximize2, X } from 'lucide-react';
 import api from '../services/api';
 
+const parseFileNameFromUrl = (url) => {
+  if (!url || typeof url !== 'string') return '';
+  try {
+    const urlObj = new URL(url);
+    const downloadName = urlObj.searchParams.get('downloadName');
+    if (downloadName) return decodeURIComponent(downloadName);
+    const pathname = urlObj.pathname;
+    const name = pathname.split('/').pop();
+    return decodeURIComponent(name || '');
+  } catch {
+    const name = url.split('?')[0].split('/').pop();
+    return name || url;
+  }
+};
+
+const getFileExtension = (filename) => {
+  if (!filename) return '';
+  const parts = filename.split('.');
+  if (parts.length > 1) return parts.pop().toUpperCase();
+  return '';
+};
+
 // Reusable Section Header to replace manual characters like ━━━━
 const SectionHeader = ({ title, icon: Icon, color = "primary" }) => (
   <div className="flex items-center gap-4 mb-10 overflow-hidden">
@@ -184,11 +206,19 @@ const ProjectDetail = () => {
                   {project.fileUrl && (
                     <a
                       href={`${import.meta.env.VITE_API_BASE_URL || 'https://api.nguyenquangson.id.vn/api'}/projects/${project.id}/download/file`}
-                      className="flex-1 sm:flex-none p-4 sm:p-5 bg-white/5 border border-white/10 rounded-2xl text-white hover:bg-white/10 transition-all group flex justify-center gap-2 items-center"
-                      title="Tải File Đính Kèm"
+                      className="flex-1 sm:flex-none p-3.5 sm:p-4 bg-emerald-500/10 border border-emerald-500/30 hover:border-emerald-500/60 rounded-2xl text-white hover:bg-emerald-500/20 transition-all group flex items-center gap-3 shadow-lg"
+                      title={`Tải file ${parseFileNameFromUrl(project.fileUrl)}`}
                     >
-                      <Download className="w-5 h-5 sm:w-6 sm:h-6 group-hover:scale-110 transition-transform text-emerald-400" />
-                      <span>Tải File Đính Kèm</span>
+                      <div className="px-2 py-1 bg-emerald-500/20 text-emerald-400 font-black text-[10px] sm:text-xs rounded-lg uppercase tracking-wider shrink-0">
+                        {getFileExtension(parseFileNameFromUrl(project.fileUrl)) || 'FILE'}
+                      </div>
+                      <div className="text-left min-w-0">
+                        <div className="text-[10px] text-emerald-400 font-extrabold uppercase tracking-wider">File đính kèm</div>
+                        <div className="text-xs sm:text-sm font-bold text-white truncate max-w-[160px] sm:max-w-[220px]">
+                          {parseFileNameFromUrl(project.fileUrl)}
+                        </div>
+                      </div>
+                      <Download className="w-5 h-5 text-emerald-400 group-hover:scale-110 transition-transform ml-auto shrink-0" />
                     </a>
                   )}
                 </div>

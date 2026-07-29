@@ -2,7 +2,22 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion'; // eslint-disable-line no-unused-vars
 import { Link } from 'react-router-dom';
 import api from '../services/api';
-import { Github, Layers, X, Maximize2, Image as ImageIcon, ChevronLeft, ChevronRight, Smartphone, ExternalLink, MoreHorizontal } from 'lucide-react';
+import { Github, Layers, X, Maximize2, Image as ImageIcon, ChevronLeft, ChevronRight, Smartphone, ExternalLink, MoreHorizontal, Download } from 'lucide-react';
+
+const parseFileNameFromUrl = (url) => {
+  if (!url || typeof url !== 'string') return '';
+  try {
+    const urlObj = new URL(url);
+    const downloadName = urlObj.searchParams.get('downloadName');
+    if (downloadName) return decodeURIComponent(downloadName);
+    const pathname = urlObj.pathname;
+    const name = pathname.split('/').pop();
+    return decodeURIComponent(name || '');
+  } catch {
+    const name = url.split('?')[0].split('/').pop();
+    return name || url;
+  }
+};
 
 const parseArrayField = (value, { allowCommaSplit = true } = {}) => {
   if (Array.isArray(value)) {
@@ -241,7 +256,7 @@ const Projects = () => {
                             target="_blank"
                             rel="noopener noreferrer"
                             className="p-3 bg-emerald-600 text-white rounded-full hover:scale-110 transition-transform shadow-xl"
-                            title="Tải File Đính Kèm"
+                            title={`Tải File: ${parseFileNameFromUrl(project.fileUrl)}`}
                           >
                             <Download className="w-5 h-5" />
                           </a>
