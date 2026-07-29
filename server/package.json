@@ -8,7 +8,8 @@
     "dev": "nodemon src/app.js",
     "test": "echo \"Use npm run test:donate\"",
     "test:donate": "node --test tests/donate.service.test.js",
-    "seed:market-admin": "node src/seed.marketplace-admin.js"
+    "seed:market-admin": "node src/seed.marketplace-admin.js",
+    "sitemap": "node scripts/generate-sitemap.js"
   },
   "keywords": [],
   "author": "",

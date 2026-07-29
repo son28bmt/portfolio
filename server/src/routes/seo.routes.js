@@ -90,7 +90,7 @@ const fetchDynamicEntries = async (siteUrl) => {
       order: [['updatedAt', 'DESC']],
     }),
     Project.findAll({
-      attributes: ['id', 'updatedAt', 'createdAt'],
+      attributes: ['id', 'slug', 'updatedAt', 'createdAt'],
       order: [['updatedAt', 'DESC']],
     }),
   ]);
@@ -103,7 +103,7 @@ const fetchDynamicEntries = async (siteUrl) => {
   }));
 
   const projectEntries = projects.map((project) => ({
-    loc: buildAbsoluteUrl(siteUrl, `/du-an/${project.id}`),
+    loc: buildAbsoluteUrl(siteUrl, `/du-an/${project.slug || project.id}`),
     lastmod: toIsoDate(project.updatedAt || project.createdAt),
     changefreq: 'weekly',
     priority: '0.8',
