@@ -9,8 +9,8 @@ const AISettings = () => {
     apiKey: '',
     baseUrl: '',
     imageBaseUrl: '',
-    model: 'gpt-4o',
-    modelChatgpt: 'gpt-4o',
+    model: 'gpt-5.4-mini',
+    modelChatgpt: 'gpt-5.4-mini',
     modelGemini: '',
     modelClaude: '',
     modelGrok: '',
@@ -39,7 +39,7 @@ const AISettings = () => {
 
         if (!hasAnyConfig) return;
 
-        const chatgptModel = data.ai_model_chatgpt || data.ai_model || 'gpt-4o';
+        const chatgptModel = data.ai_model_chatgpt || data.ai_model || 'gpt-5.4-mini';
         setFormData({
           apiKey: data.ai_apiKey || '',
           baseUrl: data.ai_baseUrl || '',
@@ -144,7 +144,7 @@ const AISettings = () => {
                 name="modelChatgpt"
                 value={formData.modelChatgpt}
                 onChange={handleChange}
-                placeholder="ChatGPT (vd: gpt-4o)"
+                placeholder="ChatGPT (vd: gpt-5.4-mini)"
                 list="chatgpt-model-options"
                 autoComplete="off"
                 className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary transition-colors"
