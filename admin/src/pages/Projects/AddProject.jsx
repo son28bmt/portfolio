@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
+import { uploadToCloudflareR2 } from '../../services/uploadService';
 import { ArrowLeft, Save, Image as ImageIcon, Github, Globe, Upload, X, Download } from 'lucide-react';
 
 const parseFileNameFromUrl = (url) => {
@@ -52,18 +53,6 @@ const AddProject = () => {
     iosUrl: '',
     fileUrl: '',
   });
-
-  const uploadToCloudflareR2 = async (files, folder) => {
-    const payload = new FormData();
-    payload.append('folder', folder);
-    Array.from(files).forEach((file) => payload.append('files', file));
-
-    const { data } = await api.post('/projects/upload-images', payload, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
-
-    return Array.isArray(data?.urls) ? data.urls : [];
-  };
 
   const handleCoverUpload = async (event) => {
     const file = event.target.files?.[0];

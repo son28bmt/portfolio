@@ -295,11 +295,35 @@ router.post('/upload-images', protect, requireAdmin, uploadFilesMiddleware, asyn
 router.get('/get-upload-url', protect, requireAdmin, async (req, res) => {
   try {
     const fileName = readSingleQueryValue(req.query.fileName);
-    const mimeType = readSingleQueryValue(req.query.mimeType).toLowerCase();
+    let mimeType = readSingleQueryValue(req.query.mimeType).toLowerCase();
     const folder = readSingleQueryValue(req.query.folder) || 'projects';
-    if (!fileName || !mimeType) {
-      return res.status(400).json({ message: 'Thiếu thông tin fileName hoặc mimeType.' });
+    if (!fileName) {
+      return res.status(400).json({ message: 'Thiếu thông tin fileName.' });
     }
+
+    if (!mimeType || !ALLOWED_PROJECT_FILE_TYPES.has(mimeType)) {
+      const ext = path.extname(fileName).toLowerCase();
+      const extMimeMap = {
+        '.apk': 'application/vnd.android.package-archive',
+        '.ipa': 'application/octet-stream',
+        '.zip': 'application/zip',
+        '.rar': 'application/x-rar-compressed',
+        '.7z': 'application/x-7z-compressed',
+        '.pdf': 'application/pdf',
+        '.png': 'image/png',
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.webp': 'image/webp',
+        '.gif': 'image/gif',
+        '.svg': 'image/svg+xml',
+      };
+      if (extMimeMap[ext]) {
+        mimeType = extMimeMap[ext];
+      } else if (!mimeType) {
+        mimeType = 'application/octet-stream';
+      }
+    }
+
     if (!ALLOWED_PROJECT_FILE_TYPES.has(mimeType)) {
       return res.status(400).json({ message: 'Định dạng tệp không hợp lệ.' });
     }

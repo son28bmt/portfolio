@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '../../services/api';
+import { uploadToCloudflareR2 } from '../../services/uploadService';
 import ReactQuill from 'react-quill-new';
 import 'react-quill-new/dist/quill.snow.css';
 import { ArrowLeft, Save, Image as ImageIcon, Tag, Clock, Upload } from 'lucide-react';
@@ -82,18 +83,6 @@ const EditBlog = () => {
 
     fetchBlog();
   }, [id, navigate]);
-
-  const uploadToCloudflareR2 = async (files, folder) => {
-    const payload = new FormData();
-    Array.from(files).forEach((file) => payload.append('files', file));
-    payload.append('folder', folder);
-
-    const { data } = await api.post('/projects/upload-images', payload, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
-
-    return Array.isArray(data?.urls) ? data.urls : [];
-  };
 
   const handleCoverUpload = async (event) => {
     const file = event.target.files?.[0];
