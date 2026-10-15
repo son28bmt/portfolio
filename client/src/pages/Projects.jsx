@@ -162,7 +162,7 @@ const Projects = () => {
       ) : (
         <motion.div
           layout
-          className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 px-4 md:px-0"
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 lg:gap-5 px-4 md:px-0"
         >
           <AnimatePresence mode="popLayout">
             {filteredProjects.map((project) => (
@@ -173,9 +173,9 @@ const Projects = () => {
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.9 }}
                 transition={{ duration: 0.3 }}
-                className="group glass rounded-3xl overflow-hidden hover:border-primary/30 transition-colors"
+                className="group glass rounded-2xl overflow-hidden hover:border-primary/30 transition-colors"
               >
-                <div className="relative h-64 overflow-hidden">
+                <div className="relative h-36 sm:h-40 overflow-hidden">
                   <Link to={`/du-an/${project.slug || project.id}`}>
                     <img
                       src={project.image}
@@ -185,7 +185,7 @@ const Projects = () => {
                   </Link>
                   <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent opacity-60 pointer-events-none" />
 
-                  <div className="absolute top-4 right-4 bg-background/80 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest text-primary border border-primary/20">
+                  <div className="absolute top-3 right-3 bg-background/80 backdrop-blur-md px-2.5 py-1 rounded-full text-[9px] font-bold uppercase tracking-widest text-primary border border-primary/20">
                     {project.category}
                   </div>
 
@@ -266,22 +266,22 @@ const Projects = () => {
                   </div>
                 </div>
 
-                <div className="p-6 md:p-8">
+                <div className="p-4">
                   <Link to={`/du-an/${project.slug || project.id}`}>
-                    <h3 className="text-xl md:text-2xl font-bold mb-3 group-hover:text-primary transition-colors">{project.title}</h3>
+                    <h3 className="text-base font-bold mb-2 group-hover:text-primary transition-colors line-clamp-2">{project.title}</h3>
                   </Link>
-                  <p className="text-white/50 text-xs md:text-sm leading-relaxed mb-4 line-clamp-3">
+                  <p className="text-white/50 text-xs leading-relaxed mb-3 line-clamp-2">
                     {project.description}
                   </p>
 
                   {project.images.length > 0 && (
-                    <div className="flex items-center gap-2 mb-6">
+                    <div className="flex items-center gap-1.5 mb-3">
                       {project.images.slice(0, 4).map((url) => (
                         <img
                           key={url}
                           src={url}
                           alt={project.title}
-                          className="w-12 h-12 rounded-lg object-cover border border-white/10"
+                          className="w-8 h-8 rounded-md object-cover border border-white/10"
                         />
                       ))}
                       {project.images.length > 4 && (
