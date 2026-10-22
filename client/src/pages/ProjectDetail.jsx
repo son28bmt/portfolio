@@ -399,9 +399,6 @@ const ProjectDetail = () => {
       <div className="h-16 sm:h-24" />
       
       <style dangerouslySetInnerHTML={{ __html: `
-        .text-glow {
-          text-shadow: 0 0 30px rgba(189,157,255,0.3);
-        }
         @media (max-width: 640px) {
           h1 { word-wrap: break-word; }
         }
