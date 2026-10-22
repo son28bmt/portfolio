@@ -480,11 +480,6 @@ const FloatingChat = () => {
         .custom-scrollbar::-webkit-scrollbar { width: 5px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.05); border-radius: 10px; }
-        .glass { 
-          background: rgba(12, 12, 12, 0.75) !important; 
-          backdrop-filter: blur(40px) saturate(200%) !important; 
-          -webkit-backdrop-filter: blur(40px) saturate(200%) !important; 
-        }
       `}</style>
     </div>
   );

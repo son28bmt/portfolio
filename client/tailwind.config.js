@@ -9,22 +9,36 @@ export default {
   theme: {
     extend: {
       colors: {
-        background: "#0a0a0a",
-        primary: "#9d00ff", // Electric Purple
-        secondary: "#00d4ff", // Neon Blue
-        accent: "#f0abfc",
-        surface: "#1a1a1a",
+        bg: 'var(--bg)',
+        surface: 'var(--surface)',
+        'surface-2': 'var(--surface-2)',
+        border: 'var(--border)',
+        text: 'var(--text)',
+        muted: 'var(--text-muted)',
+        accent: 'var(--accent)',
+        success: 'var(--success)',
+        warning: 'var(--warning)',
+        danger: 'var(--danger)',
+        // Temporary aliases keep existing views readable while they migrate to tokens.
+        background: 'var(--bg)',
+        primary: 'var(--accent)',
+        secondary: 'var(--text-muted)',
+      },
+      borderRadius: {
+        DEFAULT: 'var(--radius-sm)',
+        md: 'var(--radius-md)',
+        lg: 'var(--radius-lg)',
+        xl: 'var(--radius-lg)',
+        '2xl': 'var(--radius-md)',
+        '3xl': 'var(--radius-md)',
       },
       fontFamily: {
         sans: ['Inter', 'sans-serif'],
         display: ['Outfit', 'sans-serif'],
       },
-      animation: {
-        'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-      }
     },
   },
   plugins: [
     typography,
   ],
-}
+};

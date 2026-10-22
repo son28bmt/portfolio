@@ -4,16 +4,31 @@
 @tailwind utilities;
 
 :root {
-  --background: #0a0a0a;
-  --primary: #9d00ff;
-  --secondary: #00d4ff;
-  --surface: #1a1a1a;
+  --bg: #000000;
+  --surface: #0A0A0A;
+  --surface-2: #111111;
+  --border: #262626;
+  --border-hover: #404040;
+  --text: #EDEDED;
+  --text-muted: #A1A1A1;
+  --accent: #3B82F6;
+  --success: #22C55E;
+  --warning: #F59E0B;
+  --danger: #EF4444;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+
+  /* Temporary aliases for styles migrated in later client phases. */
+  --background: var(--bg);
+  --primary: var(--accent);
+  --secondary: var(--text-muted);
   --font-blog-body: 'Be Vietnam Pro', 'Inter', sans-serif;
   --font-blog-display: 'Sora', 'Be Vietnam Pro', sans-serif;
 }
 
 body {
-  @apply bg-background text-white font-sans antialiased;
+  @apply bg-bg text-text font-sans antialiased;
   margin: 0;
   min-height: 100vh;
 }
@@ -24,13 +39,13 @@ select {
 
 select option,
 select optgroup {
-  background-color: #161616;
-  color: #ffffff;
+  background-color: var(--surface-2);
+  color: var(--text);
 }
 
 select option:checked {
-  background-color: #2a1238;
-  color: #ffffff;
+  background-color: var(--surface);
+  color: var(--text);
 }
 
 h1, h2, h3, h4, h5, h6 {
@@ -43,30 +58,21 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 ::-webkit-scrollbar-track {
-  @apply bg-background;
+  @apply bg-bg;
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply bg-surface rounded-full border-2 border-background hover:bg-primary transition-colors;
+  @apply bg-surface rounded-full border-2 border-bg hover:bg-surface-2 transition-colors duration-200;
 }
 
-/* Glassmorphism utility */
+/* Neutral surface utility retained while existing views migrate. */
 .glass {
-  @apply bg-white/5 backdrop-blur-md border border-white/10;
+  @apply bg-surface border border-border;
 }
 
-/* Gradient Text */
-.text-gradient {
-  @apply bg-clip-text text-transparent bg-gradient-to-r from-primary to-secondary;
-}
-
-/* Glow Effect */
-.glow {
-  box-shadow: 0 0 20px rgba(157, 0, 255, 0.3);
-}
-
-.glow-blue {
-  box-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
+/* Clamp legacy arbitrary radius utilities until each page moves to radius tokens. */
+[class*="rounded-["] {
+  border-radius: var(--radius-lg) !important;
 }
 
 /* Blog Content Typography */
