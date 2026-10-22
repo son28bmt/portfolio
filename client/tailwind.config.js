@@ -13,6 +13,7 @@ export default {
         surface: 'var(--surface)',
         'surface-2': 'var(--surface-2)',
         border: 'var(--border)',
+        'border-hover': 'var(--border-hover)',
         text: 'var(--text)',
         muted: 'var(--text-muted)',
         accent: 'var(--accent)',
