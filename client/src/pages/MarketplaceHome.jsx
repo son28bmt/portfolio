@@ -5,9 +5,7 @@ import {
   CreditCard,
   Layers3,
   PackageSearch,
-  ShoppingBag,
   Smartphone,
-  Sparkles,
   Wrench,
 } from 'lucide-react';
 import useMarketplaceSectionStatus from '../hooks/useMarketplaceSectionStatus';
@@ -20,10 +18,6 @@ const storeLanes = [
       'Các gói social và dịch vụ số đang mở bán. Chọn nền tảng, cấu hình đơn hàng và theo dõi tiến độ ngay trên web.',
     href: '/cua-hang/dich-vu',
     cta: 'Vào khu dịch vụ',
-    accent:
-      'border-cyan-400/25 bg-[linear-gradient(180deg,rgba(5,26,48,0.96),rgba(5,14,28,0.98))] shadow-[0_0_42px_rgba(34,211,238,0.12)]',
-    iconWrap: 'border-cyan-400/30 bg-cyan-400/12 text-cyan-200',
-    statusWrap: 'border-cyan-400/20 bg-cyan-400/10 text-cyan-100/80',
     icon: Layers3,
     bullets: ['Dịch vụ social đang bán', 'Thanh toán QR và quỹ nội bộ', 'Tra cứu đơn ngay trên web'],
   },
@@ -34,10 +28,6 @@ const storeLanes = [
       'Nạp tiền điện thoại, data hoặc nạp tiền game trực tiếp vào tài khoản. Nhập số điện thoại và thanh toán.',
     href: '/cua-hang/topup',
     cta: 'Vào khu nạp tiền',
-    accent:
-      'border-blue-400/25 bg-[linear-gradient(180deg,rgba(5,20,48,0.96),rgba(5,10,28,0.98))] shadow-[0_0_42px_rgba(59,130,246,0.12)]',
-    iconWrap: 'border-blue-400/30 bg-blue-400/12 text-blue-200',
-    statusWrap: 'border-blue-400/20 bg-blue-400/10 text-blue-100/80',
     icon: Smartphone,
     bullets: ['Nạp trực tiếp vào SĐT', 'Hỗ trợ tất cả nhà mạng', 'Nạp tiền game nhanh chóng'],
   },
@@ -48,10 +38,6 @@ const storeLanes = [
       'Khu riêng cho card, giftcode và mã số giao ngay. Chọn nhà mạng hoặc loại thẻ rồi thanh toán để nhận mã.',
     href: '/cua-hang/card',
     cta: 'Vào khu card',
-    accent:
-      'border-fuchsia-400/20 bg-[linear-gradient(180deg,rgba(34,10,40,0.94),rgba(15,9,24,0.98))] shadow-[0_0_42px_rgba(217,70,239,0.10)]',
-    iconWrap: 'border-fuchsia-400/25 bg-fuchsia-400/12 text-fuchsia-200',
-    statusWrap: 'border-fuchsia-400/20 bg-fuchsia-400/10 text-fuchsia-100/80',
     icon: CreditCard,
     bullets: ['Nhận mã ngay sau khi mua', 'Hỗ trợ tra cứu lại mã', 'Phù hợp cho card và giftcode'],
   },
@@ -62,10 +48,6 @@ const storeLanes = [
       'Khu dành cho tài khoản, file, tool hoặc các sản phẩm bạn tự nhập và tự quản lý trong kho nội bộ.',
     href: '/cua-hang/account',
     cta: 'Vào khu account',
-    accent:
-      'border-emerald-400/20 bg-[linear-gradient(180deg,rgba(10,36,29,0.96),rgba(8,18,18,0.98))] shadow-[0_0_42px_rgba(52,211,153,0.10)]',
-    iconWrap: 'border-emerald-400/25 bg-emerald-400/12 text-emerald-200',
-    statusWrap: 'border-emerald-400/20 bg-emerald-400/10 text-emerald-100/80',
     icon: PackageSearch,
     bullets: ['Kho nội bộ tự quản lý', 'Giao hàng tự động', 'Phù hợp cho tài khoản, key'],
   },
@@ -75,46 +57,34 @@ const MarketplaceHome = () => {
   const { getSection } = useMarketplaceSectionStatus();
 
   return (
-    <div className="mx-auto max-w-[1480px] space-y-8 px-4 py-10 sm:px-6 xl:px-8">
-      <section className="overflow-hidden rounded-[32px] border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.12),transparent_26%),linear-gradient(180deg,rgba(8,15,30,0.98),rgba(4,8,18,0.98))] p-6 shadow-[0_0_48px_rgba(34,211,238,0.06)] md:p-8 xl:p-10">
-        <div className="flex flex-col gap-8 xl:flex-row xl:items-end xl:justify-between">
-          <div className="max-w-3xl">
-            <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1.5 text-xs font-bold uppercase tracking-[0.22em] text-cyan-100/80">
-              <Sparkles className="h-3.5 w-3.5" />
-              Cửa hàng
-            </div>
-            <h1 className="mt-5 flex items-center gap-3 text-3xl font-black text-white md:text-5xl">
-              Cửa hàng số
-              <ShoppingBag className="h-8 w-8 text-primary md:h-10 md:w-10" />
-            </h1>
-            <p className="mt-4 max-w-2xl text-sm leading-7 text-white/65 md:text-base">
-              Chọn đúng khu để mua nhanh hơn. Dịch vụ số, nạp tiền nhanh, card và mã số, cùng các Account & key
-              hiện đã có lane riêng để dễ quản lý.
-            </p>
-          </div>
+    <div className="mx-auto max-w-6xl space-y-12 px-4 py-10 sm:px-6 lg:py-16">
+      <header className="border-b border-border pb-8">
+        <p className="text-sm text-muted">Cửa hàng</p>
+        <h1 className="mt-3 text-4xl font-semibold leading-tight tracking-tight text-text sm:text-5xl">
+          Cửa hàng số
+        </h1>
+        <p className="mt-4 max-w-2xl text-sm leading-6 text-muted sm:text-base sm:leading-7">
+          Chọn đúng khu để mua nhanh hơn. Dịch vụ số, nạp tiền nhanh, card và mã số, cùng các Account & key
+          hiện đã có lane riêng để dễ quản lý.
+        </p>
 
-          <div className="grid gap-3 grid-cols-2 sm:grid-cols-4">
-            <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-4">
-              <p className="text-xs uppercase tracking-[0.22em] text-white/35">Khu 1</p>
-              <p className="mt-2 text-lg font-bold text-white">Dịch vụ số</p>
-            </div>
-            <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-4">
-              <p className="text-xs uppercase tracking-[0.22em] text-white/35">Khu 2</p>
-              <p className="mt-2 text-lg font-bold text-white">Nạp tiền</p>
-            </div>
-            <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-4">
-              <p className="text-xs uppercase tracking-[0.22em] text-white/35">Khu 3</p>
-              <p className="mt-2 text-lg font-bold text-white">Card</p>
-            </div>
-            <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-4">
-              <p className="text-xs uppercase tracking-[0.22em] text-white/35">Khu 4</p>
-              <p className="mt-2 text-lg font-bold text-white">Account</p>
-            </div>
-          </div>
-        </div>
-      </section>
+        <nav aria-label="Khu vực cửa hàng" className="mt-8 -mb-8 overflow-x-auto">
+          <ul className="flex min-w-max gap-6 border-b border-border">
+            {storeLanes.map((lane) => (
+              <li key={lane.href}>
+                <Link
+                  to={lane.href}
+                  className="inline-flex min-h-12 items-center border-b border-transparent text-sm text-muted transition-colors duration-200 hover:border-border-hover hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                >
+                  {lane.title}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      </header>
 
-      <section className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+      <section aria-label="Các khu mua sắm" className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {storeLanes.map((lane) => {
           const Icon = lane.icon;
           const sectionKey = lane.href.endsWith('/card')
@@ -128,67 +98,66 @@ const MarketplaceHome = () => {
           const isMaintenance = status.enabled === false;
 
           return (
-            <article key={lane.title} className={`flex h-full flex-col rounded-[30px] border p-6 ${lane.accent}`}>
-              <div className="flex items-start justify-between gap-4">
-                <div className={`flex h-14 w-14 items-center justify-center rounded-2xl border ${lane.iconWrap}`}>
-                  <Icon className="h-6 w-6" />
-                </div>
-                <div
-                  className={`rounded-full border px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.22em] ${
-                    isMaintenance ? 'border-orange-400/20 bg-orange-400/10 text-orange-200' : lane.statusWrap
-                  }`}
-                >
-                  {isMaintenance ? 'Đang bảo trì' : lane.subtitle}
-                </div>
+            <article
+              key={lane.title}
+              className="flex h-full flex-col rounded-md border border-border bg-surface p-5 transition-colors duration-200 hover:border-border-hover sm:p-6"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <Icon aria-hidden="true" className="h-5 w-5 text-muted" />
+                <span className="inline-flex items-center gap-2 text-xs text-muted">
+                  <span
+                    aria-hidden="true"
+                    className={`h-1.5 w-1.5 rounded-full ${isMaintenance ? 'bg-warning' : 'bg-success'}`}
+                  />
+                  <span className={isMaintenance ? 'text-warning' : 'text-success'}>
+                    {isMaintenance ? 'Đang bảo trì' : lane.subtitle}
+                  </span>
+                </span>
               </div>
 
               <div className="mt-6 flex-1">
-                <h2 className="text-2xl font-black text-white">{lane.title}</h2>
-                <p className="mt-3 text-sm leading-7 text-white/65">
+                <h2 className="text-xl font-semibold leading-tight text-text">{lane.title}</h2>
+                <p className="mt-3 text-sm leading-6 text-muted">
                   {isMaintenance ? status.message : lane.description}
                 </p>
 
-                <div className="mt-6 space-y-3">
+                <ul className="mt-5 divide-y divide-border text-sm text-muted">
                   {lane.bullets.map((bullet) => (
-                    <div
-                      key={bullet}
-                      className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white/75"
-                    >
+                    <li key={bullet} className="py-3 first:pt-0 last:pb-0">
                       {bullet}
-                    </div>
+                    </li>
                   ))}
-                </div>
+                </ul>
               </div>
 
               {isMaintenance ? (
-                <div className="mt-8 inline-flex items-center justify-between gap-3 rounded-2xl border border-orange-400/20 bg-orange-400/10 px-4 py-3 text-sm font-bold text-orange-200">
+                <div className="mt-6 inline-flex min-h-10 items-center justify-center gap-2 rounded border border-border px-3 text-sm text-warning">
+                  <Wrench aria-hidden="true" className="h-4 w-4" />
                   Đang bảo trì
-                  <Wrench className="h-4 w-4" />
                 </div>
               ) : (
                 <Link
                   to={lane.href}
-                  className="mt-8 inline-flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm font-bold text-white transition-colors hover:bg-white/10"
+                  className="mt-6 inline-flex min-h-10 items-center justify-between gap-3 rounded border border-border px-3 text-sm font-medium text-text transition-colors duration-200 hover:border-border-hover hover:bg-surface-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                 >
                   {lane.cta}
-                  <ArrowRight className="h-4 w-4" />
+                  <ArrowRight aria-hidden="true" className="h-4 w-4 text-muted" />
                 </Link>
               )}
             </article>
           );
         })}
       </section>
-      <section className="rounded-[28px] border border-white/10 bg-white/[0.03] p-5 md:p-6">
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+
+      <section className="border-t border-border pt-6">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-baseline sm:justify-between">
           <div>
-            <p className="text-xs font-bold uppercase tracking-[0.22em] text-white/35">Gợi ý</p>
-            <h3 className="mt-2 text-xl font-bold text-white">Chọn đúng lane để thao tác nhanh hơn</h3>
+            <p className="text-xs text-muted">Gợi ý</p>
+            <h2 className="mt-2 text-lg font-medium text-text">Chọn đúng lane để thao tác nhanh hơn</h2>
           </div>
-          <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-bold uppercase tracking-[0.18em] text-white/55">
-            Cập nhật liên tục
-          </div>
+          <span className="text-xs text-muted">Cập nhật liên tục</span>
         </div>
-        <p className="mt-4 max-w-4xl text-sm leading-7 text-white/60">
+        <p className="mt-4 max-w-4xl text-sm leading-6 text-muted">
           Nếu bạn cần mua dịch vụ social, vào khu dịch vụ số. Nếu cần card, giftcode hoặc mã số giao
           ngay, vào khu card. Nếu cần bán tài khoản hoặc dữ liệu tự quản lý, hãy dùng khu Account & key.
         </p>
