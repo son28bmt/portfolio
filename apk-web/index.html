@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Kho Tải Ứng Dụng POS (APK)</title>
+  <style>
+    /* Reset & CSS cơ bản tương thích tối đa Android 5.0 - 7.0 (Legacy WebKit) */
+    * {
+      -webkit-box-sizing: border-box;
+      -moz-box-sizing: border-box;
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      -webkit-tap-highlight-color: rgba(0, 0, 0, 0.08);
+    }
+
+    body {
+      background-color: #f0f2f5;
+      color: #1c1e21;
+      padding: 12px;
+      line-height: 1.4;
+      font-size: 14px;
+    }
+
+    /* Container */
+    .container {
+      max-width: 680px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    /* Header Bar */
+    .header {
+      background-color: #ffffff;
+      border: 1px solid #e4e6eb;
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 12px;
+      text-align: center;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    }
+
+    .header-title {
+      font-size: 20px;
+      font-weight: bold;
+      color: #1a73e8;
+      margin-bottom: 6px;
+    }
+
+    .header-desc {
+      font-size: 13px;
+      color: #65676b;
+      margin-bottom: 12px;
+    }
+
+    /* Action bar: Refresh + Search */
+    .action-bar {
+      margin-top: 10px;
+      text-align: left;
+    }
+
+    .search-box {
+      width: 100%;
+      height: 46px;
+      padding: 0 14px;
+      font-size: 15px;
+      border: 1px solid #ccd0d5;
+      border-radius: 6px;
+      background-color: #f7f8fa;
+      color: #1c1e21;
+      outline: none;
+      -webkit-appearance: none;
+      margin-bottom: 8px;
+    }
+
+    .search-box:focus {
+      border-color: #1a73e8;
+      background-color: #ffffff;
+    }
+
+    .btn-refresh {
+      display: inline-block;
+      height: 38px;
+      line-height: 38px;
+      padding: 0 14px;
+      background-color: #e4e6eb;
+      color: #050505;
+      border: none;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: bold;
+      cursor: pointer;
+      text-decoration: none;
+      -webkit-appearance: none;
+    }
+
+    .btn-refresh:active {
+      background-color: #d8dadf;
+    }
+
+    /* Status Banner (Loading / Error / Info) */
+    .status-box {
+      background-color: #ffffff;
+      border-radius: 8px;
+      padding: 24px 16px;
+      text-align: center;
+      margin-bottom: 12px;
+      border: 1px solid #e4e6eb;
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 32px;
+      height: 32px;
+      border: 4px solid #e4e6eb;
+      border-top-color: #1a73e8;
+      border-radius: 50%;
+      -webkit-animation: spin 0.8s linear infinite;
+      animation: spin 0.8s linear infinite;
+      margin-bottom: 10px;
+    }
+
+    @-webkit-keyframes spin {
+      0% { -webkit-transform: rotate(0deg); }
+      100% { -webkit-transform: rotate(360deg); }
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .status-text {
+      font-size: 14px;
+      color: #65676b;
+      margin-top: 6px;
+    }
+
+    .btn-retry {
+      margin-top: 12px;
+      display: inline-block;
+      height: 42px;
+      line-height: 42px;
+      padding: 0 20px;
+      background-color: #1a73e8;
+      color: #ffffff;
+      border-radius: 6px;
+      font-weight: bold;
+      border: none;
+      cursor: pointer;
+    }
+
+    /* Project Cards List */
+    .app-card {
+      background-color: #ffffff;
+      border: 1px solid #e4e6eb;
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 14px; /* Dùng margin thay cho flex gap để tương thích Chrome < 84 */
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+    }
+
+    .app-header {
+      display: -webkit-box;
+      display: -webkit-flex;
+      display: flex;
+      -webkit-box-align: start;
+      -webkit-align-items: flex-start;
+      align-items: flex-start;
+      margin-bottom: 10px;
+    }
+
+    .app-icon {
+      width: 54px;
+      height: 54px;
+      border-radius: 12px;
+      background-color: #e8f0fe;
+      border: 1px solid #d2e3fc;
+      margin-right: 12px;
+      -webkit-flex-shrink: 0;
+      flex-shrink: 0;
+      object-fit: cover;
+      display: block;
+    }
+
+    .app-header-content {
+      -webkit-box-flex: 1;
+      -webkit-flex: 1;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .app-title {
+      font-size: 17px;
+      font-weight: bold;
+      color: #111111;
+      word-wrap: break-word;
+      line-height: 1.3;
+      margin-bottom: 4px;
+    }
+
+    .app-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      background-color: #e8f0fe;
+      color: #1a73e8;
+      font-size: 11px;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+
+    .app-desc {
+      font-size: 13px;
+      color: #4b4f56;
+      line-height: 1.45;
+      margin-bottom: 10px;
+      word-wrap: break-word;
+    }
+
+    .app-meta {
+      font-size: 12px;
+      color: #8a8d91;
+      margin-bottom: 12px;
+      padding-top: 6px;
+      border-top: 1px dashed #e4e6eb;
+    }
+
+    .app-meta-item {
+      display: inline-block;
+      margin-right: 14px;
+    }
+
+    /* Download Buttons - To bản, chạm nhạy cho POS */
+    .btn-download-apk {
+      display: block;
+      width: 100%;
+      height: 52px;
+      line-height: 52px;
+      text-align: center;
+      background-color: #00875a; /* Xanh lá dễ nhận diện */
+      color: #ffffff;
+      font-size: 16px;
+      font-weight: bold;
+      text-decoration: none;
+      border-radius: 8px;
+      cursor: pointer;
+      -webkit-user-select: none;
+      user-select: none;
+      touch-action: manipulation;
+      box-shadow: 0 2px 4px rgba(0, 135, 90, 0.25);
+    }
+
+    .btn-download-apk:active {
+      background-color: #006644;
+      -webkit-transform: scale(0.98);
+      transform: scale(0.98);
+    }
+
+    .btn-secondary {
+      display: block;
+      width: 100%;
+      height: 44px;
+      line-height: 44px;
+      text-align: center;
+      background-color: #f0f2f5;
+      color: #1c1e21;
+      font-size: 14px;
+      font-weight: 600;
+      text-decoration: none;
+      border-radius: 8px;
+      margin-top: 8px;
+      border: 1px solid #ccd0d5;
+    }
+
+    .btn-secondary:active {
+      background-color: #e4e6eb;
+    }
+
+    /* Help Instructions for POS cashier/tech */
+    .instruction-card {
+      background-color: #fff9e6;
+      border: 1px solid #ffe58f;
+      border-radius: 8px;
+      padding: 14px;
+      margin-top: 18px;
+      margin-bottom: 24px;
+      font-size: 13px;
+      color: #7c5800;
+      line-height: 1.5;
+    }
+
+    .instruction-card h3 {
+      font-size: 14px;
+      font-weight: bold;
+      margin-bottom: 6px;
+      color: #5c3e00;
+    }
+
+    .instruction-card ol {
+      padding-left: 18px;
+    }
+
+    .instruction-card li {
+      margin-bottom: 4px;
+    }
+
+    .footer {
+      text-align: center;
+      font-size: 12px;
+      color: #8a8d91;
+      padding-bottom: 24px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+
+    <!-- Header -->
+    <div class="header">
+      <div class="header-title">Kho Tải Ứng Dụng POS</div>
+      <div class="header-desc">Hỗ trợ máy POS cấu hình thấp &amp; Android đời cũ (5.0+)</div>
+      
+      <div class="action-bar">
+        <input 
+          type="text" 
+          id="search-input" 
+          class="search-box" 
+          placeholder="Nhập tên ứng dụng để tìm nhanh..." 
+          autocomplete="off"
+        />
+        <button id="btn-reload" class="btn-refresh" type="button">Tải lại danh sách</button>
+      </div>
+    </div>
+
+    <!-- Status / Loading Area -->
+    <div id="status-container" class="status-box" style="display: none;"></div>
+
+    <!-- Apps List -->
+    <div id="apps-container"></div>
+
+    <!-- Instructions for POS users -->
+    <div class="instruction-card">
+      <h3>Hướng dẫn cài đặt trên máy POS:</h3>
+      <ol>
+        <li>Nhấn vào nút <strong>"TẢI VỀ CÀI ĐẶT (APK)"</strong> màu xanh lá.</li>
+        <li>Vuốt mép trên cùng của màn hình máy POS xuống để xem thông báo tải file.</li>
+        <li>Nhấn vào tệp <strong>.apk</strong> vừa tải xong và chọn <strong>"Cài đặt"</strong>.</li>
+        <li>Nếu máy báo bảo mật, hãy vào <em>Cài đặt &gt; Bảo mật &gt; Bật "Nguồn không xác định"</em>.</li>
+      </ol>
+    </div>
+
+    <div class="footer">
+      Hệ thống tải ứng dụng nội bộ &bull; Tối ưu hóa cho thiết bị cầm tay
+    </div>
+
+  </div>
+
+  <script>
+    // Pure ES5 script - 100% tương thích Android 5.0 / 6.0 / WebView đời cũ
+    (function() {
+      var API_BASE_URL = 'https://api.nguyenquangson.id.vn';
+      var API_PROJECTS_URL = API_BASE_URL + '/api/projects?limit=50';
+
+      var statusBox = document.getElementById('status-container');
+      var appsBox = document.getElementById('apps-container');
+      var searchInput = document.getElementById('search-input');
+      var btnReload = document.getElementById('btn-reload');
+
+      var allApkProjects = [];
+
+      function escapeHtml(str) {
+        if (!str) return '';
+        return String(str)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+      }
+
+      function showStatus(html) {
+        statusBox.innerHTML = html;
+        statusBox.style.display = 'block';
+      }
+
+      function hideStatus() {
+        statusBox.style.display = 'none';
+        statusBox.innerHTML = '';
+      }
+
+      function renderAppCard(project) {
+        var id = project.id || '';
+        var title = escapeHtml(project.title || 'Ứng dụng');
+        var desc = escapeHtml(project.description || '');
+        var category = escapeHtml(project.category || 'APP');
+        var downloads = project.apkDownloadCount ? Number(project.apkDownloadCount) : 0;
+        var downloadUrl = API_BASE_URL + '/api/projects/' + id + '/download/apk';
+
+        var iconSrc = '';
+        if (project.image) {
+          iconSrc = project.image;
+        } else if (project.images && project.images.length > 0) {
+          iconSrc = project.images[0];
+        }
+
+        var iconHtml = '';
+        if (iconSrc) {
+          iconHtml = '<img class="app-icon" src="' + escapeHtml(iconSrc) + '" alt="' + title + '" onerror="this.src=\'data:image/svg+xml;utf8,<svg xmlns=\\\'http://www.w3.org/2000/svg\\\' width=\\\'54\\\' height=\\\'54\\\' viewBox=\\\'0 0 24 24\\\' fill=\\\'%231a73e8\\\'><path d=\\\'M6 18c0 .55.45 1 1 1h1v3.5c0 .83.67 1.5 1.5 1.5s1.5-.67 1.5-1.5V19h2v3.5c0 .83.67 1.5 1.5 1.5s1.5-.67 1.5-1.5V19h1c.55 0 1-.45 1-1V8H6v10zM3.5 8C2.67 8 2 8.67 2 9.5v7c0 .83.67 1.5 1.5 1.5S5 17.33 5 16.5v-7C5 8.67 4.33 8 3.5 8zm17 0c-.83 0-1.5.67-1.5 1.5v7c0 .83.67 1.5 1.5 1.5s1.5-.67 1.5-1.5v-7c0-.83-.67-1.5-1.5-1.5zM15.53 2.16l1.3-1.3c.2-.2.2-.51 0-.71-.2-.2-.51-.2-.71 0l-1.48 1.48C13.83 1.23 12.95 1 12 1s-1.83.23-2.65.63L7.88.15c-.2-.2-.51-.2-.71 0-.2.2-.2.51 0 .71l1.31 1.3C6.67 3.2 5.5 5.02 5.5 7h13c0-1.98-1.17-3.8-2.97-4.84zM10 5H9V4h1v1zm5 0h-1V4h1v1z\\\'/></svg>\'"/>';
+        } else {
+          iconHtml = '<img class="app-icon" src="data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'54\' height=\'54\' viewBox=\'0 0 24 24\' fill=\'%231a73e8\'><path d=\'M6 18c0 .55.45 1 1 1h1v3.5c0 .83.67 1.5 1.5 1.5s1.5-.67 1.5-1.5V19h2v3.5c0 .83.67 1.5 1.5 1.5s1.5-.67 1.5-1.5V19h1c.55 0 1-.45 1-1V8H6v10zM3.5 8C2.67 8 2 8.67 2 9.5v7c0 .83.67 1.5 1.5 1.5S5 17.33 5 16.5v-7C5 8.67 4.33 8 3.5 8zm17 0c-.83 0-1.5.67-1.5 1.5v7c0 .83.67 1.5 1.5 1.5s1.5-.67 1.5-1.5v-7c0-.83-.67-1.5-1.5-1.5zM15.53 2.16l1.3-1.3c.2-.2.2-.51 0-.71-.2-.2-.51-.2-.71 0l-1.48 1.48C13.83 1.23 12.95 1 12 1s-1.83.23-2.65.63L7.88.15c-.2-.2-.51-.2-.71 0-.2.2-.2.51 0 .71l1.31 1.3C6.67 3.2 5.5 5.02 5.5 7h13c0-1.98-1.17-3.8-2.97-4.84zM10 5H9V4h1v1zm5 0h-1V4h1v1z\'/></svg>" alt="Icon"/>';
+        }
+
+        var secondaryBtnHtml = '';
+        if (project.fileUrl) {
+          var altDownloadUrl = API_BASE_URL + '/api/projects/' + id + '/download/file';
+          secondaryBtnHtml = '<a class="btn-secondary" href="' + altDownloadUrl + '">Tải file tài liệu / bổ trợ</a>';
+        }
+
+        return '<div class="app-card">' +
+                 '<div class="app-header">' +
+                   iconHtml +
+                   '<div class="app-header-content">' +
+                     '<div class="app-title">' + title + '</div>' +
+                     '<span class="app-badge">' + category + '</span>' +
+                   '</div>' +
+                 '</div>' +
+                 (desc ? '<div class="app-desc">' + desc + '</div>' : '') +
+                 '<div class="app-meta">' +
+                   '<span class="app-meta-item">Lượt tải: <strong>' + downloads + '</strong></span>' +
+                 '</div>' +
+                 '<a class="btn-download-apk" href="' + downloadUrl + '">&#11015; TẢI VỀ CÀI ĐẶT (APK)</a>' +
+                 secondaryBtnHtml +
+               '</div>';
+      }
+
+      function filterAndRenderApps() {
+        var keyword = (searchInput.value || '').toLowerCase().trim();
+        var matched = [];
+
+        for (var i = 0; i < allApkProjects.length; i++) {
+          var item = allApkProjects[i];
+          var title = (item.title || '').toLowerCase();
+          var desc = (item.description || '').toLowerCase();
+          var cat = (item.category || '').toLowerCase();
+
+          if (!keyword || title.indexOf(keyword) !== -1 || desc.indexOf(keyword) !== -1 || cat.indexOf(keyword) !== -1) {
+            matched.push(item);
+          }
+        }
+
+        if (matched.length === 0) {
+          if (allApkProjects.length === 0) {
+            showStatus('<div class="status-text">Hiện tại chưa có ứng dụng nào có sẵn file APK trên hệ thống.</div>');
+          } else {
+            showStatus('<div class="status-text">Không tìm thấy ứng dụng nào khớp với từ khóa "' + escapeHtml(keyword) + '".</div>');
+          }
+          appsBox.innerHTML = '';
+          return;
+        }
+
+        hideStatus();
+        var cardsHtml = '';
+        for (var j = 0; j < matched.length; j++) {
+          cardsHtml += renderAppCard(matched[j]);
+        }
+        appsBox.innerHTML = cardsHtml;
+      }
+
+      function loadProjects() {
+        showStatus('<div class="spinner"></div><div class="status-text">Đang kết nối và tải danh sách ứng dụng...</div>');
+        appsBox.innerHTML = '';
+
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', API_PROJECTS_URL, true);
+        xhr.timeout = 20000; // 20s timeout cho mạng POS chậm
+
+        xhr.onload = function() {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            try {
+              var data = JSON.parse(xhr.responseText);
+              var rawList = data.items || data.rows || data;
+              if (!rawList || typeof rawList.length !== 'number') {
+                rawList = [];
+              }
+
+              // Chỉ lấy những project có file APK
+              allApkProjects = [];
+              for (var i = 0; i < rawList.length; i++) {
+                if (rawList[i] && rawList[i].apkUrl) {
+                  allApkProjects.push(rawList[i]);
+                }
+              }
+
+              filterAndRenderApps();
+            } catch (err) {
+              showStatus('<div class="status-text">Lỗi xử lý dữ liệu từ máy chủ.</div>' +
+                         '<button id="btn-retry-parse" class="btn-retry" type="button">Thử lại</button>');
+              var btn = document.getElementById('btn-retry-parse');
+              if (btn) btn.onclick = loadProjects;
+            }
+          } else {
+            showStatus('<div class="status-text">Máy chủ phản hồi mã lỗi: ' + xhr.status + '</div>' +
+                       '<button id="btn-retry-http" class="btn-retry" type="button">Thử lại</button>');
+            var btnHttp = document.getElementById('btn-retry-http');
+            if (btnHttp) btnHttp.onclick = loadProjects;
+          }
+        };
+
+        xhr.onerror = function() {
+          showStatus('<div class="status-text">Không thể kết nối tới máy chủ. Vui lòng kiểm tra kết nối Wifi trên máy POS.</div>' +
+                     '<button id="btn-retry-net" class="btn-retry" type="button">Thử kết nối lại</button>');
+          var btnNet = document.getElementById('btn-retry-net');
+          if (btnNet) btnNet.onclick = loadProjects;
+        };
+
+        xhr.ontimeout = function() {
+          showStatus('<div class="status-text">Kết nối mạng quá chậm, đã hết thời gian chờ (Timeout).</div>' +
+                     '<button id="btn-retry-timeout" class="btn-retry" type="button">Tải lại</button>');
+          var btnTime = document.getElementById('btn-retry-timeout');
+          if (btnTime) btnTime.onclick = loadProjects;
+        };
+
+        xhr.send();
+      }
+
+      // Event Listeners
+      if (searchInput) {
+        searchInput.onkeyup = function() {
+          filterAndRenderApps();
+        };
+        searchInput.oninput = function() {
+          filterAndRenderApps();
+        };
+      }
+
+      if (btnReload) {
+        btnReload.onclick = function() {
+          loadProjects();
+        };
+      }
+
+      // Khởi động
+      loadProjects();
+    })();
+  </script>
+</body>
+</html>
+

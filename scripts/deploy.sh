@@ -60,9 +60,11 @@ GIT_REPO_URL="${GIT_REPO_URL:-}"
 SERVER_DIR="${SERVER_DIR:-$APP_ROOT/server}"
 CLIENT_DIR="${CLIENT_DIR:-$APP_ROOT/client}"
 ADMIN_DIR="${ADMIN_DIR:-$APP_ROOT/admin}"
+APK_DIR="${APK_DIR:-$APP_ROOT/apk-web}"
 
 CLIENT_WEB_ROOT="${CLIENT_WEB_ROOT:-/www/wwwroot/nguyenquangson.id.vn}"
 ADMIN_WEB_ROOT="${ADMIN_WEB_ROOT:-/www/wwwroot/admin.nguyenquangson.id.vn}"
+APK_WEB_ROOT="${APK_WEB_ROOT:-/www/wwwroot/apk.nguyenquangson.id.vn}"
 
 API_RESTART_CMD="${API_RESTART_CMD:-}"
 HEALTHCHECK_URL="${HEALTHCHECK_URL:-https://api.nguyenquangson.id.vn/api/ping}"
@@ -102,6 +104,11 @@ sync_dir "$CLIENT_DIR/dist" "$CLIENT_WEB_ROOT"
 
 log "Sync admin dist -> $ADMIN_WEB_ROOT"
 sync_dir "$ADMIN_DIR/dist" "$ADMIN_WEB_ROOT"
+
+if [[ -d "$APK_DIR" ]]; then
+  log "Sync apk-web -> $APK_WEB_ROOT"
+  sync_dir "$APK_DIR" "$APK_WEB_ROOT"
+fi
 
 if [[ -n "$API_RESTART_CMD" ]]; then
   log "Restart API with custom command"
