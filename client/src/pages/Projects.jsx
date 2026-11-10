@@ -141,11 +141,10 @@ const Projects = () => {
               <button
                 key={cat}
                 onClick={() => setActiveCategory(cat)}
-                className={`px-5 md:px-6 py-2 rounded-xl text-xs md:text-sm font-medium transition-all whitespace-nowrap ${
-                  activeCategory === cat
+                className={`px-5 md:px-6 py-2 rounded-xl text-xs md:text-sm font-medium transition-all whitespace-nowrap ${activeCategory === cat
                     ? 'bg-primary text-white shadow-lg glow'
                     : 'text-white/40 hover:text-white'
-                }`}
+                  }`}
               >
                 {cat}
               </button>
@@ -162,7 +161,7 @@ const Projects = () => {
       ) : (
         <motion.div
           layout
-          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 lg:gap-5 px-4 md:px-0"
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-5 px-4 md:px-0"
         >
           <AnimatePresence mode="popLayout">
             {filteredProjects.map((project) => (
@@ -314,7 +313,7 @@ const Projects = () => {
           >
             ← Trước
           </button>
-          
+
           <div className="flex items-center gap-2">
             {[...Array(totalPages)].map((_, i) => {
               const p = i + 1;
@@ -326,9 +325,8 @@ const Projects = () => {
                 <button
                   key={p}
                   onClick={() => { setPage(p); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-                  className={`w-10 h-10 rounded-xl text-xs font-bold transition-all ${
-                    page === p ? 'bg-primary text-white glow' : 'bg-white/5 text-white/40 hover:bg-white/10'
-                  }`}
+                  className={`w-10 h-10 rounded-xl text-xs font-bold transition-all ${page === p ? 'bg-primary text-white glow' : 'bg-white/5 text-white/40 hover:bg-white/10'
+                    }`}
                 >
                   {p}
                 </button>
@@ -414,9 +412,8 @@ const Projects = () => {
                     <button
                       key={url}
                       onClick={() => setSelectedImageIndex(index)}
-                      className={`shrink-0 rounded-xl overflow-hidden border-2 ${
-                        index === selectedImageIndex ? 'border-secondary' : 'border-white/10'
-                      }`}
+                      className={`shrink-0 rounded-xl overflow-hidden border-2 ${index === selectedImageIndex ? 'border-secondary' : 'border-white/10'
+                        }`}
                     >
                       <img src={url} alt={`Ảnh ${index + 1}`} className="w-20 h-16 object-cover" />
                     </button>
