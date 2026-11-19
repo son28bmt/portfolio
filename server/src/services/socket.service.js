@@ -1,4 +1,4 @@
-const { LiveChatMessage, Admin } = require("../models");
+const { LiveChatMessage, Admin, UserProfile } = require("../models");
 const { sequelize } = require("../config/db");
 const jwt = require("jsonwebtoken");
 const { getJwtSecret } = require("../utils/jwt.util");
@@ -35,9 +35,15 @@ const verifyAdminSocketToken = async (rawToken) => {
 const resolveChatUser = async (rawToken) => {
   try {
     const decoded = jwt.verify(String(rawToken || '').trim(), getJwtSecret());
-    return decoded?.id ? User.findByPk(decoded.id, { attributes: ['id'] }) : null;
+    return decoded?.id ? User.findByPk(decoded.id, {
+      attributes: ['id', 'username'],
+      include: [{ model: UserProfile, as: 'profile', attributes: ['fullName', 'email'] }],
+    }) : null;
   } catch { return null; }
 };
+
+const getChatUserName = (user, fallback) =>
+  user?.profile?.fullName || user?.username || fallback || null;
 
 const initSocket = (server, corsOptions) => {
   const { Server } = require("socket.io");
@@ -88,8 +94,21 @@ const initSocket = (server, corsOptions) => {
           const lastMessage = await LiveChatMessage.findOne({
             where: { guestId: session.guestId }, order: [['createdAt', 'DESC']],
           });
+          const latestUserMessage = await LiveChatMessage.findOne({
+            where: { guestId: session.guestId, role: 'user' },
+            order: [['createdAt', 'DESC']],
+            attributes: ['userId', 'name', 'email'],
+          });
+          const chatUser = latestUserMessage?.userId
+            ? await User.findByPk(latestUserMessage.userId, {
+              attributes: ['id', 'username'],
+              include: [{ model: UserProfile, as: 'profile', attributes: ['fullName', 'email'] }],
+            })
+            : null;
           return {
             ...session.toJSON(),
+            name: getChatUserName(chatUser, latestUserMessage?.name || session.name),
+            email: chatUser?.profile?.email || latestUserMessage?.email || session.email,
             purchase: await getConversationSnapshot(session.guestId),
             lastMessageType: lastMessage?.messageType || 'text',
             guideContext: lastMessage?.guideContext || null,
@@ -109,6 +128,7 @@ const initSocket = (server, corsOptions) => {
       socket.join(`room_${guestId}`);
       const user = await resolveChatUser(userToken);
       socket.userId = user?.id || null;
+      socket.chatUser = user || null;
 
       try {
         const guestToken = signGuestChatToken(guestId);
@@ -127,13 +147,21 @@ const initSocket = (server, corsOptions) => {
       if (!guestId || !String(text || "").trim()) return;
 
       try {
+        const chatUser = socket.chatUser || (socket.userId
+          ? await User.findByPk(socket.userId, {
+            attributes: ['id', 'username'],
+            include: [{ model: UserProfile, as: 'profile', attributes: ['fullName', 'email'] }],
+          })
+          : null);
+        const senderName = getChatUserName(chatUser, name);
+        const senderEmail = chatUser?.profile?.email || email || null;
         const newMessage = await LiveChatMessage.create({
           guestId,
-          userId: socket.userId || null,
+          userId: chatUser?.id || socket.userId || null,
           role: "user",
           content: text,
-          name,
-          email,
+          name: senderName,
+          email: senderEmail,
         });
         const purchase = await getConversationSnapshot(guestId);
 
@@ -141,8 +169,8 @@ const initSocket = (server, corsOptions) => {
           id: newMessage.id,
           guestId,
           text,
-          name,
-          email,
+          name: senderName,
+          email: senderEmail,
           purchase,
           guideContext: newMessage.guideContext || null,
           questionSnapshot: newMessage.questionSnapshot || null,
