@@ -10,15 +10,21 @@ const ensureTable = async (tableName, definition) => {
 
 const ensureColumns = async (tableName, definitions) => {
   const query = sequelize.getQueryInterface();
+  const tables = await query.showAllTables();
+  const actualName = tables
+    .map(table => String(typeof table === 'object' ? table.tableName : table))
+    .find(name => name.toLowerCase() === tableName.toLowerCase());
+  if (!actualName) return;
+
   let columns;
   try {
-    columns = await query.describeTable(tableName);
+    columns = await query.describeTable(actualName);
   } catch {
     return;
   }
   for (const [name, definition] of Object.entries(definitions)) {
     if (!columns[name]) {
-      await query.addColumn(tableName, name, definition);
+      await query.addColumn(actualName, name, definition);
       columns[name] = definition;
     }
   }
@@ -103,12 +109,6 @@ const ensureGuideSchema = async () => {
       questionSnapshot: { type: DataTypes.JSON, allowNull: true },
     });
     await ensureIndex('LiveChatMessages', 'LiveChatMessages_userId', ['userId']);
-
-    const tables = await query.showAllTables();
-    const tableNames = tables.map(table => String(typeof table === 'object' ? table.tableName : table).toLowerCase());
-    if (tableNames.includes('users')) {
-      await sequelize.query("UPDATE `users` SET `role` = 'owner' WHERE LOWER(`username`) = 'admin' AND `role` IS NULL");
-    }
 
     ensured = true;
     console.info('[Schema] Guide, question template, role, and support chat schema ready.');
