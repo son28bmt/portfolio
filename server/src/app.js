@@ -75,8 +75,8 @@ const corsOptions = {
     }
     return callback(new Error(`Not allowed by CORS: ${origin}`));
   },
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-turnstile-token'],
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-turnstile-token', 'x-guest-token'],
   credentials: true,
   optionsSuccessStatus: 204,
 };
