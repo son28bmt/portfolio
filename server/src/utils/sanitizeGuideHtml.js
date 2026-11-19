@@ -37,7 +37,7 @@ const sanitizeGuideHtml = (html) => sanitizeHtml(String(html || ''), {
     '*': ['class'],
     a: ['href', 'rel', 'target'],
     img: ['src', 'alt', 'width', 'height'],
-    iframe: ['src', 'width', 'height', 'title'],
+    iframe: ['src', 'width', 'height', 'title', 'allowfullscreen', 'frameborder'],
   },
   allowedClasses: {
     '*': [/^ql-/],
@@ -58,13 +58,16 @@ const sanitizeGuideHtml = (html) => sanitizeHtml(String(html || ''), {
       if (nextAttribs.target !== '_blank') delete nextAttribs.target;
       return { tagName, attribs: nextAttribs };
     },
-    img: (tagName, attribs) => {
-      if (attribs.src && !hasAllowedAbsoluteScheme(attribs.src, ['https:'])) delete attribs.src;
-      if (!attribs.alt) return { tagName: 'span', text: '' };
-      return { tagName, attribs };
+    img: (tagName, attribs) => ({ tagName, attribs: { ...attribs, alt: attribs.alt ?? '' } }),
+    iframe: (tagName, attribs) => {
+      return {
+        tagName,
+        attribs: { ...attribs, allowfullscreen: 'allowfullscreen', frameborder: '0' },
+      };
     },
   },
-  exclusiveFilter: (frame) => frame.tag === 'iframe' && !isAllowedEmbedUrl(frame.attribs.src),
+  exclusiveFilter: (frame) => (frame.tag === 'img' && !hasAllowedAbsoluteScheme(frame.attribs.src, ['https:']))
+    || (frame.tag === 'iframe' && !isAllowedEmbedUrl(frame.attribs.src)),
 });
 
 module.exports = { sanitizeGuideHtml, allowedIframeHostnames };
