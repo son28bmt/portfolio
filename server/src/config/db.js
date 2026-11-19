@@ -21,12 +21,6 @@ const sequelize = new Sequelize(
   },
 );
 
-const shouldSyncOnStart =
-  String(process.env.DB_SYNC_ON_START || "").toLowerCase() === "true";
-const shouldAlterOnSync =
-  String(process.env.DB_SYNC_ALTER || "").toLowerCase() === "true";
-let hasAttemptedSync = false;
-
 const connectDB = async () => {
   try {
     await sequelize.authenticate();
@@ -35,21 +29,10 @@ const connectDB = async () => {
     try {
       const { ensureGuideSchema } = require('../services/guide-schema.service');
       await ensureGuideSchema();
+      return true;
     } catch (schemaError) {
       console.error('[Schema] Automatic guide/support schema setup failed:', schemaError?.message || schemaError);
-      process.exit(1);
-    }
-
-    if (!shouldSyncOnStart || hasAttemptedSync) {
-      return;
-    }
-
-    hasAttemptedSync = true;
-    try {
-      await sequelize.sync({ alter: shouldAlterOnSync });
-      console.log(`MySQL schema synced (alter=${shouldAlterOnSync}).`);
-    } catch (syncError) {
-      console.error("Schema sync skipped:", syncError?.message || syncError);
+      return false;
     }
   } catch (error) {
     const retryMs = Number(process.env.DB_RETRY_MS || 5000);
@@ -60,7 +43,9 @@ const connectDB = async () => {
     console.log(
       `Retry database connection in ${Math.round(retryMs / 1000)}s...`,
     );
-    setTimeout(connectDB, retryMs);
+    return new Promise((resolve) => {
+      setTimeout(() => resolve(connectDB()), retryMs);
+    });
   }
 };
 

@@ -83,9 +83,6 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
 
-// 3. Database Connection
-connectDB();
-
 // Global Rate Limiter: 200 requests per 15 minutes
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -173,11 +170,20 @@ app.use((err, req, res, next) => {
 
 // Setup Server and WebSockets
 const server = http.createServer(app);
-initSocket(server, corsOptions);
-startBlogAutomationScheduler();
-startMarketplaceSupplierScheduler();
+const startServer = async () => {
+  const schemaReady = await connectDB();
+  if (!schemaReady) {
+    console.error('[Startup] Database schema is not ready; retry startup in 5s.');
+    setTimeout(startServer, Number(process.env.DB_RETRY_MS || 5000));
+    return;
+  }
 
-// Start Server
-server.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-});
+  initSocket(server, corsOptions);
+  startBlogAutomationScheduler();
+  startMarketplaceSupplierScheduler();
+  server.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
+  });
+};
+
+startServer();
