@@ -75,7 +75,11 @@ const Guide = sequelize.define('Guide', {
   hooks: {
     beforeValidate: (guide) => {
       if (guide.isNewRecord && !guide.slug) {
-        const baseSlug = slugify(guide.title) || 'huong-dan';
+        if (typeof guide.title !== 'string' || !guide.title.trim()) return;
+
+        const baseSlug = (slugify(guide.title) || 'huong-dan')
+          .slice(0, 150)
+          .replace(/-+$/, '') || 'huong-dan';
         const suffix = crypto.randomBytes(3).toString('hex');
         guide.slug = `${baseSlug}-${suffix}`;
       }

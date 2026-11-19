@@ -1,4 +1,5 @@
 const { DataTypes } = require('sequelize');
+const crypto = require('crypto');
 const { sequelize } = require('../config/db');
 const slugify = require('../utils/slugify');
 
@@ -57,16 +58,26 @@ const GuideTopic = sequelize.define('GuideTopic', {
   hooks: {
     beforeValidate: async (topic) => {
       if (topic.isNewRecord && !topic.slug) {
-        const baseSlug = slugify(topic.name) || 'chu-de';
+        if (typeof topic.name !== 'string' || !topic.name.trim()) return;
+
+        const baseSlug = (slugify(topic.name) || 'chu-de')
+          .slice(0, 100)
+          .replace(/-+$/, '') || 'chu-de';
         let slug = baseSlug;
         let suffix = 2;
+        let checks = 0;
+        let existing = await GuideTopic.findOne({ where: { slug } });
 
-        while (await GuideTopic.findOne({ where: { slug } })) {
+        while (existing && checks < 49) {
           slug = `${baseSlug}-${suffix}`;
           suffix += 1;
+          existing = await GuideTopic.findOne({ where: { slug } });
+          checks += 1;
         }
 
-        topic.slug = slug;
+        topic.slug = existing
+          ? `${baseSlug}-${crypto.randomBytes(3).toString('hex')}`
+          : slug;
       }
     },
   },
