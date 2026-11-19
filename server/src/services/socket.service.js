@@ -4,6 +4,7 @@ const jwt = require("jsonwebtoken");
 const { getJwtSecret } = require("../utils/jwt.util");
 const { User } = require("../models");
 const { getConversationSnapshot } = require("./chat-purchase.service");
+const { queueSupportReplyNotice } = require('./support-email.service');
 
 let io = null;
 
@@ -169,6 +170,17 @@ const initSocket = (server, corsOptions) => {
           role: "admin",
           content: text,
           isRead: true,
+        });
+
+        const customerMessage = await LiveChatMessage.findOne({
+          where: { guestId, role: 'user' },
+          order: [['createdAt', 'DESC']],
+          attributes: ['email', 'guideContext'],
+        });
+        queueSupportReplyNotice({
+          guestId,
+          to: customerMessage?.email,
+          guideSlug: customerMessage?.guideContext?.slug,
         });
 
         io.to(`room_${guestId}`).emit("receive_admin_message", {

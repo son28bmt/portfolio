@@ -145,7 +145,21 @@ const sendProductEmail = async (to, productName, productData) => {
   });
 };
 
+const sendSupportReplyNoticeEmail = async ({ to, guideSlug = '' }) => {
+  const transporter = getTransporter();
+  const user = String(process.env.EMAIL_USER || '').trim();
+  const siteUrl = String(process.env.PUBLIC_SITE_URL || 'https://nguyenquangson.id.vn').replace(/\/+$/, '');
+  const link = guideSlug ? `${siteUrl}/huong-dan/${encodeURIComponent(guideSlug)}` : `${siteUrl}/huong-dan`;
+  return transporter.sendMail({
+    from: `"Hỗ trợ khách hàng" <${user}>`,
+    to,
+    subject: 'Đội ngũ hỗ trợ đã trả lời câu hỏi của bạn',
+    text: `Đội ngũ hỗ trợ đã trả lời trong cuộc trò chuyện riêng của bạn. Mở trung tâm hướng dẫn: ${link}`,
+  });
+};
+
 module.exports = {
   sendMarketplaceDeliveryEmail,
   sendProductEmail,
+  sendSupportReplyNoticeEmail,
 };

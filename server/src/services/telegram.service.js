@@ -58,6 +58,28 @@ const getConfig = () => {
 };
 
 let hasWarnedMissingConfig = false;
+let supportQuestionTimer = null;
+const supportQuestionQueue = [];
+
+const getSupportBatchDelayMs = () => {
+  const parsed = Number(process.env.TELEGRAM_SUPPORT_BATCH_MS || 30000);
+  return Number.isFinite(parsed) ? Math.max(5000, Math.min(parsed, 5 * 60 * 1000)) : 30000;
+};
+
+const scheduleSupportQuestionFlush = () => {
+  if (supportQuestionTimer || supportQuestionQueue.length === 0) return;
+  supportQuestionTimer = setTimeout(() => {
+    supportQuestionTimer = null;
+    const queued = supportQuestionQueue.splice(0, 8);
+    queueTelegramLines([
+      sectionTitle('[SUPPORT]', `Có ${queued.length} câu hỏi hướng dẫn mới`),
+      divider(),
+      ...queued.map((item, index) => `${index + 1}.\n${item}`),
+    ]);
+    if (supportQuestionQueue.length) scheduleSupportQuestionFlush();
+  }, getSupportBatchDelayMs());
+  supportQuestionTimer.unref?.();
+};
 
 const sendTelegramMessageNow = async (text, options = {}) => {
   const config = getConfig();
@@ -281,6 +303,27 @@ const notifyTelegramWalletTopupPaid = ({ topup, user, balanceAfter } = {}) => {
   ]);
 };
 
+const maskEmail = (value) => {
+  const email = String(value || '').trim();
+  const at = email.indexOf('@');
+  if (at <= 0) return '';
+  const local = email.slice(0, at);
+  return `${local.slice(0, 1)}***@${email.slice(at + 1)}`;
+};
+
+const notifyTelegramGuideQuestion = ({ guestId, purchaseStatus, email, guideTitle, guideSlug } = {}) => {
+  const statusLabel = purchaseStatus === 'purchased' ? 'Đã mua' : purchaseStatus === 'not_purchased' ? 'Chưa mua' : 'Chưa xác định';
+  const guideUrl = guideSlug ? buildSiteUrl(`/huong-dan/${sanitizeText(guideSlug, 191)}`) : '';
+  supportQuestionQueue.push([
+    bullet('Trạng thái mua', statusLabel),
+    bullet('Phiên hỗ trợ', sanitizeText(guestId, 80)),
+    bullet('Email', maskEmail(email)),
+    bullet('Bài hướng dẫn', sanitizeText(guideTitle, 200)),
+    guideUrl,
+  ].filter(Boolean).join('\n'));
+  scheduleSupportQuestionFlush();
+};
+
 module.exports = {
   sendTelegramMessageNow,
   notifyTelegramOrderCreated,
@@ -290,4 +333,5 @@ module.exports = {
   notifyTelegramProjectChanged,
   notifyTelegramProjectDownload,
   notifyTelegramWalletTopupPaid,
+  notifyTelegramGuideQuestion,
 };
