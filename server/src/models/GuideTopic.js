@@ -16,6 +16,12 @@ const GuideTopic = sequelize.define('GuideTopic', {
     type: DataTypes.STRING(120),
     allowNull: false,
     unique: true,
+    validate: {
+      is: {
+        args: /^[a-z0-9]+(?:-[a-z0-9]+)*$/,
+        msg: 'Slug chỉ được chứa chữ thường không dấu, số và dấu gạch ngang đơn.',
+      },
+    },
   },
   description: {
     type: DataTypes.TEXT,
@@ -49,14 +55,18 @@ const GuideTopic = sequelize.define('GuideTopic', {
   tableName: 'guide_topics',
   timestamps: true,
   hooks: {
-    beforeValidate: (topic) => {
-      if (topic.name && !topic.slug) {
-        topic.slug = `${slugify(topic.name)}-${Math.floor(Math.random() * 10000)}`;
-      }
-    },
-    beforeUpdate: (topic) => {
-      if (topic.changed('name')) {
-        topic.slug = `${slugify(topic.name)}-${Math.floor(Math.random() * 10000)}`;
+    beforeValidate: async (topic) => {
+      if (topic.isNewRecord && !topic.slug) {
+        const baseSlug = slugify(topic.name) || 'chu-de';
+        let slug = baseSlug;
+        let suffix = 2;
+
+        while (await GuideTopic.findOne({ where: { slug } })) {
+          slug = `${baseSlug}-${suffix}`;
+          suffix += 1;
+        }
+
+        topic.slug = slug;
       }
     },
   },

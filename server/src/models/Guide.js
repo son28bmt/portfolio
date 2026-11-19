@@ -1,4 +1,5 @@
 const { DataTypes } = require('sequelize');
+const crypto = require('crypto');
 const { sequelize } = require('../config/db');
 const slugify = require('../utils/slugify');
 
@@ -12,6 +13,12 @@ const Guide = sequelize.define('Guide', {
     type: DataTypes.STRING(191),
     allowNull: false,
     unique: true,
+    validate: {
+      is: {
+        args: /^[a-z0-9]+(?:-[a-z0-9]+)*$/,
+        msg: 'Slug chỉ được chứa chữ thường không dấu, số và dấu gạch ngang đơn.',
+      },
+    },
   },
   title: {
     type: DataTypes.STRING(255),
@@ -67,13 +74,10 @@ const Guide = sequelize.define('Guide', {
   timestamps: true,
   hooks: {
     beforeValidate: (guide) => {
-      if (guide.title && !guide.slug) {
-        guide.slug = `${slugify(guide.title)}-${Math.floor(Math.random() * 10000)}`;
-      }
-    },
-    beforeUpdate: (guide) => {
-      if (guide.changed('title')) {
-        guide.slug = `${slugify(guide.title)}-${Math.floor(Math.random() * 10000)}`;
+      if (guide.isNewRecord && !guide.slug) {
+        const baseSlug = slugify(guide.title) || 'huong-dan';
+        const suffix = crypto.randomBytes(3).toString('hex');
+        guide.slug = `${baseSlug}-${suffix}`;
       }
     },
   },
