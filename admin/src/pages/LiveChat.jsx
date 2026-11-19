@@ -26,6 +26,9 @@ const LiveChat = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isNotificationsEnabled, setIsNotificationsEnabled] = useState(true);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [purchase, setPurchase] = useState(null);
+  const [purchaseForm, setPurchaseForm] = useState({ purchaseStatus: 'unknown', packageType: '', printerModel: '', assignmentNotes: '' });
+  const [purchaseError, setPurchaseError] = useState('');
   
   const socketRef = useRef();
   const messagesEndRef = useRef(null);
@@ -93,7 +96,7 @@ const LiveChat = () => {
     });
 
     socketRef.current.on('new_user_message', (data) => {
-      const { guestId, text, name, email, timestamp } = data;
+      const { guestId, text, name, email, purchase, timestamp } = data;
       console.log('[AdminSocket] New user message from:', guestId);
       
       setSessions(prev => {
@@ -103,6 +106,7 @@ const LiveChat = () => {
           updated[index] = {
             ...updated[index],
             lastMessageAt: timestamp,
+            purchase: purchase || updated[index].purchase,
             unreadCount: activeChatIdRef.current === guestId ? 0 : (updated[index].unreadCount + 1)
           };
           const session = updated.splice(index, 1)[0];
@@ -112,6 +116,7 @@ const LiveChat = () => {
             guestId,
             name: name || guestId,
             email: email || 'N/A',
+            purchase,
             lastMessageAt: timestamp,
             unreadCount: activeChatIdRef.current === guestId ? 0 : 1
           }, ...prev];
@@ -148,6 +153,14 @@ const LiveChat = () => {
     try {
       const { data } = await api.get(`/chat/history/${guestId}`);
       setMessages(data);
+      const purchaseResponse = await api.get(`/chat/purchase-status/${guestId}`);
+      setPurchase(purchaseResponse.data);
+      setPurchaseForm({
+        purchaseStatus: purchaseResponse.data.purchaseStatus || 'unknown',
+        packageType: purchaseResponse.data.packageType || '',
+        printerModel: purchaseResponse.data.printerModel || '',
+        assignmentNotes: purchaseResponse.data.assignmentNotes || '',
+      });
       setSessions(prev => prev.map(s => s.guestId === guestId ? { ...s, unreadCount: 0 } : s));
       socketRef.current.emit('mark_as_read', { guestId });
       await api.put(`/chat/read/${guestId}`);
@@ -155,6 +168,18 @@ const LiveChat = () => {
       console.error('Failed to load history:', err);
     } finally {
       setIsLoadingHistory(false);
+    }
+  };
+
+  const savePurchaseStatus = async (event) => {
+    event.preventDefault();
+    if (!activeChatId) return;
+    setPurchaseError('');
+    try {
+      const { data } = await api.patch(`/chat/purchase-status/${activeChatId}`, purchaseForm);
+      setPurchase(data);
+    } catch (error) {
+      setPurchaseError(error.response?.data?.message || 'Không thể cập nhật trạng thái khách mua.');
     }
   };
 
@@ -230,6 +255,7 @@ const LiveChat = () => {
                   </span>
                 </div>
                 <p className="text-[11px] text-white/30 truncate uppercase tracking-tighter font-medium italic">Guest ID: {session.guestId.slice(-6)}</p>
+                 <p className={`mt-1 text-[9px] font-bold uppercase tracking-wider ${session.purchase?.purchaseStatus === 'purchased' ? 'text-emerald-300' : session.purchase?.purchaseStatus === 'not_purchased' ? 'text-amber-300' : 'text-white/25'}`}>{session.purchase?.purchaseStatus === 'purchased' ? 'Đã mua' : session.purchase?.purchaseStatus === 'not_purchased' ? 'Chưa mua' : 'Chưa xác định'}</p>
               </div>
               {session.unreadCount > 0 && (
                 <div className="absolute top-4 right-4 w-5 h-5 bg-primary text-white text-[10px] font-black rounded-full flex items-center justify-center animate-bounce shadow-lg shadow-primary/40">
@@ -261,6 +287,10 @@ const LiveChat = () => {
                     <h3 className="font-black text-lg md:text-xl uppercase tracking-tighter">{activeSession.name}</h3>
                     <p className="text-[11px] text-white/40 flex items-center gap-2 font-medium">
                       <ShieldCheck className="w-3.5 h-3.5 text-green-400" /> {activeSession.email} • {activeChatId}
+                    </p>
+                    <p className="mt-2 text-xs font-bold uppercase tracking-wider">
+                      {purchase?.purchaseStatus === 'purchased' ? <span className="text-emerald-300">Đã mua</span> : purchase?.purchaseStatus === 'not_purchased' ? <span className="text-amber-300">Chưa mua</span> : <span className="text-white/40">Chưa xác định</span>}
+                      {purchase?.automaticPurchase && <span className="ml-2 text-[10px] text-white/40">(tự động)</span>}
                     </p>
                   </div>
                 </div>
@@ -299,6 +329,18 @@ const LiveChat = () => {
                 ))}
                 <div ref={messagesEndRef} />
               </div>
+
+              <form onSubmit={savePurchaseStatus} className="border-t border-white/5 bg-white/[0.02] p-4 space-y-3">
+                <div className="grid gap-3 md:grid-cols-3">
+                  <select value={purchaseForm.purchaseStatus} onChange={e => setPurchaseForm(f => ({ ...f, purchaseStatus: e.target.value }))} className="rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-xs">
+                    <option value="unknown">Chưa xác định</option><option value="purchased">Đã mua</option><option value="not_purchased">Chưa mua</option>
+                  </select>
+                  <input value={purchaseForm.packageType} onChange={e => setPurchaseForm(f => ({ ...f, packageType: e.target.value }))} placeholder="Gói phần mềm" className="rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-xs" />
+                  <input value={purchaseForm.printerModel} onChange={e => setPurchaseForm(f => ({ ...f, printerModel: e.target.value }))} placeholder="Model máy in" className="rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-xs" />
+                </div>
+                <div className="flex gap-3"><input value={purchaseForm.assignmentNotes} onChange={e => setPurchaseForm(f => ({ ...f, assignmentNotes: e.target.value }))} placeholder="Ghi chú gán khách" className="min-w-0 flex-grow rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-xs" /><button className="rounded-xl bg-secondary px-4 py-2 text-xs font-bold text-white">Lưu nhãn</button></div>
+                {purchaseError && <p className="text-xs text-red-300">{purchaseError}</p>}
+              </form>
 
               <div className="p-6 md:p-8 bg-white/[0.03] border-t border-white/5 backdrop-blur-3xl shrink-0">
                 <form onSubmit={handleSend} className="flex gap-4 items-center">

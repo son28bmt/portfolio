@@ -18,6 +18,7 @@ import { io } from 'socket.io-client';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Turnstile } from '@marsidev/react-turnstile';
+import { useAuth } from '../../context/AuthContext';
 
 const AI_CHAT_HISTORY_KEY = 'global_floating_ai_chat_history_v1';
 const MAX_CHAT_HISTORY_MESSAGES = 50;
@@ -41,6 +42,7 @@ const getGuestId = () => {
 
 const FloatingChat = () => {
   const [isOpen, setIsOpen] = useState(false);
+  const { token: userToken } = useAuth();
   const [activeTab, setActiveTab] = useState('ai'); // 'ai' or 'staff'
   const [isAdminOnline, setIsAdminOnline] = useState(false);
   const [guestId] = useState(getGuestId);
@@ -149,7 +151,7 @@ const FloatingChat = () => {
     };
 
     socketRef.current.on('connect', () => {
-      socketRef.current.emit('join_chat', { guestId });
+      socketRef.current.emit('join_chat', { guestId, userToken: userToken || '' });
     });
 
     socketRef.current.on('guest_session_token', (payload) => {
@@ -179,7 +181,7 @@ const FloatingChat = () => {
     };
   // Keep guestToken out so receiving a freshly issued token does not reconnect the socket.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [guestId, activeTab, isOpen]);
+  }, [guestId, activeTab, isOpen, userToken]);
 
   const handleAiSend = async (e) => {
     e.preventDefault();

@@ -58,6 +58,8 @@ WalletTopup.belongsTo(WalletAccount, {
 
 User.hasMany(Order, { foreignKey: 'userId', as: 'orders' });
 Order.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+User.hasMany(LiveChatMessage, { foreignKey: 'userId', as: 'chatMessages' });
+LiveChatMessage.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
 WalletLedgerEntry.hasMany(Order, {
   foreignKey: 'walletLedgerEntryId',

@@ -4,6 +4,8 @@ const jwt = require('jsonwebtoken');
 const { LiveChatMessage } = require('../models');
 const { protect } = require('../middleware/auth.middleware');
 const { getJwtSecret } = require('../utils/jwt.util');
+const { requireAdmin } = require('../middleware/require-admin.middleware');
+const { assignConversationPurchase, getConversationSnapshot } = require('../services/chat-purchase.service');
 
 const optionalProtect = async (req, res, next) => {
   const authHeader = String(req.headers.authorization || '');
@@ -67,6 +69,24 @@ router.put('/read/:guestId', protect, async (req, res) => {
     res.json({ message: 'Marked as read' });
   } catch (error) {
     res.status(500).json({ message: error.message });
+  }
+});
+
+router.get('/purchase-status/:guestId', protect, requireAdmin, async (req, res) => {
+  try {
+    const data = await getConversationSnapshot(req.params.guestId);
+    return data ? res.json(data) : res.status(404).json({ message: 'Không tìm thấy cuộc hội thoại.' });
+  } catch (error) {
+    return res.status(error.status || 500).json({ message: error.status ? error.message : 'Không thể tải trạng thái khách mua.' });
+  }
+});
+
+router.patch('/purchase-status/:guestId', protect, requireAdmin, async (req, res) => {
+  try {
+    const data = await assignConversationPurchase(req.params.guestId, req.body || {}, req.user.id);
+    return res.json(data);
+  } catch (error) {
+    return res.status(error.status || 500).json({ message: error.status ? error.message : 'Không thể cập nhật trạng thái khách mua.' });
   }
 });
 
