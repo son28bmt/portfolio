@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
+import GuideList from './pages/Guides/GuideList';
+import GuideEditor from './pages/Guides/GuideEditor';
+import TopicManager from './pages/Guides/TopicManager';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import ProjectList from './pages/Projects/ProjectList';
@@ -63,6 +66,9 @@ function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/guides" element={<ProtectedRoute><GuideList /></ProtectedRoute>} />
+      <Route path="/guides/editor/:id?" element={<ProtectedRoute><GuideEditor /></ProtectedRoute>} />
+      <Route path="/guides/topics" element={<ProtectedRoute><TopicManager /></ProtectedRoute>} />
       <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
       <Route path="/projects" element={<ProtectedRoute><ProjectList /></ProtectedRoute>} />
       <Route path="/projects/add" element={<ProtectedRoute><AddProject /></ProtectedRoute>} />

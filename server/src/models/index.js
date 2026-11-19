@@ -16,6 +16,8 @@ const UserProfile = require('./UserProfile');
 const WalletAccount = require('./WalletAccount');
 const WalletLedgerEntry = require('./WalletLedgerEntry');
 const WalletTopup = require('./WalletTopup');
+const GuideTopic = require('./GuideTopic');
+const Guide = require('./Guide');
 
 // Associations
 Category.hasMany(Product, { foreignKey: 'categoryId', as: 'products' });
@@ -87,6 +89,17 @@ BlogAutomationJob.belongsTo(Blog, {
   constraints: false,
 });
 
+GuideTopic.hasMany(Guide, {
+  foreignKey: { name: 'topicId', field: 'topic_id' },
+  as: 'guides',
+  onDelete: 'SET NULL',
+});
+Guide.belongsTo(GuideTopic, {
+  foreignKey: { name: 'topicId', field: 'topic_id' },
+  as: 'topic',
+  onDelete: 'SET NULL',
+});
+
 module.exports = {
   Category,
   Product,
@@ -106,4 +119,6 @@ module.exports = {
   WalletAccount,
   WalletLedgerEntry,
   WalletTopup,
+  GuideTopic,
+  Guide,
 };

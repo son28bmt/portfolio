@@ -3,6 +3,8 @@ import { Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion'; // eslint-disable-line no-unused-vars
 import Home from '../pages/Home';
 import About from '../pages/About';
+import Guides from '../pages/Guides';
+import GuideDetail from '../pages/GuideDetail';
 import Projects from '../pages/Projects';
 import ProjectDetail from '../pages/ProjectDetail';
 import Blog from '../pages/Blog';
@@ -53,7 +55,9 @@ const AppRoutes = () => {
     <AnimatePresence mode="wait">
       <Routes location={location} key={location.pathname}>
         <Route path="/" element={<PageTransition><Home /></PageTransition>} />
-        <Route path="/gioi-thieu" element={<PageTransition><About /></PageTransition>} />
+        <Route path="/gioi-thieu" element={<Navigate to="/huong-dan" replace />} />
+        <Route path="/huong-dan" element={<PageTransition><Guides /></PageTransition>} />
+        <Route path="/huong-dan/:slug" element={<PageTransition><GuideDetail /></PageTransition>} />
         <Route path="/du-an" element={<PageTransition><Projects /></PageTransition>} />
         <Route path="/du-an/:id" element={<PageTransition><ProjectDetail /></PageTransition>} />
         <Route path="/blog" element={<PageTransition><Blog /></PageTransition>} />
