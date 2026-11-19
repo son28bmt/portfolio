@@ -31,6 +31,7 @@ const Sidebar = ({ isOpen, onClose }) => {
     { icon: Headphones, label: 'Hỗ trợ trực tuyến', path: '/live-chat' },
     { icon: FolderKanban, label: 'Dự án', path: '/projects' },
     { icon: FileText, label: 'Blog', path: '/blog' },
+    { icon: FileText, label: 'Hướng dẫn', path: '/guides' },
     { icon: Bot, label: 'Blog tự động', path: '/blog/automation' },
     { icon: MessageSquare, label: 'Tin nhắn', path: '/messages' },
     { icon: UsersRound, label: 'Người dùng', path: '/users' },
