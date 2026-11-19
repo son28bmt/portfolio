@@ -3,6 +3,7 @@ const router = express.Router();
 const jwt = require('jsonwebtoken');
 const { LiveChatMessage } = require('../models');
 const { protect } = require('../middleware/auth.middleware');
+const { requireRoles } = require('../middleware/require-admin.middleware');
 const { getJwtSecret } = require('../utils/jwt.util');
 
 const optionalProtect = async (req, res, next) => {
@@ -27,7 +28,11 @@ const isValidGuestToken = (token, guestId) => {
 router.get('/history/:guestId', optionalProtect, async (req, res) => {
   try {
     const { guestId } = req.params;
-    const isAdminRequest = Boolean(req.user);
+    const isAdminRequest = ['owner', 'support'].includes(req.user?.role);
+
+    if (req.user && !isAdminRequest) {
+      return res.status(403).json({ message: 'Bạn không có quyền xem hội thoại hỗ trợ.' });
+    }
 
     if (!isAdminRequest) {
       const guestToken = String(
@@ -57,7 +62,7 @@ router.get('/history/:guestId', optionalProtect, async (req, res) => {
 });
 
 // Admin: Mark all messages as read for a guest
-router.put('/read/:guestId', protect, async (req, res) => {
+router.put('/read/:guestId', protect, requireRoles('owner', 'support'), async (req, res) => {
   try {
     const { guestId } = req.params;
     await LiveChatMessage.update(

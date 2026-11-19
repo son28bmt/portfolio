@@ -29,7 +29,12 @@ const protect = async (req, res, next) => {
         const admin = await Admin.findByPk(decoded.adminId);
         if (!admin) throw new Error("Admin not found");
 
-        req.user = { id: admin.id, username: admin.username, isAdmin: true };
+        req.user = {
+          id: admin.id,
+          username: admin.username,
+          role: admin.role || 'owner',
+          isAdmin: true,
+        };
         return next();
       }
 
@@ -46,6 +51,7 @@ const protect = async (req, res, next) => {
       const adminUsernames = resolveAdminUsernames();
       const username = String(req.user.username || "").trim().toLowerCase();
       req.user.isAdmin = adminUsernames.includes(username);
+      if (req.user.isAdmin && !req.user.role) req.user.role = 'owner';
       return next();
     } catch (error) {
       const status = /JWT_SECRET/.test(String(error?.message || "")) ? 500 : 401;
