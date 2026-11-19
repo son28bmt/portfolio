@@ -24,7 +24,7 @@ const verifyAdminSocketToken = async (rawToken) => {
     if (!decoded?.adminId) return null;
 
     const admin = await Admin.findByPk(decoded.adminId);
-    if (!admin) return null;
+    if (!admin || !['owner', 'support'].includes(admin.role || 'owner')) return null;
     return admin;
   } catch {
     return null;
@@ -60,6 +60,7 @@ const initSocket = (server, corsOptions) => {
       socket.join("admin_room");
       socket.isAdmin = true;
       socket.adminId = admin.id;
+      socket.adminRole = admin.role || 'owner';
       io.emit("admin_status", { online: true });
 
       try {

@@ -4,7 +4,7 @@ const sanitizeHtml = require('sanitize-html');
 const { Op } = require('sequelize');
 const { Guide, GuideTopic } = require('../models');
 const { protect } = require('../middleware/auth.middleware');
-const { requireAdmin } = require('../middleware/require-admin.middleware');
+const { requireRoles } = require('../middleware/require-admin.middleware');
 const { sanitizeGuideHtml } = require('../utils/sanitizeGuideHtml');
 
 const router = express.Router();
@@ -23,7 +23,7 @@ const writeLimiter = rateLimit({
   message: { message: 'Bạn đã gửi quá nhiều yêu cầu ghi. Vui lòng thử lại sau.' },
 });
 
-router.use(protect, requireAdmin);
+router.use(protect, requireRoles('owner', 'editor'));
 
 const badRequest = (res, message) => res.status(400).json({ message });
 const notFound = (res, message = 'Không tìm thấy dữ liệu.') => res.status(404).json({ message });
