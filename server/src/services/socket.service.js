@@ -83,10 +83,18 @@ const initSocket = (server, corsOptions) => {
           group: ["guestId"],
           order: [[sequelize.literal("lastMessageAt"), "DESC"]],
         });
-        const enriched = await Promise.all(sessions.map(async session => ({
-          ...session.toJSON(),
-          purchase: await getConversationSnapshot(session.guestId),
-        })));
+        const enriched = await Promise.all(sessions.map(async session => {
+          const lastMessage = await LiveChatMessage.findOne({
+            where: { guestId: session.guestId }, order: [['createdAt', 'DESC']],
+          });
+          return {
+            ...session.toJSON(),
+            purchase: await getConversationSnapshot(session.guestId),
+            lastMessageType: lastMessage?.messageType || 'text',
+            guideContext: lastMessage?.guideContext || null,
+            questionSnapshot: lastMessage?.questionSnapshot || null,
+          };
+        }));
         socket.emit("init_sessions", enriched);
       } catch (err) {
         console.error("[Socket] Error fetching sessions:", err);
@@ -135,6 +143,8 @@ const initSocket = (server, corsOptions) => {
           name,
           email,
           purchase,
+          guideContext: newMessage.guideContext || null,
+          questionSnapshot: newMessage.questionSnapshot || null,
           timestamp: newMessage.createdAt,
         });
       } catch (err) {

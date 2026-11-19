@@ -7,6 +7,18 @@ const { requireRoles } = require('../middleware/require-admin.middleware');
 const { getJwtSecret } = require('../utils/jwt.util');
 const { requireAdmin } = require('../middleware/require-admin.middleware');
 const { assignConversationPurchase, getConversationSnapshot } = require('../services/chat-purchase.service');
+const { submitGuideQuestion } = require('../services/guide-question.service');
+const rateLimit = require('express-rate-limit');
+
+const guideQuestionLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  keyGenerator: (req) => String(req.user?.id || req.ip),
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Bạn đã gửi quá nhiều câu hỏi. Vui lòng thử lại sau.' },
+  validate: { default: false },
+});
 
 const optionalProtect = async (req, res, next) => {
   const authHeader = String(req.headers.authorization || '');
@@ -92,6 +104,26 @@ router.patch('/purchase-status/:guestId', protect, requireAdmin, async (req, res
     return res.json(data);
   } catch (error) {
     return res.status(error.status || 500).json({ message: error.status ? error.message : 'Không thể cập nhật trạng thái khách mua.' });
+  }
+});
+
+router.post('/guide-question', protect, guideQuestionLimiter, async (req, res) => {
+  try {
+    const guestId = String(req.body?.guestId || '').trim();
+    const guestToken = String(req.headers['x-guest-token'] || '').trim();
+    if (!isValidGuestToken(guestToken, guestId)) {
+      return res.status(401).json({ message: 'Phiên chat không hợp lệ hoặc đã hết hạn. Hãy tải lại trang và thử lại.' });
+    }
+    const data = await submitGuideQuestion({
+      user: { id: req.user.id, username: req.user.username },
+      guestId,
+      guideSlug: req.body?.guideSlug,
+      templateId: req.body?.templateId,
+      answers: req.body?.answers,
+    });
+    return res.status(201).json(data);
+  } catch (error) {
+    return res.status(error.status || 500).json({ message: error.status ? error.message : 'Không thể gửi câu hỏi.' });
   }
 });
 

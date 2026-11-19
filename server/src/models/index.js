@@ -18,6 +18,7 @@ const WalletLedgerEntry = require('./WalletLedgerEntry');
 const WalletTopup = require('./WalletTopup');
 const GuideTopic = require('./GuideTopic');
 const Guide = require('./Guide');
+const GuideQuestionTemplate = require('./GuideQuestionTemplate');
 
 // Associations
 Category.hasMany(Product, { foreignKey: 'categoryId', as: 'products' });
@@ -101,6 +102,8 @@ Guide.belongsTo(GuideTopic, {
   as: 'topic',
   onDelete: 'SET NULL',
 });
+Guide.hasMany(GuideQuestionTemplate, { foreignKey: 'guideId', as: 'questionTemplates' });
+GuideQuestionTemplate.belongsTo(Guide, { foreignKey: 'guideId', as: 'guide' });
 
 module.exports = {
   Category,
@@ -123,4 +126,5 @@ module.exports = {
   WalletTopup,
   GuideTopic,
   Guide,
+  GuideQuestionTemplate,
 };

@@ -20,8 +20,20 @@ const LiveChatMessage = sequelize.define('LiveChatMessage', {
     allowNull: false,
   },
   content: {
-    type: DataTypes.TEXT,
+    type: DataTypes.TEXT('long'),
     allowNull: false,
+  },
+  messageType: {
+    type: DataTypes.ENUM('text', 'guide_question'),
+    allowNull: true,
+  },
+  guideContext: {
+    type: DataTypes.JSON,
+    allowNull: true,
+  },
+  questionSnapshot: {
+    type: DataTypes.JSON,
+    allowNull: true,
   },
   name: {
     type: DataTypes.STRING,

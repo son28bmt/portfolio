@@ -96,7 +96,7 @@ const LiveChat = () => {
     });
 
     socketRef.current.on('new_user_message', (data) => {
-      const { guestId, text, name, email, purchase, timestamp } = data;
+      const { guestId, text, name, email, purchase, questionSnapshot, guideContext, timestamp } = data;
       console.log('[AdminSocket] New user message from:', guestId);
       
       setSessions(prev => {
@@ -124,7 +124,7 @@ const LiveChat = () => {
       });
 
       if (activeChatIdRef.current === guestId) {
-        setMessages(prev => [...prev, { role: 'user', content: text, createdAt: timestamp }]);
+        setMessages(prev => [...prev, { role: 'user', content: text, messageType: questionSnapshot ? 'guide_question' : 'text', questionSnapshot, guideContext, createdAt: timestamp }]);
         socketRef.current.emit('mark_as_read', { guestId });
       }
 
@@ -153,6 +153,15 @@ const LiveChat = () => {
     try {
       const { data } = await api.get(`/chat/history/${guestId}`);
       setMessages(data);
+      const lastQuestion = [...data].reverse().find(message => message.questionSnapshot);
+      if (lastQuestion) {
+        setSessions(prev => prev.map(session => session.guestId === guestId ? {
+          ...session,
+          lastMessageType: 'guide_question',
+          guideContext: lastQuestion.guideContext,
+          questionSnapshot: lastQuestion.questionSnapshot,
+        } : session));
+      }
       const purchaseResponse = await api.get(`/chat/purchase-status/${guestId}`);
       setPurchase(purchaseResponse.data);
       setPurchaseForm({
@@ -245,7 +254,7 @@ const LiveChat = () => {
               }`}
             >
               <div className="w-12 h-12 rounded-[20px] bg-white/5 border border-white/5 flex items-center justify-center font-black text-primary shadow-inner">
-                {session.name?.charAt(0).toUpperCase() || '?'}
+                  {session.name?.charAt(0).toUpperCase() || '?'}
               </div>
               <div className="flex-grow min-w-0">
                 <div className="flex justify-between items-center mb-1">
@@ -255,6 +264,7 @@ const LiveChat = () => {
                   </span>
                 </div>
                 <p className="text-[11px] text-white/30 truncate uppercase tracking-tighter font-medium italic">Guest ID: {session.guestId.slice(-6)}</p>
+                 {session.lastMessageType === 'guide_question' && <p className="mt-1 text-[9px] font-bold uppercase text-secondary">Câu hỏi từ bài hướng dẫn</p>}
                  <p className={`mt-1 text-[9px] font-bold uppercase tracking-wider ${session.purchase?.purchaseStatus === 'purchased' ? 'text-emerald-300' : session.purchase?.purchaseStatus === 'not_purchased' ? 'text-amber-300' : 'text-white/25'}`}>{session.purchase?.purchaseStatus === 'purchased' ? 'Đã mua' : session.purchase?.purchaseStatus === 'not_purchased' ? 'Chưa mua' : 'Chưa xác định'}</p>
               </div>
               {session.unreadCount > 0 && (
@@ -313,13 +323,13 @@ const LiveChat = () => {
                 )}
                 {messages.map((msg, i) => (
                   <div key={i} className={`flex ${msg.role === 'admin' ? 'justify-end' : 'justify-start'} animate-in slide-in-from-bottom-4 duration-500`}>
-                    <div className={`max-w-[85%] md:max-w-[70%] space-y-2`}>
+                  <div className="max-w-[85%] md:max-w-[70%] space-y-2">
                       <div className={`p-4 md:p-5 rounded-[30px] text-[13px] md:text-sm leading-relaxed shadow-xl border ${
                         msg.role === 'admin' 
                         ? 'bg-primary text-white rounded-tr-none border-white/10' 
                         : 'bg-white/[0.06] text-white/90 border-white/5 rounded-tl-none backdrop-blur-md'
                       }`}>
-                        {msg.content}
+                        {msg.questionSnapshot?.fields ? <div className="space-y-3"><p className="font-bold">Câu hỏi từ bài: {msg.guideContext?.title || 'Hướng dẫn'}</p>{msg.questionSnapshot.fields.map((field, fieldIndex) => <div key={`${field.key}-${fieldIndex}`}><p className="text-[10px] font-bold uppercase opacity-60">{field.label}</p><p className="whitespace-pre-wrap">{field.value || '(bỏ trống)'}</p></div>)}</div> : msg.content}
                       </div>
                       <div className={`text-[9px] text-white/10 font-bold uppercase tracking-widest ${msg.role === 'admin' ? 'text-right' : 'text-left'}`}>
                         {msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString() : ''}
