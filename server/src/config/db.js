@@ -32,6 +32,14 @@ const connectDB = async () => {
     await sequelize.authenticate();
     console.log("MySQL connected successfully.");
 
+    try {
+      const { ensureGuideSchema } = require('../services/guide-schema.service');
+      await ensureGuideSchema();
+    } catch (schemaError) {
+      console.error('[Schema] Automatic guide/support schema setup failed:', schemaError?.message || schemaError);
+      process.exit(1);
+    }
+
     if (!shouldSyncOnStart || hasAttemptedSync) {
       return;
     }
