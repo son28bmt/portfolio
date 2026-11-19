@@ -1,6 +1,7 @@
 const { GuideQuestionTemplate, Guide, LiveChatMessage, UserProfile } = require('../models');
 const { Op } = require('sequelize');
 const { notifyAdmin } = require('./socket.service');
+const { notifyTelegramGuideQuestion } = require('./telegram.service');
 
 const clean = (value, max) => String(value || '').trim().slice(0, max);
 
@@ -84,12 +85,21 @@ const submitGuideQuestion = async ({ user, guestId, guideSlug, templateId, answe
     questionSnapshot: { templateId: template.id, templateName: template.name, fields: snapshot },
   });
   const unread = await LiveChatMessage.count({ where: { guestId, role: 'user', isRead: false } });
+  const purchase = await require('./chat-purchase.service').getConversationSnapshot(guestId);
+  notifyTelegramGuideQuestion({
+    guestId,
+    purchaseStatus: purchase?.purchaseStatus,
+    email,
+    guideTitle: guide.title,
+    guideSlug: guide.slug,
+  });
   notifyAdmin('new_user_message', {
     id: message.id, guestId, text, name: user.username, email,
     timestamp: message.createdAt,
     guideContext: message.guideContext,
     questionSnapshot: message.questionSnapshot,
     unreadCount: unread,
+    purchase,
   });
   return { id: message.id, createdAt: message.createdAt };
 };
