@@ -147,6 +147,10 @@ function Editor({ id }) {
     } finally { setSaving(false); }
   }
 
+  function manageQuestions() {
+    navigate(`/guides/questions/${record.id}`);
+  }
+
   return <section className="mx-auto max-w-4xl space-y-5">
     <Link className="text-primary" to="/guides">← Bài hướng dẫn</Link>
     <h1 className="text-2xl font-bold">{record?.id ? 'Sửa bài hướng dẫn' : 'Tạo bài hướng dẫn'}</h1>
@@ -166,6 +170,7 @@ function Editor({ id }) {
           onChange={(_html, _delta, source) => { if (source === 'user') contentChanged.current = true; }} /></div>{fieldError('content')}</div>
         {uploads > 0 && <p role="status">Đang tải ảnh…</p>}
         <div className="flex gap-3"><button className="rounded-lg border border-white/20 px-4 py-2" value="draft">Lưu nháp</button><button className="rounded-lg bg-primary px-4 py-2" value="publish">Đăng</button></div>
+        {record.id && <button type="button" className="text-primary" onClick={manageQuestions}>Quản lý mẫu câu hỏi cuối bài</button>}
       </fieldset>
     </form>}
   </section>;

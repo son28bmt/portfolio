@@ -2,9 +2,10 @@ const express = require('express');
 const rateLimit = require('express-rate-limit');
 const sanitizeHtml = require('sanitize-html');
 const { Op } = require('sequelize');
-const { Guide, GuideTopic } = require('../models');
+const { Guide, GuideTopic, GuideQuestionTemplate } = require('../models');
 const { protect } = require('../middleware/auth.middleware');
-const { requireAdmin } = require('../middleware/require-admin.middleware');
+const { requireRoles } = require('../middleware/require-admin.middleware');
+const { saveTemplate, deleteTemplate } = require('../services/guide-question.service');
 const { sanitizeGuideHtml } = require('../utils/sanitizeGuideHtml');
 
 const router = express.Router();
@@ -23,7 +24,7 @@ const writeLimiter = rateLimit({
   message: { message: 'Bạn đã gửi quá nhiều yêu cầu ghi. Vui lòng thử lại sau.' },
 });
 
-router.use(protect, requireAdmin);
+router.use(protect, requireRoles('owner', 'editor'));
 
 const badRequest = (res, message) => res.status(400).json({ message });
 const notFound = (res, message = 'Không tìm thấy dữ liệu.') => res.status(404).json({ message });
@@ -146,6 +147,62 @@ router.get('/topics', async (req, res) => {
   } catch (error) {
     console.error('[Guide Admin API] Cannot list topics:', error);
     return res.status(500).json({ message: 'Không thể tải chủ đề.' });
+  }
+});
+
+router.get('/questions', async (req, res) => {
+  try {
+    const guideId = String(req.query.guideId || '');
+    if (!uuidPattern.test(guideId)) return badRequest(res, 'guideId không hợp lệ.');
+    const templates = await GuideQuestionTemplate.findAll({
+      where: { [Op.or]: [{ guideId }, { guideId: null }] },
+      order: [['createdAt', 'DESC']],
+    });
+    return res.json(templates);
+  } catch (error) {
+    console.error('[Guide Admin API] Cannot list question templates:', error);
+    return res.status(500).json({ message: 'Không thể tải mẫu câu hỏi.' });
+  }
+});
+
+router.post('/questions', writeLimiter, async (req, res) => {
+  try {
+    const template = await saveTemplate({
+      guideId: req.body?.guideId, name: req.body?.name,
+      isActive: req.body?.isActive, fields: req.body?.fields, actor: req.user?.username || req.user?.id,
+    });
+    return res.status(201).json(template);
+  } catch (error) {
+    if (error.status === 400) return badRequest(res, error.message);
+    if (error.status === 404) return notFound(res, error.message);
+    console.error('[Guide Admin API] Cannot create question template:', error);
+    return res.status(500).json({ message: 'Không thể tạo mẫu câu hỏi.' });
+  }
+});
+
+router.put('/questions/:id', writeLimiter, async (req, res) => {
+  try {
+    const template = await saveTemplate({
+      id: req.params.id, guideId: req.body?.guideId, name: req.body?.name,
+      isActive: req.body?.isActive, fields: req.body?.fields, actor: req.user?.username || req.user?.id,
+    });
+    return res.json(template);
+  } catch (error) {
+    if (error.status === 400) return badRequest(res, error.message);
+    if (error.status === 404) return notFound(res, error.message);
+    console.error('[Guide Admin API] Cannot update question template:', error);
+    return res.status(500).json({ message: 'Không thể cập nhật mẫu câu hỏi.' });
+  }
+});
+
+router.delete('/questions/:id', writeLimiter, async (req, res) => {
+  try {
+    await deleteTemplate(req.params.id);
+    return res.status(204).end();
+  } catch (error) {
+    if (error.status === 404) return notFound(res, error.message);
+    console.error('[Guide Admin API] Cannot delete question template:', error);
+    return res.status(500).json({ message: 'Không thể xóa mẫu câu hỏi.' });
   }
 });
 

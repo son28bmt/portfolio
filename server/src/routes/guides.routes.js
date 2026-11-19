@@ -2,6 +2,7 @@ const express = require('express');
 const rateLimit = require('express-rate-limit');
 const { Op, fn, col } = require('sequelize');
 const { Guide, GuideTopic } = require('../models');
+const { listTemplatesForGuide } = require('../services/guide-question.service');
 
 const router = express.Router();
 
@@ -149,6 +150,16 @@ router.get('/', async (req, res) => {
   } catch (error) {
     console.error('[Guides API] Cannot list guides:', error);
     return res.status(500).json({ message: 'Không thể tải bài hướng dẫn.' });
+  }
+});
+
+router.get('/:slug/questions', async (req, res) => {
+  try {
+    const templates = await listTemplatesForGuide(req.params.slug);
+    return templates ? res.json(templates) : res.status(404).json({ message: 'Không tìm thấy bài hướng dẫn.' });
+  } catch (error) {
+    console.error('[Guides API] Cannot load question templates:', error);
+    return res.status(500).json({ message: 'Không thể tải mẫu câu hỏi.' });
   }
 });
 

@@ -27,8 +27,12 @@ const protectMarketplaceAdmin = async (req, res, next) => {
     req.marketplaceAdmin = {
       id: admin.id,
       username: admin.username,
+      role: admin.role || 'owner',
       source: "admins",
     };
+    if (req.marketplaceAdmin.role !== 'owner') {
+      return res.status(403).json({ message: 'Chỉ Owner mới có quyền quản trị cửa hàng.' });
+    }
     return next();
   } catch (error) {
     const status = /JWT_SECRET/.test(String(error?.message || "")) ? 500 : 401;

@@ -11,13 +11,29 @@ const LiveChatMessage = sequelize.define('LiveChatMessage', {
     type: DataTypes.STRING,
     allowNull: false,
   },
+  userId: {
+    type: DataTypes.UUID,
+    allowNull: true,
+  },
   role: {
     type: DataTypes.ENUM('user', 'admin'),
     allowNull: false,
   },
   content: {
-    type: DataTypes.TEXT,
+    type: DataTypes.TEXT('long'),
     allowNull: false,
+  },
+  messageType: {
+    type: DataTypes.ENUM('text', 'guide_question'),
+    allowNull: true,
+  },
+  guideContext: {
+    type: DataTypes.JSON,
+    allowNull: true,
+  },
+  questionSnapshot: {
+    type: DataTypes.JSON,
+    allowNull: true,
   },
   name: {
     type: DataTypes.STRING,
@@ -31,11 +47,36 @@ const LiveChatMessage = sequelize.define('LiveChatMessage', {
     type: DataTypes.BOOLEAN,
     defaultValue: false,
   },
+  purchaseStatus: {
+    type: DataTypes.ENUM('unknown', 'purchased', 'not_purchased'),
+    allowNull: true,
+  },
+  assignedBy: {
+    type: DataTypes.STRING(191),
+    allowNull: true,
+  },
+  assignedAt: {
+    type: DataTypes.DATE,
+    allowNull: true,
+  },
+  assignmentNotes: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+  },
+  packageType: {
+    type: DataTypes.STRING(120),
+    allowNull: true,
+  },
+  printerModel: {
+    type: DataTypes.STRING(160),
+    allowNull: true,
+  },
 }, {
   indexes: [
     {
       fields: ['guestId'],
-    }
+    },
+    { fields: ['userId'] },
   ]
 });
 

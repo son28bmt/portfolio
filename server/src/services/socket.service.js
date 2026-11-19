@@ -2,6 +2,8 @@ const { LiveChatMessage, Admin } = require("../models");
 const { sequelize } = require("../config/db");
 const jwt = require("jsonwebtoken");
 const { getJwtSecret } = require("../utils/jwt.util");
+const { User } = require("../models");
+const { getConversationSnapshot } = require("./chat-purchase.service");
 
 let io = null;
 
@@ -22,11 +24,18 @@ const verifyAdminSocketToken = async (rawToken) => {
     if (!decoded?.adminId) return null;
 
     const admin = await Admin.findByPk(decoded.adminId);
-    if (!admin) return null;
+    if (!admin || !['owner', 'support'].includes(admin.role || 'owner')) return null;
     return admin;
   } catch {
     return null;
   }
+};
+
+const resolveChatUser = async (rawToken) => {
+  try {
+    const decoded = jwt.verify(String(rawToken || '').trim(), getJwtSecret());
+    return decoded?.id ? User.findByPk(decoded.id, { attributes: ['id'] }) : null;
+  } catch { return null; }
 };
 
 const initSocket = (server, corsOptions) => {
@@ -51,6 +60,7 @@ const initSocket = (server, corsOptions) => {
       socket.join("admin_room");
       socket.isAdmin = true;
       socket.adminId = admin.id;
+      socket.adminRole = admin.role || 'owner';
       io.emit("admin_status", { online: true });
 
       try {
@@ -73,18 +83,31 @@ const initSocket = (server, corsOptions) => {
           group: ["guestId"],
           order: [[sequelize.literal("lastMessageAt"), "DESC"]],
         });
-        socket.emit("init_sessions", sessions);
+        const enriched = await Promise.all(sessions.map(async session => {
+          const lastMessage = await LiveChatMessage.findOne({
+            where: { guestId: session.guestId }, order: [['createdAt', 'DESC']],
+          });
+          return {
+            ...session.toJSON(),
+            purchase: await getConversationSnapshot(session.guestId),
+            lastMessageType: lastMessage?.messageType || 'text',
+            guideContext: lastMessage?.guideContext || null,
+            questionSnapshot: lastMessage?.questionSnapshot || null,
+          };
+        }));
+        socket.emit("init_sessions", enriched);
       } catch (err) {
         console.error("[Socket] Error fetching sessions:", err);
       }
     });
 
-    socket.on("join_chat", (data) => {
-      const { guestId } = data || {};
+    socket.on("join_chat", async (data) => {
+      const { guestId, userToken } = data || {};
       if (!guestId) return;
 
       socket.join(`room_${guestId}`);
-      socket.guestId = guestId;
+      const user = await resolveChatUser(userToken);
+      socket.userId = user?.id || null;
 
       try {
         const guestToken = signGuestChatToken(guestId);
@@ -105,11 +128,13 @@ const initSocket = (server, corsOptions) => {
       try {
         const newMessage = await LiveChatMessage.create({
           guestId,
+          userId: socket.userId || null,
           role: "user",
           content: text,
           name,
           email,
         });
+        const purchase = await getConversationSnapshot(guestId);
 
         io.to("admin_room").emit("new_user_message", {
           id: newMessage.id,
@@ -117,6 +142,9 @@ const initSocket = (server, corsOptions) => {
           text,
           name,
           email,
+          purchase,
+          guideContext: newMessage.guideContext || null,
+          questionSnapshot: newMessage.questionSnapshot || null,
           timestamp: newMessage.createdAt,
         });
       } catch (err) {

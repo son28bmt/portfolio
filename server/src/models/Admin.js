@@ -17,6 +17,11 @@ const Admin = sequelize.define('Admin', {
     type: DataTypes.STRING(255),
     allowNull: false,
   },
+  role: {
+    type: DataTypes.ENUM('owner', 'editor', 'support'),
+    allowNull: false,
+    defaultValue: 'owner',
+  },
   createdAt: {
     type: DataTypes.DATE,
     allowNull: false,

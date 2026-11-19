@@ -17,6 +17,11 @@ const User = sequelize.define('User', {
     type: DataTypes.STRING,
     allowNull: false,
   },
+  role: {
+    type: DataTypes.ENUM('owner', 'editor', 'support'),
+    allowNull: true,
+    defaultValue: null,
+  },
 }, {
   hooks: {
     beforeCreate: async (user) => {

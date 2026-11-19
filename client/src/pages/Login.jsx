@@ -12,11 +12,14 @@ const Login = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  if (isAuthenticated) {
-    return <Navigate to="/tai-khoan" replace />;
-  }
+  const redirectTo = location.state?.from || '/tai-khoan';
+  const redirectPath = typeof redirectTo === 'string'
+    ? redirectTo
+    : `${redirectTo.pathname || '/tai-khoan'}${redirectTo.search || ''}${redirectTo.hash || ''}`;
 
-  const redirectTo = location.state?.from?.pathname || '/tai-khoan';
+  if (isAuthenticated) {
+    return <Navigate to={redirectPath} replace />;
+  }
   const fromMarketplace = Boolean(location.state?.fromMarketplace);
 
   const handleSubmit = async (event) => {
@@ -25,7 +28,7 @@ const Login = () => {
     setError('');
     try {
       await login({ username, password });
-      navigate(redirectTo, { replace: true });
+      navigate(redirectPath, { replace: true });
     } catch (err) {
       setError(err?.response?.data?.message || 'Không thể đăng nhập lúc này.');
     } finally {
