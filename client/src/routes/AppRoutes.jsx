@@ -2,7 +2,6 @@ import React from 'react';
 import { Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion'; // eslint-disable-line no-unused-vars
 import Home from '../pages/Home';
-import About from '../pages/About';
 import Guides from '../pages/Guides';
 import GuideDetail from '../pages/GuideDetail';
 import Projects from '../pages/Projects';
