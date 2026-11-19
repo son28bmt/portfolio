@@ -1,6 +1,7 @@
 const express = require('express');
 const Blog = require('../models/Blog');
 const Project = require('../models/Project');
+const Guide = require('../models/Guide');
 
 const router = express.Router();
 
@@ -59,7 +60,7 @@ const buildAbsoluteUrl = (siteUrl, path) => {
 
 const staticUrlEntries = (siteUrl) => [
   { loc: buildAbsoluteUrl(siteUrl, '/'), changefreq: 'daily', priority: '1.0' },
-  { loc: buildAbsoluteUrl(siteUrl, '/gioi-thieu'), changefreq: 'monthly', priority: '0.8' },
+  { loc: buildAbsoluteUrl(siteUrl, '/huong-dan'), changefreq: 'weekly', priority: '0.8' },
   { loc: buildAbsoluteUrl(siteUrl, '/du-an'), changefreq: 'daily', priority: '0.9' },
   { loc: buildAbsoluteUrl(siteUrl, '/blog'), changefreq: 'daily', priority: '0.9' },
   { loc: buildAbsoluteUrl(siteUrl, '/lien-he'), changefreq: 'monthly', priority: '0.7' },
@@ -84,13 +85,18 @@ const buildUrlNode = (entry) => {
 };
 
 const fetchDynamicEntries = async (siteUrl) => {
-  const [blogs, projects] = await Promise.all([
+  const [blogs, projects, guides] = await Promise.all([
     Blog.findAll({
       attributes: ['id', 'slug', 'updatedAt', 'createdAt'],
       order: [['updatedAt', 'DESC']],
     }),
     Project.findAll({
       attributes: ['id', 'slug', 'updatedAt', 'createdAt'],
+      order: [['updatedAt', 'DESC']],
+    }),
+    Guide.findAll({
+      attributes: ['id', 'slug', 'updatedAt', 'createdAt'],
+      where: { status: 'published' },
       order: [['updatedAt', 'DESC']],
     }),
   ]);
@@ -109,7 +115,14 @@ const fetchDynamicEntries = async (siteUrl) => {
     priority: '0.8',
   }));
 
-  return [...blogEntries, ...projectEntries];
+  const guideEntries = guides.map((guide) => ({
+    loc: buildAbsoluteUrl(siteUrl, `/huong-dan/${guide.slug || guide.id}`),
+    lastmod: toIsoDate(guide.updatedAt || guide.createdAt),
+    changefreq: 'weekly',
+    priority: '0.8',
+  }));
+
+  return [...blogEntries, ...projectEntries, ...guideEntries];
 };
 
 const generateSitemapXml = async () => {
