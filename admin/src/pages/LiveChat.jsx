@@ -19,6 +19,14 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../services/api';
 
+const normalizeChatMessage = message => ({
+  ...message,
+  messageType: message.messageType || (message.questionSnapshot ? 'guide_question' : 'text'),
+  replyContext: message.replyContext || null,
+  guideContext: message.guideContext || null,
+  questionSnapshot: message.questionSnapshot || null,
+});
+
 const LiveChat = () => {
   const [sessions, setSessions] = useState([]); // Array of { guestId, name, email, lastMessageAt, unreadCount }
   const [activeChatId, setActiveChatId] = useState(null);
@@ -158,7 +166,7 @@ const LiveChat = () => {
       });
 
       if (activeChatIdRef.current === guestId) {
-        setMessages(prev => [...prev, { id, role: 'user', content: text, messageType: questionSnapshot ? 'guide_question' : 'text', questionSnapshot, guideContext, createdAt: timestamp }]);
+        setMessages(prev => [...prev, normalizeChatMessage({ id, role: 'user', content: text, messageType: questionSnapshot ? 'guide_question' : 'text', questionSnapshot, guideContext, createdAt: timestamp })]);
         socketRef.current.emit('mark_as_read', { guestId });
       }
 
@@ -200,8 +208,9 @@ const LiveChat = () => {
     setIsLoadingHistory(true);
     try {
       const { data } = await api.get(`/chat/history/${guestId}`);
-      setMessages(data);
-      const lastQuestion = [...data].reverse().find(message => message.questionSnapshot);
+      const normalizedMessages = data.map(normalizeChatMessage);
+      setMessages(normalizedMessages);
+      const lastQuestion = [...normalizedMessages].reverse().find(message => message.questionSnapshot);
       if (lastQuestion) {
         setSessions(prev => prev.map(session => session.guestId === guestId ? {
           ...session,
@@ -290,8 +299,8 @@ const LiveChat = () => {
   const activeSession = sessions.find(s => s.guestId === activeChatId);
 
   return (
-    <div className="h-[calc(100vh-120px)] flex flex-col lg:flex-row gap-6 p-4 md:p-0">
-      <div className="w-full lg:w-96 flex flex-col gap-4 border-r border-white/5 pr-0 lg:pr-6 shrink-0">
+    <div className="h-[calc(100vh-4rem)] min-h-0 w-full flex flex-col lg:flex-row gap-4 px-4 py-4 lg:px-5">
+      <div className="w-full lg:w-[21rem] xl:w-[23rem] min-w-0 flex flex-col gap-4 border-r border-white/5 pr-0 lg:pr-4 shrink-0">
         <div className="flex items-center justify-between mb-2">
           <h1 className="text-xl md:text-2xl font-black flex items-center gap-3 uppercase tracking-tighter">
              Live <span className="text-primary italic">Support</span>
@@ -355,7 +364,7 @@ const LiveChat = () => {
         </div>
       </div>
 
-      <div className="flex-grow flex flex-col glass rounded-[48px] border border-white/5 overflow-hidden shadow-2xl relative">
+      <div className="min-w-0 flex-1 flex flex-col glass rounded-[28px] border border-white/5 overflow-hidden shadow-2xl relative">
         <AnimatePresence mode="wait">
           {activeSession ? (
             <motion.div 
@@ -365,7 +374,7 @@ const LiveChat = () => {
               exit={{ opacity: 0, x: -20 }}
               className="flex-grow flex flex-col h-full"
             >
-              <div className="p-6 md:p-8 border-b border-white/5 bg-white/[0.02] flex items-center justify-between backdrop-blur-3xl">
+              <div className="p-5 md:p-6 border-b border-white/5 bg-white/[0.02] flex items-center justify-between backdrop-blur-3xl">
                 <div className="flex items-center gap-5">
                   <div className="w-14 h-14 rounded-[24px] bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-black text-xl shadow-lg">
                     {activeSession.name?.charAt(0).toUpperCase()}
@@ -395,7 +404,7 @@ const LiveChat = () => {
                 </div>
               </div>
 
-              <div className="flex-grow p-6 md:p-10 overflow-y-auto space-y-8 custom-scrollbar bg-black/10">
+              <div className="min-h-0 flex-1 p-5 md:p-7 overflow-y-auto space-y-6 custom-scrollbar bg-black/10">
                 {(completionNotice || activeSession.guestCleanupAt) && <p className="rounded-xl border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-xs text-amber-100">{completionNotice || `Đã kết thúc hỗ trợ. Hội thoại guest sẽ được xóa lúc ${new Date(activeSession.guestCleanupAt).toLocaleTimeString()}.`}</p>}
                 {isLoadingHistory && (
                   <div className="flex justify-center py-10">
@@ -434,7 +443,7 @@ const LiveChat = () => {
                 {purchaseError && <p className="text-xs text-red-300">{purchaseError}</p>}
               </form>
 
-              <div className="p-6 md:p-8 bg-white/[0.03] border-t border-white/5 backdrop-blur-3xl shrink-0">
+              <div className="p-4 md:p-5 bg-white/[0.03] border-t border-white/5 backdrop-blur-3xl shrink-0">
                 {replyTarget && <div className="mb-3 flex items-center justify-between gap-3 rounded-lg border border-secondary/30 bg-secondary/10 px-3 py-2 text-xs"><span>Đang phản hồi yêu cầu #{replyTarget.questionSnapshot?.requestNumber || String(replyTarget.id || '').replace(/-/g, '').slice(-8).toUpperCase()}{replyTarget.guideContext?.title ? ` từ bài ${replyTarget.guideContext.title}` : ''}</span><button type="button" onClick={() => setReplyTarget(null)} aria-label="Hủy phản hồi" className="text-white/60 hover:text-white">×</button></div>}
                 <form onSubmit={handleSend} className="flex gap-4 items-center">
                   <div className="flex-grow bg-black/40 border border-white/10 rounded-[28px] focus-within:border-primary/50 transition-all duration-500 px-2 group">

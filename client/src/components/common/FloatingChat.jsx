@@ -48,6 +48,17 @@ const createGuestId = () => {
   return id;
 };
 
+const normalizeStaffMessage = message => ({
+  id: message.id,
+  role: message.role,
+  content: message.content || message.text || '',
+  timestamp: message.createdAt || message.timestamp || new Date(),
+  replyContext: message.replyContext || null,
+  messageType: message.messageType || (message.questionSnapshot ? 'guide_question' : 'text'),
+  guideContext: message.guideContext || null,
+  questionSnapshot: message.questionSnapshot || null,
+});
+
 const FloatingChat = () => {
   const [isOpen, setIsOpen] = useState(false);
   const { token: userToken, account, loading: authLoading } = useAuth();
@@ -174,16 +185,7 @@ const FloatingChat = () => {
         const { data } = await api.get(`/chat/history/${chatId}`, {
           headers: userToken ? {} : { 'x-guest-token': token }
         });
-        setStaffMessages(data.map(m => ({ 
-          id: m.id,
-          role: m.role, 
-          content: m.content, 
-          timestamp: m.createdAt,
-          replyContext: m.replyContext,
-          messageType: m.messageType,
-          guideContext: m.guideContext,
-          questionSnapshot: m.questionSnapshot,
-        })));
+        setStaffMessages(data.map(normalizeStaffMessage));
         setUnreadCount(data.filter(m => m.role === 'admin' && !m.isRead).length);
         if (isStaffActiveRef.current) {
           await api.put(`/chat/read-user/${chatId}`, null, { headers: userToken ? {} : { 'x-guest-token': token } });
@@ -223,13 +225,13 @@ const FloatingChat = () => {
     });
 
     socketRef.current.on('receive_admin_message', (data) => {
-      setStaffMessages(prev => [...prev, {
+      setStaffMessages(prev => [...prev, normalizeStaffMessage({
         id: data.id,
         role: 'admin',
         content: data.text,
         timestamp: data.timestamp || new Date(),
         replyContext: data.replyContext,
-      }]);
+      })]);
       if (isStaffActiveRef.current) {
         api.put(`/chat/read-user/${chatId}`, null, { headers: userToken ? {} : { 'x-guest-token': guestTokenRef.current } })
           .catch(() => {});
@@ -240,7 +242,7 @@ const FloatingChat = () => {
     });
 
     socketRef.current.on('support_request_created', (data) => {
-      setStaffMessages(prev => [...prev.filter(item => item.id !== data.id), {
+      setStaffMessages(prev => [...prev.filter(item => item.id !== data.id), normalizeStaffMessage({
         id: data.id,
         role: 'user',
         content: data.text,
@@ -248,7 +250,7 @@ const FloatingChat = () => {
         messageType: data.messageType,
         guideContext: data.guideContext,
         questionSnapshot: data.questionSnapshot,
-      }]);
+      })]);
     });
 
     socketRef.current.on('guest_chat_deleted', ({ guestId: deletedGuestId }) => {
@@ -408,7 +410,7 @@ const FloatingChat = () => {
                          {isAdminOnline ? 'Admin đang trực tuyến' : 'Admin chưa trực tuyến · Tin nhắn sẽ được lưu để phản hồi'}
                       </div>
                       {staffMessages.map((msg, i) => (
-                        <div id={msg.messageType === 'guide_question' ? `chat-request-${msg.id}` : undefined} key={msg.id || i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                      <div id={msg.messageType === 'guide_question' ? `chat-request-${msg.id}` : undefined} key={msg.id || i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                           <div className={`p-3 px-4 rounded-[18px] text-[12px] whitespace-pre-wrap ${
                             msg.role === 'user' 
                               ? 'bg-secondary text-white rounded-tr-none' 

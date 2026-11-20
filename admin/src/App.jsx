@@ -1,5 +1,5 @@
 import React, { lazy, Suspense, useState } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
 import GuideList from './pages/Guides/GuideList';
 import TopicManager from './pages/Guides/TopicManager';
@@ -28,6 +28,7 @@ const EditorFallback = () => <div className="p-6 text-white/70">Đang tải trì
 // Simple Protected Route Component
 const ProtectedRoute = ({ children }) => {
   const token = localStorage.getItem('adminToken');
+  const { pathname } = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   if (!token) return <Navigate to="/login" replace />;
@@ -57,7 +58,7 @@ const ProtectedRoute = ({ children }) => {
               <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-[10px] font-bold">A</div>
            </div>
         </header>
-        <main className="flex-grow p-4 lg:p-8 overflow-y-auto w-full">
+        <main className={`flex-grow w-full ${pathname === '/live-chat' ? 'min-h-0 overflow-hidden p-0' : 'overflow-y-auto p-4 lg:p-8'}`}>
           {children}
         </main>
       </div>
