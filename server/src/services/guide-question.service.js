@@ -1,11 +1,13 @@
 const { GuideQuestionTemplate, Guide, LiveChatMessage, UserProfile } = require('../models');
 const { Op } = require('sequelize');
-const { notifyAdmin } = require('./socket.service');
+const { randomUUID } = require('crypto');
+const { emitSupportRequest } = require('./socket.service');
 const { notifyTelegramGuideQuestion } = require('./telegram.service');
 
 const clean = (value, max) => String(value || '').trim().slice(0, max);
 const DEFAULT_TEMPLATE_ID = 'default-guide-question';
 const DEFAULT_FIELDS = [{ key: 'question', label: 'Câu hỏi của bạn', type: 'textarea', required: true, maxLength: 2000 }];
+const formatSupportRequestNumber = id => String(id || '').replace(/-/g, '').slice(-8).toUpperCase();
 
 const parseFields = value => {
   let fields = value;
@@ -104,11 +106,13 @@ const submitGuideQuestion = async ({ user, guestId, guideSlug, templateId, answe
   const text = snapshot.map(item => `${item.label}: ${item.value || '(bỏ trống)'}`).join('\n');
   const previous = await LiveChatMessage.findOne({ where: { guestId }, order: [['createdAt', 'DESC']], attributes: ['userId'] });
   if (previous?.userId && previous.userId !== user.id) { const error = new Error('Phiên chat này đã liên kết với tài khoản khác.'); error.status = 403; throw error; }
+  const id = randomUUID();
+  const requestNumber = formatSupportRequestNumber(id);
   const message = await LiveChatMessage.create({
-    guestId, userId: user.id, role: 'user', messageType: 'guide_question',
+    id, guestId, userId: user.id, role: 'user', messageType: 'guide_question',
     content: text, name: user.username, email,
     guideContext: { slug: guide.slug, title: guide.title },
-    questionSnapshot: { templateId: template.id, templateName: template.name, fields: snapshot },
+    questionSnapshot: { templateId: template.id, templateName: template.name, requestNumber, fields: snapshot },
   });
   const unread = await LiveChatMessage.count({ where: { guestId, role: 'user', isRead: false } });
   const purchase = await require('./chat-purchase.service').getConversationSnapshot(guestId);
@@ -119,15 +123,15 @@ const submitGuideQuestion = async ({ user, guestId, guideSlug, templateId, answe
     guideTitle: guide.title,
     guideSlug: guide.slug,
   });
-  notifyAdmin('new_user_message', {
-    id: message.id, guestId, text, name: user.username, email,
+  emitSupportRequest({ guestId, request: {
+    id: message.id, guestId, text, name: user.username, email, messageType: 'guide_question',
     timestamp: message.createdAt,
     guideContext: message.guideContext,
     questionSnapshot: message.questionSnapshot,
     unreadCount: unread,
     purchase,
-  });
-  return { id: message.id, createdAt: message.createdAt };
+  } });
+  return { id: message.id, requestNumber, createdAt: message.createdAt };
 };
 
-module.exports = { DEFAULT_TEMPLATE_ID, parseFields, normalizeFields, listTemplatesForGuide, saveTemplate, deleteTemplate, submitGuideQuestion };
+module.exports = { DEFAULT_TEMPLATE_ID, formatSupportRequestNumber, parseFields, normalizeFields, listTemplatesForGuide, saveTemplate, deleteTemplate, submitGuideQuestion };

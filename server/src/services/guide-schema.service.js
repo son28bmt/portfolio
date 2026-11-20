@@ -153,6 +153,7 @@ const ensureGuideSchema = async () => {
       messageType: { type: DataTypes.ENUM('text', 'guide_question'), allowNull: true },
       guideContext: { type: DataTypes.JSON, allowNull: true },
       questionSnapshot: { type: DataTypes.JSON, allowNull: true },
+      replyContext: { type: DataTypes.JSON, allowNull: true },
     });
     await ensureIndex('LiveChatMessages', 'LiveChatMessages_userId', ['userId']);
 

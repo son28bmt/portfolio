@@ -132,8 +132,8 @@ function GuideDetailPage({ slug }) {
         if (!account?.email) { setQuestionError('Hãy thêm email hợp lệ vào hồ sơ tài khoản trước khi gửi câu hỏi.'); return; }
         setSendingQuestion(true);
         try {
-          await api.post('/chat/guide-question', { guestId: questionGuestId, guideSlug: slug, templateId: questionTemplate.id, answers }, { headers: { Authorization: `Bearer ${token}`, 'x-guest-token': localStorage.getItem('chat_guest_token_v1') || '' } });
-          sessionStorage.removeItem(draftKey(slug)); setAnswers({}); setQuestionSuccess('Đã gửi câu hỏi. Đội ngũ hỗ trợ sẽ trả lời trong cuộc trò chuyện STAFF.');
+          const { data } = await api.post('/chat/guide-question', { guestId: questionGuestId, guideSlug: slug, templateId: questionTemplate.id, answers }, { headers: { Authorization: `Bearer ${token}`, 'x-guest-token': localStorage.getItem('chat_guest_token_v1') || '' } });
+          sessionStorage.removeItem(draftKey(slug)); setAnswers({}); setQuestionSuccess(`Đã gửi yêu cầu hỗ trợ #${data.requestNumber || ''}. Đội ngũ hỗ trợ sẽ phản hồi trong cuộc trò chuyện STAFF.`);
         } catch (error) { setQuestionError(error.response?.data?.message || 'Không thể gửi câu hỏi. Vui lòng thử lại.'); }
         finally { setSendingQuestion(false); }
       }}>

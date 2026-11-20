@@ -7,7 +7,7 @@ const {
 const { assertCmsImageBuffer, MAX_IMAGE_BYTES } = require('../src/services/cms-upload.service');
 const { requireRoles } = require('../src/middleware/require-admin.middleware');
 const { publishDue } = require('../src/services/cms-scheduler.service');
-const { DEFAULT_TEMPLATE_ID, parseFields, normalizeFields } = require('../src/services/guide-question.service');
+const { DEFAULT_TEMPLATE_ID, formatSupportRequestNumber, parseFields, normalizeFields } = require('../src/services/guide-question.service');
 
 test('slugify: converts Vietnamese text into a stable URL slug', () => {
   assert.equal(slugify('  Hướng dẫn Đổi Mực In 2026!  '), 'huong-dan-doi-muc-in-2026');
@@ -30,6 +30,7 @@ test('guide question fields: accepts JSON strings and wrapped field objects', ()
   assert.deepEqual(parseFields(JSON.stringify({ fields })), fields);
   assert.deepEqual(normalizeFields(JSON.stringify(fields)), fields);
   assert.equal(DEFAULT_TEMPLATE_ID, 'default-guide-question');
+  assert.equal(formatSupportRequestNumber('12345678-abcd-efgh-ijkl-mnopqrstuvwx'), 'QRSTUVWX');
 });
 
 test('sanitizeContent: removes scripts, event handlers, and javascript URLs', () => {

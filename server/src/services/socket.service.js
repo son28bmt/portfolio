@@ -99,6 +99,11 @@ const initSocket = (server, corsOptions) => {
             order: [['createdAt', 'DESC']],
             attributes: ['userId', 'name', 'email'],
           });
+          const latestGuideQuestion = await LiveChatMessage.findOne({
+            where: { guestId: session.guestId, messageType: 'guide_question' },
+            order: [['createdAt', 'DESC']],
+            attributes: ['guideContext', 'questionSnapshot'],
+          });
           const chatUser = latestUserMessage?.userId
             ? await User.findByPk(latestUserMessage.userId, {
               attributes: ['id', 'username'],
@@ -110,9 +115,9 @@ const initSocket = (server, corsOptions) => {
             name: getChatUserName(chatUser, latestUserMessage?.name || session.name),
             email: chatUser?.profile?.email || latestUserMessage?.email || session.email,
             purchase: await getConversationSnapshot(session.guestId),
-            lastMessageType: lastMessage?.messageType || 'text',
-            guideContext: lastMessage?.guideContext || null,
-            questionSnapshot: lastMessage?.questionSnapshot || null,
+            lastMessageType: lastMessage?.messageType || (latestGuideQuestion ? 'guide_question' : 'text'),
+            guideContext: lastMessage?.guideContext || latestGuideQuestion?.guideContext || null,
+            questionSnapshot: lastMessage?.questionSnapshot || latestGuideQuestion?.questionSnapshot || null,
           };
         }));
         socket.emit("init_sessions", enriched);
@@ -126,6 +131,7 @@ const initSocket = (server, corsOptions) => {
       if (!guestId) return;
 
       socket.join(`room_${guestId}`);
+      socket.chatGuestId = guestId;
       const user = await resolveChatUser(userToken);
       socket.userId = user?.id || null;
       socket.chatUser = user || null;
@@ -144,7 +150,7 @@ const initSocket = (server, corsOptions) => {
 
     socket.on("send_to_admin", async (data) => {
       const { guestId, text, name, email } = data || {};
-      if (!guestId || !String(text || "").trim()) return;
+      if (!guestId || guestId !== socket.chatGuestId || !String(text || "").trim()) return;
 
       try {
         const chatUser = socket.chatUser || (socket.userId
@@ -171,6 +177,7 @@ const initSocket = (server, corsOptions) => {
           text,
           name: senderName,
           email: senderEmail,
+          messageType: newMessage.messageType || 'text',
           purchase,
           guideContext: newMessage.guideContext || null,
           questionSnapshot: newMessage.questionSnapshot || null,
@@ -189,15 +196,39 @@ const initSocket = (server, corsOptions) => {
         return;
       }
 
-      const { guestId, text } = data || {};
+      const { guestId, text, replyContext: requestedReplyContext } = data || {};
       if (!guestId || !String(text || "").trim()) return;
 
       try {
+        let replyContext = null;
+        if (requestedReplyContext?.requestId) {
+          const request = await LiveChatMessage.findOne({
+            where: {
+              id: requestedReplyContext.requestId,
+              guestId,
+              role: 'user',
+              messageType: 'guide_question',
+            },
+            attributes: ['id', 'guideContext', 'questionSnapshot'],
+          });
+          if (!request) {
+            socket.emit('chat_send_error', { message: 'Yêu cầu hỗ trợ không còn tồn tại trong cuộc hội thoại này.' });
+            return;
+          }
+          const requestNumber = String(request.id).replace(/-/g, '').slice(-8).toUpperCase();
+          replyContext = {
+            requestId: request.id,
+            requestNumber,
+            guideTitle: request.guideContext?.title || '',
+            guideSlug: request.guideContext?.slug || '',
+          };
+        }
         const newMessage = await LiveChatMessage.create({
           guestId,
           role: "admin",
           content: text,
-          isRead: true,
+          isRead: false,
+          replyContext,
         });
 
         const customerMessage = await LiveChatMessage.findOne({
@@ -212,8 +243,10 @@ const initSocket = (server, corsOptions) => {
         });
 
         io.to(`room_${guestId}`).emit("receive_admin_message", {
+          id: newMessage.id,
           text,
           timestamp: newMessage.createdAt,
+          replyContext,
         });
       } catch (err) {
         console.error("[Socket] Error saving/sending admin message:", err);
@@ -230,6 +263,18 @@ const initSocket = (server, corsOptions) => {
         );
       } catch (err) {
         console.error("[Socket] Error marking messages as read:", err);
+      }
+    });
+
+    socket.on("mark_chat_read", async ({ guestId } = {}) => {
+      if (!guestId || guestId !== socket.chatGuestId) return;
+      try {
+        await LiveChatMessage.update(
+          { isRead: true },
+          { where: { guestId, role: 'admin', isRead: false } },
+        );
+      } catch (err) {
+        console.error("[Socket] Error marking user chat as read:", err);
       }
     });
 
@@ -254,6 +299,12 @@ const getIO = () => {
   return io;
 };
 
+const emitSupportRequest = ({ guestId, request }) => {
+  if (!io) return;
+  io.to("admin_room").emit("new_user_message", request);
+  if (guestId) io.to(`room_${guestId}`).emit("support_request_created", request);
+};
+
 const notifyAdmin = (event, data = {}) => {
   if (io) {
     io.to("admin_room").emit(event, data);
@@ -264,4 +315,5 @@ module.exports = {
   initSocket,
   getIO,
   notifyAdmin,
+  emitSupportRequest,
 };

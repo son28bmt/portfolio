@@ -45,6 +45,7 @@ const FloatingChat = () => {
   const { token: userToken } = useAuth();
   const [activeTab, setActiveTab] = useState('ai'); // 'ai' or 'staff'
   const [isAdminOnline, setIsAdminOnline] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [guestId] = useState(getGuestId);
   const [guestToken, setGuestToken] = useState(() => localStorage.getItem(GUEST_TOKEN_KEY) || '');
   
@@ -74,6 +75,8 @@ const FloatingChat = () => {
   const socketRef = useRef();
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
+  const guestTokenRef = useRef(guestToken);
+  const isStaffActiveRef = useRef(isOpen && activeTab === 'staff');
 
   // Persistence for AI chat
   useEffect(() => {
@@ -82,9 +85,14 @@ const FloatingChat = () => {
 
   useEffect(() => {
     if (guestToken) {
+      guestTokenRef.current = guestToken;
       localStorage.setItem(GUEST_TOKEN_KEY, guestToken);
     }
   }, [guestToken]);
+
+  useEffect(() => {
+    isStaffActiveRef.current = isOpen && activeTab === 'staff';
+  }, [isOpen, activeTab]);
 
   // Scroll to bottom
   useEffect(() => {
@@ -141,10 +149,17 @@ const FloatingChat = () => {
           headers: { 'x-guest-token': token }
         });
         setStaffMessages(data.map(m => ({ 
+          id: m.id,
           role: m.role, 
           content: m.content, 
-          timestamp: m.createdAt 
+          timestamp: m.createdAt,
+          replyContext: m.replyContext,
         })));
+        setUnreadCount(data.filter(m => m.role === 'admin' && !m.isRead).length);
+        if (isStaffActiveRef.current) {
+          await api.put(`/chat/read-user/${guestId}`, null, { headers: { 'x-guest-token': token } });
+          setUnreadCount(0);
+        }
       } catch (err) {
         console.error('Failed to load staff history:', err);
       }
@@ -158,6 +173,10 @@ const FloatingChat = () => {
       const token = String(payload?.token || '').trim();
       if (!token) return;
       setGuestToken(token);
+      guestTokenRef.current = token;
+      api.get(`/chat/unread/${guestId}`, { headers: { 'x-guest-token': token } })
+        .then(({ data }) => setUnreadCount(Number(data.unreadCount) || 0))
+        .catch(() => {});
 
       if (isOpen && activeTab === 'staff') {
         loadStaffHistory(token);
@@ -169,7 +188,31 @@ const FloatingChat = () => {
     });
 
     socketRef.current.on('receive_admin_message', (data) => {
-      setStaffMessages(prev => [...prev, { role: 'admin', content: data.text, timestamp: data.timestamp || new Date() }]);
+      setStaffMessages(prev => [...prev, {
+        id: data.id,
+        role: 'admin',
+        content: data.text,
+        timestamp: data.timestamp || new Date(),
+        replyContext: data.replyContext,
+      }]);
+      if (isStaffActiveRef.current) {
+        api.put(`/chat/read-user/${guestId}`, null, { headers: { 'x-guest-token': guestTokenRef.current } })
+          .catch(() => {});
+        setUnreadCount(0);
+      } else {
+        setUnreadCount(value => value + 1);
+      }
+    });
+
+    socketRef.current.on('support_request_created', (data) => {
+      setStaffMessages(prev => [...prev.filter(item => item.id !== data.id), {
+        id: data.id,
+        role: 'user',
+        content: data.text,
+        timestamp: data.timestamp || new Date(),
+        guideContext: data.guideContext,
+        questionSnapshot: data.questionSnapshot,
+      }]);
     });
 
     if (isOpen && activeTab === 'staff') {
@@ -278,7 +321,7 @@ const FloatingChat = () => {
                   >
                     <Headphones className="w-3.5 h-3.5" /> 
                     <span className="hidden xs:inline">Hotline</span> Staff
-                    {isAdminOnline && <div className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse shadow-[0_0_10px_#4ade80]" />}
+                    {unreadCount > 0 && <span className="min-w-4 h-4 px-1 bg-primary text-white text-[9px] font-black rounded-full flex items-center justify-center">{unreadCount > 99 ? '99+' : unreadCount}</span>}
                   </button>
                </div>
                <button 
@@ -318,7 +361,7 @@ const FloatingChat = () => {
                       </div>
                     </motion.div>
                   ))}
-                   {isAiTyping && (
+                  {isAiTyping && (
                     <div className="flex justify-start">
                       <div className="bg-white/5 p-3 px-4 rounded-[18px] rounded-tl-none flex gap-1.5 border border-white/5">
                         <div className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce [animation-duration:0.8s]" />
@@ -330,18 +373,19 @@ const FloatingChat = () => {
                 </>
               ) : (
                 <>
-                  {isAdminOnline ? (
+                  {true ? (
                     <div className="space-y-4">
                       <div className="text-center py-1 text-[8px] text-green-400 font-bold uppercase tracking-[0.2em] flex items-center justify-center gap-1.5">
-                         Administrator Online
+                         {isAdminOnline ? 'Admin đang trực tuyến' : 'Admin chưa trực tuyến · Tin nhắn sẽ được lưu để phản hồi'}
                       </div>
                       {staffMessages.map((msg, i) => (
                         <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                          <div className={`p-3 px-4 rounded-[18px] text-[12px] ${
+                          <div className={`p-3 px-4 rounded-[18px] text-[12px] whitespace-pre-wrap ${
                             msg.role === 'user' 
                               ? 'bg-secondary text-white rounded-tr-none' 
                               : 'bg-white/[0.12] text-white/90 border border-white/5 rounded-tl-none'
                           }`}>
+                            {msg.replyContext?.requestNumber && <p className="mb-1 text-[9px] font-bold uppercase tracking-wider text-secondary/80">Admin phản hồi yêu cầu #{msg.replyContext.requestNumber}{msg.replyContext.guideTitle ? ` từ bài ${msg.replyContext.guideTitle}` : ''}</p>}
                             {msg.content}
                           </div>
                         </div>
@@ -401,7 +445,7 @@ const FloatingChat = () => {
             </div>
 
             {/* Smart Input Area */}
-            {(!isAdminOnline && activeTab === 'staff') || formSuccess ? null : (
+            {formSuccess ? null : (
               <div className="p-4 md:p-6 border-t border-white/5 bg-white/[0.03] shrink-0">
                 {activeTab === 'ai' && (
                    <div className="flex justify-center mb-4 scale-[0.7] md:scale-[0.8] origin-bottom opacity-40">
@@ -470,8 +514,10 @@ const FloatingChat = () => {
           ) : (
             <motion.div key="open" initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.5 }}>
               <MessageSquare className="w-7 h-7 md:w-9 md:h-9" />
-              {isAdminOnline && (
-                <span className="absolute -top-1 -right-1 w-5 h-5 bg-green-400 rounded-full border-4 border-primary animate-pulse" />
+              {unreadCount > 0 && (
+                <span className="absolute -top-2 -right-2 min-w-6 h-6 px-1 bg-secondary text-white text-[11px] font-black rounded-full border-2 border-primary flex items-center justify-center">
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
               )}
             </motion.div>
           )}

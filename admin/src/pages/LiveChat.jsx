@@ -29,6 +29,7 @@ const LiveChat = () => {
   const [purchase, setPurchase] = useState(null);
   const [purchaseForm, setPurchaseForm] = useState({ purchaseStatus: 'unknown', packageType: '', printerModel: '', assignmentNotes: '' });
   const [purchaseError, setPurchaseError] = useState('');
+  const [replyTarget, setReplyTarget] = useState(null);
   
   const socketRef = useRef();
   const messagesEndRef = useRef(null);
@@ -96,7 +97,7 @@ const LiveChat = () => {
     });
 
     socketRef.current.on('new_user_message', (data) => {
-      const { guestId, text, name, email, purchase, questionSnapshot, guideContext, timestamp } = data;
+      const { id, guestId, text, name, email, purchase, messageType, questionSnapshot, guideContext, timestamp } = data;
       console.log('[AdminSocket] New user message from:', guestId);
       
       setSessions(prev => {
@@ -107,6 +108,9 @@ const LiveChat = () => {
             ...updated[index],
             lastMessageAt: timestamp,
             purchase: purchase || updated[index].purchase,
+            lastMessageType: messageType || (questionSnapshot ? 'guide_question' : 'text'),
+            guideContext: guideContext || updated[index].guideContext,
+            questionSnapshot: questionSnapshot || updated[index].questionSnapshot,
             unreadCount: activeChatIdRef.current === guestId ? 0 : (updated[index].unreadCount + 1)
           };
           const session = updated.splice(index, 1)[0];
@@ -118,13 +122,16 @@ const LiveChat = () => {
             email: email || 'N/A',
             purchase,
             lastMessageAt: timestamp,
+            lastMessageType: messageType || (questionSnapshot ? 'guide_question' : 'text'),
+            guideContext,
+            questionSnapshot,
             unreadCount: activeChatIdRef.current === guestId ? 0 : 1
           }, ...prev];
         }
       });
 
       if (activeChatIdRef.current === guestId) {
-        setMessages(prev => [...prev, { role: 'user', content: text, messageType: questionSnapshot ? 'guide_question' : 'text', questionSnapshot, guideContext, createdAt: timestamp }]);
+        setMessages(prev => [...prev, { id, role: 'user', content: text, messageType: questionSnapshot ? 'guide_question' : 'text', questionSnapshot, guideContext, createdAt: timestamp }]);
         socketRef.current.emit('mark_as_read', { guestId });
       }
 
@@ -140,6 +147,7 @@ const LiveChat = () => {
 
   useEffect(() => {
     if (activeChatId) {
+      setReplyTarget(null);
       loadChatHistory(activeChatId);
     }
   }, [activeChatId]);
@@ -197,11 +205,18 @@ const LiveChat = () => {
     if (!input.trim() || !activeChatId) return;
 
     const text = input.trim();
-    socketRef.current.emit('send_to_user', { guestId: activeChatId, text });
+    const replyContext = replyTarget ? {
+      requestId: replyTarget.id,
+      requestNumber: replyTarget.questionSnapshot?.requestNumber || String(replyTarget.id || '').replace(/-/g, '').slice(-8).toUpperCase(),
+      guideTitle: replyTarget.guideContext?.title,
+      guideSlug: replyTarget.guideContext?.slug,
+    } : null;
+    socketRef.current.emit('send_to_user', { guestId: activeChatId, text, replyContext });
 
     const now = new Date();
-    setMessages(prev => [...prev, { role: 'admin', content: text, createdAt: now }]);
+    setMessages(prev => [...prev, { role: 'admin', content: text, createdAt: now, replyContext }]);
     setInput('');
+    setReplyTarget(null);
     setSessions(prev => prev.map(s => s.guestId === activeChatId ? { ...s, lastMessageAt: now } : s));
   };
 
@@ -329,7 +344,8 @@ const LiveChat = () => {
                         ? 'bg-primary text-white rounded-tr-none border-white/10' 
                         : 'bg-white/[0.06] text-white/90 border-white/5 rounded-tl-none backdrop-blur-md'
                       }`}>
-                        {msg.questionSnapshot?.fields ? <div className="space-y-3"><p className="font-bold">Câu hỏi từ bài: {msg.guideContext?.title || 'Hướng dẫn'}</p>{msg.questionSnapshot.fields.map((field, fieldIndex) => <div key={`${field.key}-${fieldIndex}`}><p className="text-[10px] font-bold uppercase opacity-60">{field.label}</p><p className="whitespace-pre-wrap">{field.value || '(bỏ trống)'}</p></div>)}</div> : msg.content}
+                        {msg.replyContext?.requestNumber && <p className="mb-2 text-[10px] font-bold uppercase text-secondary">Phản hồi yêu cầu #{msg.replyContext.requestNumber}{msg.replyContext.guideTitle ? ` từ bài ${msg.replyContext.guideTitle}` : ''}</p>}
+                        {msg.questionSnapshot?.fields ? <div className="space-y-3"><p className="font-bold">Yêu cầu #{msg.questionSnapshot.requestNumber || String(msg.id || '').replace(/-/g, '').slice(-8).toUpperCase()} từ bài: {msg.guideContext?.title || 'Hướng dẫn'}</p>{msg.guideContext?.slug && <a className="text-xs text-secondary underline" href={`https://nguyenquangson.id.vn/huong-dan/${encodeURIComponent(msg.guideContext.slug)}`} target="_blank" rel="noreferrer">Mở bài hướng dẫn</a>}{msg.questionSnapshot.fields.map((field, fieldIndex) => <div key={`${field.key}-${fieldIndex}`}><p className="text-[10px] font-bold uppercase opacity-60">{field.label}</p><p className="whitespace-pre-wrap">{field.value || '(bỏ trống)'}</p></div>)}<button type="button" onClick={() => setReplyTarget(msg)} className="mt-2 rounded-lg bg-secondary px-3 py-2 text-xs font-bold text-white">Phản hồi yêu cầu #{msg.questionSnapshot.requestNumber || String(msg.id || '').replace(/-/g, '').slice(-8).toUpperCase()}</button></div> : msg.content}
                       </div>
                       <div className={`text-[9px] text-white/10 font-bold uppercase tracking-widest ${msg.role === 'admin' ? 'text-right' : 'text-left'}`}>
                         {msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString() : ''}
@@ -353,6 +369,7 @@ const LiveChat = () => {
               </form>
 
               <div className="p-6 md:p-8 bg-white/[0.03] border-t border-white/5 backdrop-blur-3xl shrink-0">
+                {replyTarget && <div className="mb-3 flex items-center justify-between gap-3 rounded-lg border border-secondary/30 bg-secondary/10 px-3 py-2 text-xs"><span>Đang phản hồi yêu cầu #{replyTarget.questionSnapshot?.requestNumber || String(replyTarget.id || '').replace(/-/g, '').slice(-8).toUpperCase()}{replyTarget.guideContext?.title ? ` từ bài ${replyTarget.guideContext.title}` : ''}</span><button type="button" onClick={() => setReplyTarget(null)} aria-label="Hủy phản hồi" className="text-white/60 hover:text-white">×</button></div>}
                 <form onSubmit={handleSend} className="flex gap-4 items-center">
                   <div className="flex-grow bg-black/40 border border-white/10 rounded-[28px] focus-within:border-primary/50 transition-all duration-500 px-2 group">
                     <input 

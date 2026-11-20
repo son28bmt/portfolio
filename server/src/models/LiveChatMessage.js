@@ -35,6 +35,10 @@ const LiveChatMessage = sequelize.define('LiveChatMessage', {
     type: DataTypes.JSON,
     allowNull: true,
   },
+  replyContext: {
+    type: DataTypes.JSON,
+    allowNull: true,
+  },
   name: {
     type: DataTypes.STRING,
     allowNull: true,
