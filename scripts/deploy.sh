@@ -91,6 +91,11 @@ npm_install "$CLIENT_DIR" "full"
 npm_install "$ADMIN_DIR" "full"
 
 log "Build frontend apps"
+log "Generate sitemap from published database content"
+pushd "$SERVER_DIR" >/dev/null
+npm run sitemap
+popd >/dev/null
+
 pushd "$CLIENT_DIR" >/dev/null
 npm run build
 popd >/dev/null

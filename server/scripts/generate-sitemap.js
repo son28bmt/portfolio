@@ -72,8 +72,7 @@ const generateSitemapXmlContent = async () => {
   const siteUrl = getSiteUrl();
   const entries = [...staticUrlEntries(siteUrl)];
 
-  try {
-    const [blogs, projects, guides] = await Promise.all([
+  const [blogs, projects, guides] = await Promise.all([
       Blog.findAll({
         attributes: ['id', 'slug', 'updatedAt', 'createdAt'],
         order: [['updatedAt', 'DESC']],
@@ -87,7 +86,7 @@ const generateSitemapXmlContent = async () => {
         where: { status: 'published' },
         order: [['updatedAt', 'DESC']],
       }),
-    ]);
+  ]);
 
     const blogEntries = blogs.map((post) => ({
       loc: buildAbsoluteUrl(siteUrl, `/blog/${post.slug || post.id}`),
@@ -110,10 +109,7 @@ const generateSitemapXmlContent = async () => {
       priority: '0.8',
     }));
 
-    entries.push(...blogEntries, ...projectEntries, ...guideEntries);
-  } catch (error) {
-    console.error('❌ Lỗi khi lấy danh sách URL động:', error?.message || error);
-  }
+  entries.push(...blogEntries, ...projectEntries, ...guideEntries);
 
   const body = entries.map(buildUrlNode).join('\n');
   return {

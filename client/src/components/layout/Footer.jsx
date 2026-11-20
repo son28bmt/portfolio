@@ -55,6 +55,11 @@ const Footer = () => {
                 </Link>
               </li>
               <li>
+                <Link to="/huong-dan" className="text-white/40 hover:text-white text-sm flex items-center gap-2 transition-colors">
+                  <BookOpen className="w-3.5 h-3.5" /> Hướng dẫn
+                </Link>
+              </li>
+              <li>
                 <Link to="/playground/chat" className="text-white/40 hover:text-white text-sm flex items-center gap-2 transition-colors">
                   <MessageSquare className="w-3.5 h-3.5" /> Hỏi đáp
                 </Link>

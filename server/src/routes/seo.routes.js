@@ -129,12 +129,8 @@ const generateSitemapXml = async () => {
   const siteUrl = getSiteUrl();
   const entries = [...staticUrlEntries(siteUrl)];
 
-  try {
-    const dynamicEntries = await fetchDynamicEntries(siteUrl);
-    entries.push(...dynamicEntries);
-  } catch (error) {
-    console.error('[sitemap] cannot load dynamic entries:', error?.message || error);
-  }
+  const dynamicEntries = await fetchDynamicEntries(siteUrl);
+  entries.push(...dynamicEntries);
 
   const body = entries.map(buildUrlNode).join('\n');
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${body}\n</urlset>\n`;
