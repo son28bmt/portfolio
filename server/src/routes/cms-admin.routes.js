@@ -31,30 +31,45 @@ router.post('/upload-image', limiter, upload.single('image'), async (req, res) =
 });
 
 router.get('/:postType/check-slug', async (req, res) => {
-  const Model = req.params.postType === 'blog' ? Blog : req.params.postType === 'guide' ? Guide : null;
-  const slug = String(req.query.slug || '').trim();
-  if (!Model || !slug) return res.status(400).json({ message: 'Slug không hợp lệ.' });
-  const where = { slug, ...(uuidPattern.test(String(req.query.id || '')) ? { id: { [Op.ne]: req.query.id } } : {}) };
-  return res.json({ available: !(await Model.findOne({ where })) });
+  try {
+    const Model = req.params.postType === 'blog' ? Blog : req.params.postType === 'guide' ? Guide : null;
+    const slug = String(req.query.slug || '').trim();
+    if (!Model || !slug) return res.status(400).json({ message: 'Slug không hợp lệ.' });
+    const where = { slug, ...(uuidPattern.test(String(req.query.id || '')) ? { id: { [Op.ne]: req.query.id } } : {}) };
+    return res.json({ available: !(await Model.findOne({ where })) });
+  } catch (error) {
+    console.error('[CMS Admin] Slug check failed:', error.message);
+    return res.status(500).json({ message: 'Không thể kiểm tra slug. Hãy xác nhận CMS database migration đã được áp dụng.' });
+  }
 });
 
 router.get('/:postType/list', async (req, res) => {
-  const Model = req.params.postType === 'blog' ? Blog : req.params.postType === 'guide' ? Guide : null;
-  if (!Model) return res.status(400).json({ message: 'Loại bài viết không hợp lệ.' });
-  const page = Math.max(1, Number(req.query.page) || 1);
-  const limit = Math.min(50, Math.max(1, Number(req.query.limit) || 10));
-  const where = {};
-  if (['draft', 'scheduled', 'published', 'archived'].includes(req.query.status)) where.status = req.query.status;
-  if (req.query.q) where.title = { [Op.like]: `%${String(req.query.q).replace(/[\\%_]/g, '\\$&')}%` };
-  const { count, rows } = await Model.findAndCountAll({ where, order: [['updatedAt', 'DESC']], limit, offset: (page - 1) * limit });
-  return res.json({ items: rows, total: count, page, totalPages: Math.ceil(count / limit) });
+  try {
+    const Model = req.params.postType === 'blog' ? Blog : req.params.postType === 'guide' ? Guide : null;
+    if (!Model) return res.status(400).json({ message: 'Loại bài viết không hợp lệ.' });
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const limit = Math.min(50, Math.max(1, Number(req.query.limit) || 10));
+    const where = {};
+    if (['draft', 'scheduled', 'published', 'archived'].includes(req.query.status)) where.status = req.query.status;
+    if (req.query.q) where.title = { [Op.like]: `%${String(req.query.q).replace(/[\\%_]/g, '\\$&')}%` };
+    const { count, rows } = await Model.findAndCountAll({ where, order: [['updatedAt', 'DESC']], limit, offset: (page - 1) * limit });
+    return res.json({ items: rows, total: count, page, totalPages: Math.ceil(count / limit) });
+  } catch (error) {
+    console.error('[CMS Admin] Post list failed:', error.message);
+    return res.status(500).json({ message: 'Không thể tải danh sách CMS. Hãy xác nhận CMS database migration đã được áp dụng.' });
+  }
 });
 
 router.get('/:postType/:id', async (req, res) => {
-  const Model = req.params.postType === 'blog' ? Blog : req.params.postType === 'guide' ? Guide : null;
-  if (!Model || !uuidPattern.test(req.params.id)) return res.status(400).json({ message: 'Bài viết không hợp lệ.' });
-  const post = await Model.findByPk(req.params.id);
-  return post ? res.json(post) : res.status(404).json({ message: 'Không tìm thấy bài viết.' });
+  try {
+    const Model = req.params.postType === 'blog' ? Blog : req.params.postType === 'guide' ? Guide : null;
+    if (!Model || !uuidPattern.test(req.params.id)) return res.status(400).json({ message: 'Bài viết không hợp lệ.' });
+    const post = await Model.findByPk(req.params.id);
+    return post ? res.json(post) : res.status(404).json({ message: 'Không tìm thấy bài viết.' });
+  } catch (error) {
+    console.error('[CMS Admin] Post load failed:', error.message);
+    return res.status(500).json({ message: 'Không thể tải bài viết. Hãy xác nhận CMS database migration đã được áp dụng.' });
+  }
 });
 
 module.exports = router;

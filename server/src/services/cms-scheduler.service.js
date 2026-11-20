@@ -3,6 +3,7 @@ const { Blog, Guide } = require('../models');
 const { createPostRevision } = require('./post-revision.service');
 
 let timer;
+let schemaWarningLogged = false;
 
 async function publishDue(Model, postType) {
   const now = new Date();
@@ -28,7 +29,14 @@ async function publishScheduledPosts() {
 
 function startCmsScheduler() {
   if (timer) return timer;
-  const run = () => publishScheduledPosts().catch(error => console.error('[CMS scheduler]', error.message));
+  const run = () => publishScheduledPosts().then(() => { schemaWarningLogged = false; }).catch(error => {
+    if (!schemaWarningLogged && /unknown column|doesn't exist|does not exist/i.test(error.message)) {
+      schemaWarningLogged = true;
+      console.warn('[CMS scheduler] CMS schema is not installed; run server/scripts/sql/cms-editor-migration.sql.');
+      return;
+    }
+    console.error('[CMS scheduler]', error.message);
+  });
   timer = setInterval(run, 60 * 1000);
   if (typeof timer.unref === 'function') timer.unref();
   setTimeout(run, 5000);
