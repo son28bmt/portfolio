@@ -31,16 +31,19 @@ const sanitizeGuideHtml = (html) => sanitizeHtml(String(html || ''), {
   allowedTags: [
     'h1', 'h2', 'h3', 'h4', 'p', 'br', 'hr', 'strong', 'em', 'u', 's',
     'code', 'pre', 'blockquote', 'ul', 'ol', 'li', 'a', 'img', 'table',
-    'thead', 'tbody', 'tr', 'th', 'td', 'span', 'iframe',
+    'thead', 'tbody', 'tr', 'th', 'td', 'span', 'iframe', 'figure', 'figcaption',
   ],
   allowedAttributes: {
-    '*': ['class'],
+    '*': ['class', 'style', 'data-align'],
     a: ['href', 'rel', 'target'],
     img: ['src', 'alt', 'width', 'height'],
     iframe: ['src', 'width', 'height', 'title', 'allowfullscreen', 'frameborder'],
   },
   allowedClasses: {
-    '*': [/^ql-/],
+    '*': [/^ql-/, /^cms-image$/],
+  },
+  allowedStyles: {
+    '*': { 'text-align': [/^(left|center|right|justify)$/] },
   },
   allowedSchemes: ['http', 'https', 'mailto'],
   allowedSchemesByTag: {

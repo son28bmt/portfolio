@@ -101,6 +101,7 @@ const BlogDetail = () => {
   const [post, setPost] = useState(null);
   const [loading, setLoading] = useState(true);
   const [featureNotice, setFeatureNotice] = useState('');
+  const [guideSuggestions, setGuideSuggestions] = useState([]);
 
   useEffect(() => {
     const fetchPost = async () => {
@@ -116,6 +117,10 @@ const BlogDetail = () => {
 
     fetchPost();
   }, [id]);
+
+  useEffect(() => {
+    api.get('/guides', { params: { limit: 3 } }).then(({ data }) => setGuideSuggestions(data.items || [])).catch(() => setGuideSuggestions([]));
+  }, []);
 
   const tags = useMemo(() => parseTags(post?.tags), [post?.tags]);
   const normalizedContent = useMemo(() => normalizeBlogContent(post?.content), [post?.content]);
@@ -152,7 +157,9 @@ const BlogDetail = () => {
   }
 
   return (
-    <div className="py-6 sm:py-10 md:py-12 max-w-4xl mx-auto px-3 sm:px-4 blog-page-shell">
+    <div className="py-6 sm:py-10 md:py-12 max-w-7xl mx-auto px-3 sm:px-4 blog-page-shell grid gap-8 lg:grid-cols-[220px_minmax(0,1fr)_220px]">
+      <aside className="hidden lg:block"><div className="sticky top-24 space-y-3"><h2 className="text-xs font-bold uppercase text-white/50">Hướng dẫn</h2>{guideSuggestions.map(item => <Link key={item.slug} to={`/huong-dan/${item.slug}`} className="block border-l border-white/10 py-1 pl-3 text-sm text-white/60 hover:border-primary hover:text-white">{item.title}</Link>)}</div></aside>
+      <div className="min-w-0">
       <Helmet>
         <title>{post.seoTitle || pageTitle}</title>
         <meta name="description" content={post.seoDescription || pageDesc} />
@@ -197,6 +204,7 @@ const BlogDetail = () => {
             <Clock className="w-4 h-4 text-secondary" />
             {post.readTime || '5 min read'}
           </div>
+          {(post.authorName || post.authorId) && <div className="flex items-center gap-2">Tác giả: {post.authorName || post.authorId}</div>}
         </div>
       </header>
 
@@ -210,6 +218,7 @@ const BlogDetail = () => {
       {post.coverCaption && <p className="-mt-8 mb-10 text-center text-sm text-white/50">{post.coverCaption}</p>}
 
       <div className="w-full mb-10 sm:mb-16 mx-auto">
+        <style>{`.blog-content figure{margin:1rem 0}.blog-content figure[data-align="center"]{margin-left:auto;margin-right:auto}.blog-content figure[data-align="right"]{margin-left:auto}.blog-content figcaption{text-align:center;font-size:.8rem;color:rgba(255,255,255,.5)}`}</style>
         <div
           className="text-white/80 leading-relaxed blog-content"
           dangerouslySetInnerHTML={{ __html: normalizedContent }}
@@ -220,8 +229,8 @@ const BlogDetail = () => {
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 bg-white/5 rounded-full flex items-center justify-center border border-white/10 italic font-serif text-xl">S</div>
           <div>
-            <p className="font-bold">Nguyễn Quang Sơn</p>
-            <p className="text-xs text-white/40">Fullstack Developer & AI Enthusiast</p>
+            <p className="font-bold">{post.authorName || post.authorId || 'Nguyễn Quang Sơn'}</p>
+            <p className="text-xs text-white/40">Tác giả</p>
           </div>
         </div>
 
@@ -250,6 +259,9 @@ const BlogDetail = () => {
           {featureNotice}
         </div>
       )}
+      {post.relatedBlogs?.length > 0 && <section className="mt-12 border-t border-white/10 pt-6"><h2 className="mb-3 font-bold">Bài blog khác</h2>{post.relatedBlogs.map(item => <Link key={item.id} to={`/blog/${item.slug || item.id}`} className="mb-2 block text-sm text-white/60 hover:text-secondary">{item.title}</Link>)}</section>}
+      </div>
+      <aside className="hidden lg:block"><div className="sticky top-24 space-y-3"><h2 className="text-xs font-bold uppercase text-white/50">Bài blog mới</h2>{(post.relatedBlogs || []).map(item => <Link key={item.id} to={`/blog/${item.slug || item.id}`} className="block border-l border-white/10 py-1 pl-3 text-sm text-white/60 hover:border-primary hover:text-white">{item.title}</Link>)}</div></aside>
     </div>
   );
 };

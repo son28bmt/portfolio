@@ -15,15 +15,18 @@ const sanitizeContent = (value) => sanitizeHtml(String(value || ''), {
   allowedTags: [
     'h1', 'h2', 'h3', 'h4', 'p', 'br', 'hr', 'strong', 'em', 'u', 's',
     'code', 'pre', 'blockquote', 'ul', 'ol', 'li', 'a', 'img', 'table',
-    'thead', 'tbody', 'tr', 'th', 'td', 'span', 'iframe',
+    'thead', 'tbody', 'tr', 'th', 'td', 'span', 'iframe', 'figure', 'figcaption',
   ],
   allowedAttributes: {
-    '*': ['class'],
+    '*': ['class', 'style', 'data-align'],
     a: ['href', 'target', 'rel'],
     img: ['src', 'alt', 'width', 'height'],
     iframe: ['src', 'width', 'height', 'title', 'allowfullscreen', 'frameborder'],
   },
-  allowedClasses: { '*': [/^ql-/] },
+  allowedClasses: { '*': [/^ql-/, /^cms-image$/] },
+  allowedStyles: {
+    '*': { 'text-align': [/^(left|center|right|justify)$/] },
+  },
   allowedSchemes: ['http', 'https', 'mailto'],
   allowedSchemesByTag: { a: ['http', 'https', 'mailto'], img: ['https'], iframe: ['https'] },
   allowedIframeHostnames: ['youtube.com', 'www.youtube.com', 'youtube-nocookie.com', 'www.youtube-nocookie.com'],
@@ -37,6 +40,18 @@ const readingTime = (html) => {
   const text = String(html || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
   const words = text ? text.split(' ').length : 0;
   return `${Math.max(1, Math.ceil(words / 200))} min`;
+};
+
+const normalizeTags = value => {
+  let current = value;
+  for (let i = 0; i < 6 && typeof current === 'string'; i += 1) {
+    const text = current.trim();
+    if (!text) return [];
+    if (!['[', '"'].includes(text[0])) return text.split(',').map(tag => tag.trim()).filter(Boolean);
+    try { current = JSON.parse(text); } catch { return text.split(',').map(tag => tag.trim()).filter(Boolean); }
+  }
+  const flatten = input => Array.isArray(input) ? input.flatMap(flatten) : [input];
+  return flatten(current).flatMap(item => typeof item === 'string' ? normalizeTags(item) : [String(item || '').trim()]).filter(Boolean).slice(0, 30);
 };
 
 const assertStatus = (value, fallback = 'draft') => {
@@ -87,7 +102,7 @@ const normalizeCmsFields = async (Model, body, current = null) => {
     slug: await buildSlug(Model, title, body.slug || current?.slug, current?.id),
     readTime: readingTime(content),
     excerpt,
-    tags: Array.isArray(body.tags) ? body.tags.map(item => String(item).trim().slice(0, 60)).filter(Boolean).slice(0, 30) : (current?.tags || []),
+    tags: body.tags === undefined ? normalizeTags(current?.tags || []) : normalizeTags(body.tags).map(tag => tag.slice(0, 60)),
     image: coverImage,
     publishedAt: status === 'published' ? (current?.publishedAt || new Date()) : (body.publishedAt ?? current?.publishedAt ?? null),
     scheduledAt,
@@ -162,4 +177,4 @@ const revisionApi = (postType, Model) => ({
   },
 });
 
-module.exports = { STATUS_VALUES, sanitizeContent, readingTime, assertStatus, buildSlug, normalizeCmsFields, validateDraft, autosavePost, validateUrl, validateCmsImageUrl, createPostRevision, revisionApi };
+module.exports = { STATUS_VALUES, sanitizeContent, readingTime, normalizeTags, assertStatus, buildSlug, normalizeCmsFields, validateDraft, autosavePost, validateUrl, validateCmsImageUrl, createPostRevision, revisionApi };

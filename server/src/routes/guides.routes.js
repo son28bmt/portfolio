@@ -4,6 +4,7 @@ const { Op, fn, col } = require('sequelize');
 const { Guide, GuideTopic } = require('../models');
 const { listTemplatesForGuide } = require('../services/guide-question.service');
 const { sanitizeGuideHtml } = require('../utils/sanitizeGuideHtml');
+const { normalizeTags } = require('../services/cms-post.service');
 
 const router = express.Router();
 
@@ -19,6 +20,20 @@ router.use(rateLimit({
 }));
 
 const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+const resolveGuideAuthor = async guide => {
+  const plain = guide?.toJSON ? guide.toJSON() : guide;
+  if (!plain?.authorId) return plain;
+  try {
+    const { User, UserProfile, Admin } = require('../models');
+    const admin = await Admin.findByPk(plain.authorId, { attributes: ['username'] });
+    if (admin) return { ...plain, authorName: admin.username };
+    const user = await User.findByPk(plain.authorId, { attributes: ['username'], include: [{ model: UserProfile, as: 'profile', attributes: ['fullName'] }] });
+    return { ...plain, authorName: user?.profile?.fullName || user?.username || String(plain.authorId) };
+  } catch {
+    return { ...plain, authorName: String(plain.authorId) };
+  }
+};
 
 const sendBadRequest = (res, message) => res.status(400).json({ message });
 
@@ -133,7 +148,7 @@ router.get('/', async (req, res) => {
       ? [topicInclude(true, { slug: query.topic, isVisible: true })]
       : [topicInclude()];
     const result = await Guide.findAndCountAll({
-      attributes: ['id', 'slug', 'title', 'excerpt', 'image', 'readTime', 'publishedAt', 'updatedAt'],
+        attributes: ['id', 'slug', 'title', 'excerpt', 'image', 'readTime', 'publishedAt', 'updatedAt', 'authorId', 'tags'],
       where,
       include,
       distinct: true,
@@ -194,8 +209,9 @@ router.get('/:slug', async (req, res) => {
       : [];
 
     return res.json({
-      ...guide.toJSON(),
+      ...(await resolveGuideAuthor(guide)),
       content: sanitizeGuideHtml(guide.content),
+      tags: normalizeTags(guide.tags),
       relatedGuides,
     });
   } catch (error) {

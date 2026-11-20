@@ -5,7 +5,7 @@ const { protect } = require('../middleware/auth.middleware');
 const { requireRoles } = require('../middleware/require-admin.middleware');
 const { Op } = require('sequelize');
 const { notifyTelegramBlogChanged } = require('../services/telegram.service');
-const { normalizeCmsFields, createPostRevision, revisionApi, autosavePost, sanitizeContent } = require('../services/cms-post.service');
+const { normalizeCmsFields, createPostRevision, revisionApi, autosavePost, sanitizeContent, normalizeTags } = require('../services/cms-post.service');
 
 const decodePossibleJson = (value) => {
   let current = value;
@@ -30,9 +30,7 @@ const toStringArray = (value, { allowCommaSplit = true } = {}) => {
   const decoded = decodePossibleJson(value);
 
   if (Array.isArray(decoded)) {
-    return decoded
-      .map((item) => String(item || '').trim())
-      .filter(Boolean);
+    return decoded.flatMap(item => toStringArray(item, { allowCommaSplit }));
   }
 
   if (typeof decoded === 'string') {
@@ -53,11 +51,25 @@ const toStringArray = (value, { allowCommaSplit = true } = {}) => {
 };
 
 const normalizeBlogPayload = (body = {}) => {
-  const tags = toStringArray(body.tags, { allowCommaSplit: true });
+  const tags = normalizeTags(body.tags);
   return {
     ...body,
     tags,
   };
+};
+
+const resolveBlogAuthor = async (post) => {
+  const plain = post?.toJSON ? post.toJSON() : post;
+  if (!plain?.authorId) return plain;
+  try {
+    const { User, UserProfile, Admin } = require('../models');
+    const admin = await Admin.findByPk(plain.authorId, { attributes: ['username'] });
+    if (admin) return { ...plain, authorName: admin.username };
+    const user = await User.findByPk(plain.authorId, { attributes: ['username'], include: [{ model: UserProfile, as: 'profile', attributes: ['fullName'] }] });
+    return { ...plain, authorName: user?.profile?.fullName || user?.username || String(plain.authorId) };
+  } catch {
+    return { ...plain, authorName: String(plain.authorId) };
+  }
 };
 
 const normalizeBlogRecord = (post) => {
@@ -135,7 +147,14 @@ router.get('/:idOrSlug', async (req, res) => {
   try {
     const post = await findPublishedBlog(req.params.idOrSlug);
     if (!post) return res.status(404).json({ message: 'Blog post not found' });
-    res.json(normalizeBlogRecord(post));
+    const authorResolved = await resolveBlogAuthor(post);
+    const relatedBlogs = await Blog.findAll({
+      attributes: ['id', 'slug', 'title', 'excerpt', 'image', 'updatedAt'],
+      where: { status: 'published', id: { [Op.ne]: post.id } },
+      order: [['publishedAt', 'DESC'], ['updatedAt', 'DESC']],
+      limit: 3,
+    });
+    res.json({ ...normalizeBlogRecord(authorResolved), relatedBlogs });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

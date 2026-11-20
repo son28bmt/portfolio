@@ -49,6 +49,7 @@ function GuideDetailPage({ slug }) {
   const [questionSuccess, setQuestionSuccess] = useState('');
   const [sendingQuestion, setSendingQuestion] = useState(false);
   const [draftReady, setDraftReady] = useState(false);
+  const [blogSuggestions, setBlogSuggestions] = useState([]);
 
   useEffect(() => {
     const abort = new AbortController();
@@ -67,6 +68,10 @@ function GuideDetailPage({ slug }) {
     }).catch(() => { if (active) setTemplates([]); });
     return () => { active = false; };
   }, [slug]);
+
+  useEffect(() => {
+    api.get('/blog', { params: { limit: 3 } }).then(({ data }) => setBlogSuggestions(data.items || [])).catch(() => setBlogSuggestions([]));
+  }, []);
 
   useEffect(() => {
     if (!templates.length) return;
@@ -97,10 +102,12 @@ function GuideDetailPage({ slug }) {
   const questionTemplate = templates.find(item => item.id === selectedTemplateId) || templates[0];
   const questionGuestId = localStorage.getItem('chat_guest_id') || '';
   const excerpt = guide.excerpt || guide.title;
-  return <article className="mx-auto max-w-4xl px-1 py-6 sm:py-10">
-    <Helmet><title>{guide.title} | Hướng dẫn Nguyễn Quang Sơn</title><meta name="description" content={excerpt} /><link rel="canonical" href={canonical} /><meta property="og:title" content={`${guide.title} | Hướng dẫn Nguyễn Quang Sơn`} /><meta property="og:description" content={excerpt} />{guide.image && <meta property="og:image" content={guide.image} />}<meta property="og:url" content={canonical} /><meta property="og:type" content="article" /></Helmet>
+  return <div className="mx-auto grid max-w-7xl gap-8 px-3 py-6 sm:px-5 sm:py-10 lg:grid-cols-[220px_minmax(0,1fr)_220px]">
+    <aside className="hidden lg:block"><div className="sticky top-24 space-y-3"><h2 className="text-xs font-bold uppercase text-white/50">Hướng dẫn khác</h2>{related.map(item => <Link key={item.slug} to={`/huong-dan/${item.slug}`} className="block border-l border-white/10 py-1 pl-3 text-sm text-white/60 hover:border-primary hover:text-white">{item.title}</Link>)}</div></aside>
+    <article className="min-w-0 px-1 py-0">
+    <Helmet><title>{guide.seoTitle || guide.title} | Hướng dẫn Nguyễn Quang Sơn</title><meta name="description" content={guide.seoDescription || excerpt} /><link rel="canonical" href={guide.canonicalUrl || canonical} /><meta property="og:title" content={guide.seoTitle || guide.title} /><meta property="og:description" content={guide.seoDescription || excerpt} />{(guide.ogImage || guide.image) && <meta property="og:image" content={guide.ogImage || guide.image} />}<meta property="og:url" content={guide.canonicalUrl || canonical} /><meta property="og:type" content="article" /></Helmet>
     <Link to="/huong-dan" className="mb-7 inline-flex items-center gap-2 text-white/50 transition hover:text-white"><ArrowLeft className="h-4 w-4" />Tất cả hướng dẫn</Link>
-    <header className="mb-9"><div className="mb-4">{guide.topic && <Link to={`/huong-dan?topic=${encodeURIComponent(guide.topic.slug)}`} className="rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-sm text-primary">{guide.topic.name}</Link>}</div><h1 className="mb-5 text-3xl font-extrabold leading-tight sm:text-4xl md:text-5xl">{guide.title}</h1><div className="flex flex-wrap gap-5 text-sm text-white/45"><span className="flex items-center gap-2"><Calendar className="h-4 w-4 text-secondary" />{formatDate(guide.updatedAt)}</span><span className="flex items-center gap-2"><Clock className="h-4 w-4 text-secondary" />{guide.readTime}</span></div></header>
+    <header className="mb-9"><div className="mb-4">{guide.topic && <Link to={`/huong-dan?topic=${encodeURIComponent(guide.topic.slug)}`} className="rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-sm text-primary">{guide.topic.name}</Link>}</div><h1 className="mb-5 text-3xl font-extrabold leading-tight sm:text-4xl md:text-5xl">{guide.title}</h1><div className="flex flex-wrap gap-5 text-sm text-white/45"><span className="flex items-center gap-2"><Calendar className="h-4 w-4 text-secondary" />{formatDate(guide.updatedAt)}</span><span className="flex items-center gap-2"><Clock className="h-4 w-4 text-secondary" />{guide.readTime}</span>{(guide.authorName || guide.authorId) && <span>Tác giả: {guide.authorName || guide.authorId}</span>}</div>{guide.tags?.length > 0 && <div className="mt-3 flex flex-wrap gap-2">{guide.tags.map(tag => <span key={tag} className="rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-xs text-primary">#{tag}</span>)}</div>}</header>
     {guide.image && <div className="mb-10 overflow-hidden rounded-3xl border border-white/10"><img src={guide.image} alt={guide.title} fetchPriority="high" className="max-h-[520px] w-full object-cover" /></div>}
     {headings.length >= 3 && <nav aria-label="Mục lục" className="mb-10 rounded-2xl border border-white/10 bg-white/[0.03] p-5"><h2 className="mb-3 font-bold">Trong bài viết</h2><ol className="space-y-2">{headings.map(item => <li key={item.id} className={item.level === 'h3' ? 'ml-5' : ''}><a className="text-sm text-white/60 hover:text-secondary" href={`#${item.id}`}>{item.text}</a></li>)}</ol></nav>}
     <div className="overflow-hidden rounded-3xl border border-white/10 bg-white/[0.02] p-4 text-white/80 sm:p-8"><div className="blog-content guide-article-content" dangerouslySetInnerHTML={{ __html: content }} /></div>
@@ -126,6 +133,8 @@ function GuideDetailPage({ slug }) {
       </form>}
     </section>}
     {related.length > 0 && <section className="mt-12 border-t border-white/10 pt-8"><h2 className="mb-5 text-2xl font-bold">Bài liên quan</h2><div className="grid gap-4 sm:grid-cols-3">{related.map(item => <Link key={item.slug} to={`/huong-dan/${item.slug}`} className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 font-semibold transition hover:border-primary/40 hover:text-secondary">{item.title}</Link>)}</div></section>}
-    <style>{`.guide-article-content{line-height:1.8;overflow-wrap:anywhere}.guide-article-content :where(table,pre){display:block;max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}.guide-article-content iframe{display:block;width:100%;max-width:100%;aspect-ratio:16/9;min-height:220px;border:0}.guide-article-content img{max-width:100%;height:auto}.guide-article-content h2,.guide-article-content h3{scroll-margin-top:6rem}`}</style>
-  </article>;
+    <style>{`.guide-article-content{line-height:1.8;overflow-wrap:anywhere}.guide-article-content :where(table,pre){display:block;max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}.guide-article-content iframe{display:block;width:100%;max-width:100%;aspect-ratio:16/9;min-height:220px;border:0}.guide-article-content img{max-width:100%;height:auto}.guide-article-content figure{margin:1rem 0}.guide-article-content figure[data-align="center"]{margin-left:auto;margin-right:auto}.guide-article-content figure[data-align="right"]{margin-left:auto}.guide-article-content figcaption{text-align:center;font-size:.8rem;color:rgba(255,255,255,.5)}.guide-article-content p[style*="text-align"]{min-height:1.5em}.guide-article-content h2,.guide-article-content h3{scroll-margin-top:6rem}`}</style>
+    </article>
+    <aside className="hidden lg:block"><div className="sticky top-24 space-y-3"><h2 className="text-xs font-bold uppercase text-white/50">Bài blog</h2>{blogSuggestions.map(item => <Link key={item.id} to={`/blog/${item.slug || item.id}`} className="block border-l border-white/10 py-1 pl-3 text-sm text-white/60 hover:border-primary hover:text-white">{item.title}</Link>)}</div></aside>
+  </div>;
 }
