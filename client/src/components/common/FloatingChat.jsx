@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion'; // eslint-disable-line no-unused-vars
 import { 
   MessageSquare, 
@@ -10,7 +10,6 @@ import {
   Trash2, 
   ArrowRight,
   Headphones,
-  CheckCircle2,
   AlertCircle
 } from 'lucide-react';
 import api from '../../services/api';
@@ -32,22 +31,32 @@ const AI_WELCOME = {
 };
 
 const getGuestId = () => {
-  let id = localStorage.getItem(GUEST_ID_KEY);
+  localStorage.removeItem(GUEST_ID_KEY);
+  localStorage.removeItem(GUEST_TOKEN_KEY);
+  let id = sessionStorage.getItem(GUEST_ID_KEY);
   if (!id) {
-    id = 'guest_' + Math.random().toString(36).substr(2, 9);
-    localStorage.setItem(GUEST_ID_KEY, id);
+    id = `guest_${crypto.randomUUID()}`;
+    sessionStorage.setItem(GUEST_ID_KEY, id);
   }
+  return id;
+};
+
+const createGuestId = () => {
+  const id = `guest_${crypto.randomUUID()}`;
+  sessionStorage.setItem(GUEST_ID_KEY, id);
+  sessionStorage.removeItem(GUEST_TOKEN_KEY);
   return id;
 };
 
 const FloatingChat = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const { token: userToken } = useAuth();
+  const { token: userToken, account, loading: authLoading } = useAuth();
   const [activeTab, setActiveTab] = useState('ai'); // 'ai' or 'staff'
   const [isAdminOnline, setIsAdminOnline] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
-  const [guestId] = useState(getGuestId);
-  const [guestToken, setGuestToken] = useState(() => localStorage.getItem(GUEST_TOKEN_KEY) || '');
+  const [guestId, setGuestId] = useState(getGuestId);
+  const [guestToken, setGuestToken] = useState(() => sessionStorage.getItem(GUEST_TOKEN_KEY) || '');
+  const chatId = userToken && account?.id ? `user_${account.id}` : guestId;
   
   // --- AI State ---
   const [aiMessages, setAiMessages] = useState(() => {
@@ -68,15 +77,30 @@ const FloatingChat = () => {
   // --- Staff State ---
   const [staffMessages, setStaffMessages] = useState([]);
   const [staffInput, setStaffInput] = useState('');
-  const [offlineForm, setOfflineForm] = useState({ name: '', email: '', message: '' });
-  const [isSubmittingForm, setIsSubmittingForm] = useState(false);
-  const [formSuccess, setFormSuccess] = useState(false);
   
   const socketRef = useRef();
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
   const guestTokenRef = useRef(guestToken);
   const isStaffActiveRef = useRef(isOpen && activeTab === 'staff');
+
+  useEffect(() => {
+    const handleLogout = () => {
+      setStaffMessages([]);
+      setUnreadCount(0);
+      setGuestToken('');
+      guestTokenRef.current = '';
+      setGuestId(createGuestId());
+    };
+    window.addEventListener('chat-auth-logout', handleLogout);
+    return () => window.removeEventListener('chat-auth-logout', handleLogout);
+  }, []);
+
+  useLayoutEffect(() => {
+    setStaffMessages([]);
+    setUnreadCount(0);
+    setGuestToken(sessionStorage.getItem(GUEST_TOKEN_KEY) || '');
+  }, [chatId]);
 
   // Persistence for AI chat
   useEffect(() => {
@@ -86,7 +110,7 @@ const FloatingChat = () => {
   useEffect(() => {
     if (guestToken) {
       guestTokenRef.current = guestToken;
-      localStorage.setItem(GUEST_TOKEN_KEY, guestToken);
+      sessionStorage.setItem(GUEST_TOKEN_KEY, guestToken);
     }
   }, [guestToken]);
 
@@ -103,6 +127,8 @@ const FloatingChat = () => {
 
   // Socket setup
   useEffect(() => {
+    if (authLoading || (userToken && !account?.id)) return undefined;
+
     const getSocketUrl = () => {
       const vBaseUrl = import.meta.env.VITE_API_BASE_URL || '';
       const vSocketUrl = import.meta.env.VITE_SOCKET_URL || '';
@@ -141,12 +167,12 @@ const FloatingChat = () => {
     });
 
     const loadStaffHistory = async (tokenOverride = '') => {
-      const token = tokenOverride || guestToken || localStorage.getItem(GUEST_TOKEN_KEY) || '';
-      if (!token) return;
+      const token = tokenOverride || guestToken || sessionStorage.getItem(GUEST_TOKEN_KEY) || '';
+      if (!userToken && !token) return;
 
       try {
-        const { data } = await api.get(`/chat/history/${guestId}`, {
-          headers: { 'x-guest-token': token }
+        const { data } = await api.get(`/chat/history/${chatId}`, {
+          headers: userToken ? {} : { 'x-guest-token': token }
         });
         setStaffMessages(data.map(m => ({ 
           id: m.id,
@@ -154,10 +180,13 @@ const FloatingChat = () => {
           content: m.content, 
           timestamp: m.createdAt,
           replyContext: m.replyContext,
+          messageType: m.messageType,
+          guideContext: m.guideContext,
+          questionSnapshot: m.questionSnapshot,
         })));
         setUnreadCount(data.filter(m => m.role === 'admin' && !m.isRead).length);
         if (isStaffActiveRef.current) {
-          await api.put(`/chat/read-user/${guestId}`, null, { headers: { 'x-guest-token': token } });
+          await api.put(`/chat/read-user/${chatId}`, null, { headers: userToken ? {} : { 'x-guest-token': token } });
           setUnreadCount(0);
         }
       } catch (err) {
@@ -166,15 +195,21 @@ const FloatingChat = () => {
     };
 
     socketRef.current.on('connect', () => {
-      socketRef.current.emit('join_chat', { guestId, userToken: userToken || '' });
+      socketRef.current.emit('join_chat', {
+        guestId: chatId,
+        userToken: userToken || '',
+        guestToken: sessionStorage.getItem(GUEST_TOKEN_KEY) || guestTokenRef.current,
+      });
     });
 
     socketRef.current.on('guest_session_token', (payload) => {
+      if (userToken) return;
       const token = String(payload?.token || '').trim();
       if (!token) return;
       setGuestToken(token);
       guestTokenRef.current = token;
-      api.get(`/chat/unread/${guestId}`, { headers: { 'x-guest-token': token } })
+      sessionStorage.setItem(GUEST_TOKEN_KEY, token);
+      api.get(`/chat/unread/${chatId}`, { headers: { 'x-guest-token': token } })
         .then(({ data }) => setUnreadCount(Number(data.unreadCount) || 0))
         .catch(() => {});
 
@@ -196,7 +231,7 @@ const FloatingChat = () => {
         replyContext: data.replyContext,
       }]);
       if (isStaffActiveRef.current) {
-        api.put(`/chat/read-user/${guestId}`, null, { headers: { 'x-guest-token': guestTokenRef.current } })
+        api.put(`/chat/read-user/${chatId}`, null, { headers: userToken ? {} : { 'x-guest-token': guestTokenRef.current } })
           .catch(() => {});
         setUnreadCount(0);
       } else {
@@ -210,9 +245,20 @@ const FloatingChat = () => {
         role: 'user',
         content: data.text,
         timestamp: data.timestamp || new Date(),
+        messageType: data.messageType,
         guideContext: data.guideContext,
         questionSnapshot: data.questionSnapshot,
       }]);
+    });
+
+    socketRef.current.on('guest_chat_deleted', ({ guestId: deletedGuestId }) => {
+      if (deletedGuestId !== chatId) return;
+      setStaffMessages([]);
+      setUnreadCount(0);
+    });
+
+    socketRef.current.on('chat_auth_error', () => {
+      if (!userToken) setGuestId(createGuestId());
     });
 
     if (isOpen && activeTab === 'staff') {
@@ -224,7 +270,7 @@ const FloatingChat = () => {
     };
   // Keep guestToken out so receiving a freshly issued token does not reconnect the socket.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [guestId, activeTab, isOpen, userToken]);
+  }, [activeTab, authLoading, chatId, account?.id, isOpen, userToken]);
 
   const handleAiSend = async (e) => {
     e.preventDefault();
@@ -270,29 +316,13 @@ const FloatingChat = () => {
 
     if (socketRef.current) {
       socketRef.current.emit('send_to_admin', {
-        guestId,
+        guestId: chatId,
         text: staffInput.trim()
       });
     }
 
     setStaffMessages(prev => [...prev, { role: 'user', content: staffInput.trim(), timestamp: new Date() }]);
     setStaffInput('');
-  };
-
-  const handleOfflineSubmit = async (e) => {
-    e.preventDefault();
-    setIsSubmittingForm(true);
-    try {
-      await api.post('/contact', { ...offlineForm, subject: 'Hỗ trợ từ Chatbox' });
-      setFormSuccess(true);
-      setOfflineForm({ name: '', email: '', message: '' });
-      setTimeout(() => setFormSuccess(false), 5000);
-    } catch (error) {
-      console.error('Error sending support request:', error);
-      alert('Lỗi gửi yêu cầu. Vui lòng thử lại.');
-    } finally {
-      setIsSubmittingForm(false);
-    }
   };
 
   return (
@@ -373,80 +403,30 @@ const FloatingChat = () => {
                 </>
               ) : (
                 <>
-                  {true ? (
-                    <div className="space-y-4">
+                  <div className="space-y-4">
                       <div className="text-center py-1 text-[8px] text-green-400 font-bold uppercase tracking-[0.2em] flex items-center justify-center gap-1.5">
                          {isAdminOnline ? 'Admin đang trực tuyến' : 'Admin chưa trực tuyến · Tin nhắn sẽ được lưu để phản hồi'}
                       </div>
                       {staffMessages.map((msg, i) => (
-                        <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                        <div id={msg.messageType === 'guide_question' ? `chat-request-${msg.id}` : undefined} key={msg.id || i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                           <div className={`p-3 px-4 rounded-[18px] text-[12px] whitespace-pre-wrap ${
                             msg.role === 'user' 
                               ? 'bg-secondary text-white rounded-tr-none' 
                               : 'bg-white/[0.12] text-white/90 border border-white/5 rounded-tl-none'
                           }`}>
-                            {msg.replyContext?.requestNumber && <p className="mb-1 text-[9px] font-bold uppercase tracking-wider text-secondary/80">Admin phản hồi yêu cầu #{msg.replyContext.requestNumber}{msg.replyContext.guideTitle ? ` từ bài ${msg.replyContext.guideTitle}` : ''}</p>}
-                            {msg.content}
+                            {msg.replyContext?.requestNumber && <div className="mb-2 rounded-lg border border-secondary/30 bg-black/20 p-2 text-[10px] leading-relaxed"><p className="font-bold uppercase tracking-wider text-secondary">Admin đang trả lời yêu cầu #{msg.replyContext.requestNumber}</p>{msg.replyContext.guideTitle && <p className="mt-0.5 text-white/75">Bài hướng dẫn: {msg.replyContext.guideTitle}</p>}<button type="button" onClick={() => document.getElementById(`chat-request-${msg.replyContext.requestId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })} className="mt-1 inline-block font-semibold text-secondary underline">Xem nội dung yêu cầu</button>{msg.replyContext.guideSlug && <a className="ml-3 inline-block font-semibold text-white/70 underline" href={`/huong-dan/${encodeURIComponent(msg.replyContext.guideSlug)}`} target="_blank" rel="noreferrer">Mở bài viết</a>}</div>}
+                            {msg.messageType === 'guide_question' && msg.questionSnapshot?.fields ? <div className="mb-2 rounded-lg border border-white/10 bg-black/20 p-2"><p className="mb-2 font-bold text-white">Yêu cầu #{msg.questionSnapshot.requestNumber || String(msg.id || '').replace(/-/g, '').slice(-8).toUpperCase()} · {msg.guideContext?.title || 'Hỗ trợ hướng dẫn'}</p>{msg.guideContext?.slug && <a className="mb-2 inline-block text-[10px] font-semibold text-secondary underline" href={`/huong-dan/${encodeURIComponent(msg.guideContext.slug)}`} target="_blank" rel="noreferrer">Mở bài hướng dẫn</a>}{msg.questionSnapshot.fields.map((field, index) => <div key={`${field.key}-${index}`} className="mb-1 last:mb-0"><p className="text-[9px] font-bold uppercase text-white/45">{field.label}</p><p className="whitespace-pre-wrap text-white/85">{field.value || '(bỏ trống)'}</p></div>)}</div> : msg.content}
                           </div>
                         </div>
                       ))}
                     </div>
-                  ) : (
-                    <div className="space-y-8 py-4">
-                      {formSuccess ? (
-                        <div className="text-center space-y-6 py-20 animate-in fade-in zoom-in">
-                          <CheckCircle2 className="w-16 h-16 text-green-400 mx-auto" />
-                          <h3 className="font-black text-2xl uppercase">Đã gửi thành công!</h3>
-                        </div>
-                      ) : (
-                        <>
-                          <div className="text-center space-y-4 mb-10">
-                            <Headphones className="w-12 h-12 text-white/20 mx-auto" />
-                            <h3 className="font-black text-xl uppercase tracking-tight">Hôm nay tôi vắng mặt</h3>
-                          </div>
-                          <form onSubmit={handleOfflineSubmit} className="space-y-4">
-                            <input 
-                              required
-                              placeholder="Họ và tên"
-                              value={offlineForm.name}
-                              onChange={e => setOfflineForm(f => ({ ...f, name: e.target.value }))}
-                              className="w-full bg-white/[0.03] border border-white/10 rounded-[20px] px-6 py-4 text-sm focus:border-secondary transition-all outline-none"
-                            />
-                            <input 
-                              required
-                              type="email"
-                              placeholder="Email của bạn"
-                              value={offlineForm.email}
-                              onChange={e => setOfflineForm(f => ({ ...f, email: e.target.value }))}
-                              className="w-full bg-white/[0.03] border border-white/10 rounded-[20px] px-6 py-4 text-sm focus:border-secondary transition-all outline-none"
-                            />
-                            <textarea 
-                              required
-                              rows={4}
-                              placeholder="Bạn đang cần hỗ trợ điều gì?"
-                              value={offlineForm.message}
-                              onChange={e => setOfflineForm(f => ({ ...f, message: e.target.value }))}
-                              className="w-full bg-white/[0.03] border border-white/10 rounded-[24px] px-6 py-4 text-sm focus:border-secondary transition-all outline-none resize-none"
-                            />
-                            <button 
-                              disabled={isSubmittingForm}
-                              className="w-full py-5 bg-secondary text-white font-black uppercase text-[11px] rounded-[24px]"
-                            >
-                              Gửi cho Quang Sơn
-                            </button>
-                          </form>
-                        </>
-                      )}
-                    </div>
-                  )}
                 </>
               )}
               <div ref={messagesEndRef} />
             </div>
 
             {/* Smart Input Area */}
-            {formSuccess ? null : (
-              <div className="p-4 md:p-6 border-t border-white/5 bg-white/[0.03] shrink-0">
+            <div className="p-4 md:p-6 border-t border-white/5 bg-white/[0.03] shrink-0">
                 {activeTab === 'ai' && (
                    <div className="flex justify-center mb-4 scale-[0.7] md:scale-[0.8] origin-bottom opacity-40">
                       <Turnstile 
@@ -493,7 +473,6 @@ const FloatingChat = () => {
                   </button>
                 </form>
               </div>
-            )}
           </motion.div>
         )}
       </AnimatePresence>

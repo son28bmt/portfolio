@@ -1,5 +1,6 @@
 const { LiveChatMessage, Admin, UserProfile } = require("../models");
 const { sequelize } = require("../config/db");
+const { Op } = require('sequelize');
 const jwt = require("jsonwebtoken");
 const { getJwtSecret } = require("../utils/jwt.util");
 const { User } = require("../models");
@@ -14,6 +15,15 @@ const signGuestChatToken = (guestId) => {
     getJwtSecret(),
     { expiresIn: process.env.GUEST_CHAT_TOKEN_EXPIRES || "30d" },
   );
+};
+
+const verifyGuestChatToken = (rawToken, guestId) => {
+  try {
+    const decoded = jwt.verify(String(rawToken || '').trim(), getJwtSecret());
+    return decoded?.scope === 'guest_chat' && String(decoded.guestId) === String(guestId);
+  } catch {
+    return false;
+  }
 };
 
 const verifyAdminSocketToken = async (rawToken) => {
@@ -44,6 +54,9 @@ const resolveChatUser = async (rawToken) => {
 
 const getChatUserName = (user, fallback) =>
   user?.profile?.fullName || user?.username || fallback || null;
+
+const accountChatId = userId => `user_${userId}`;
+const isAccountChat = guestId => String(guestId || '').startsWith('user_');
 
 const initSocket = (server, corsOptions) => {
   const { Server } = require("socket.io");
@@ -99,6 +112,11 @@ const initSocket = (server, corsOptions) => {
             order: [['createdAt', 'DESC']],
             attributes: ['userId', 'name', 'email'],
           });
+          const guestCleanupState = await LiveChatMessage.findOne({
+            where: { guestId: session.guestId, guestCleanupAt: { [Op.ne]: null } },
+            order: [['guestCleanupAt', 'DESC']],
+            attributes: ['guestCleanupAt'],
+          });
           const latestGuideQuestion = await LiveChatMessage.findOne({
             where: { guestId: session.guestId, messageType: 'guide_question' },
             order: [['createdAt', 'DESC']],
@@ -112,6 +130,8 @@ const initSocket = (server, corsOptions) => {
             : null;
           return {
             ...session.toJSON(),
+            isAccountChat: isAccountChat(session.guestId) || Boolean(latestUserMessage?.userId),
+            guestCleanupAt: guestCleanupState?.guestCleanupAt || null,
             name: getChatUserName(chatUser, latestUserMessage?.name || session.name),
             email: chatUser?.profile?.email || latestUserMessage?.email || session.email,
             purchase: await getConversationSnapshot(session.guestId),
@@ -127,20 +147,47 @@ const initSocket = (server, corsOptions) => {
     });
 
     socket.on("join_chat", async (data) => {
-      const { guestId, userToken } = data || {};
+      const { guestId, userToken, guestToken } = data || {};
       if (!guestId) return;
 
-      socket.join(`room_${guestId}`);
-      socket.chatGuestId = guestId;
       const user = await resolveChatUser(userToken);
+      const chatId = user ? accountChatId(user.id) : String(guestId);
+      if (!user && isAccountChat(chatId)) {
+        socket.emit('chat_auth_error', { message: 'Cần đăng nhập để truy cập hội thoại tài khoản.' });
+        return;
+      }
+      if (user) {
+        const legacyChats = await LiveChatMessage.findAll({
+          where: { userId: user.id, guestId: { [Op.ne]: chatId } },
+          attributes: ['guestId'],
+          group: ['guestId'],
+          raw: true,
+        });
+        for (const { guestId: legacyGuestId } of legacyChats) {
+          const otherOwners = await LiveChatMessage.count({
+            where: { guestId: legacyGuestId, userId: { [Op.ne]: user.id } },
+          });
+          if (!otherOwners) await LiveChatMessage.update({ guestId: chatId }, { where: { guestId: legacyGuestId } });
+        }
+      } else {
+        const existingMessages = await LiveChatMessage.count({ where: { guestId: chatId } });
+        if (existingMessages && !verifyGuestChatToken(guestToken, chatId)) {
+          socket.emit('chat_auth_error', { message: 'Phiên guest không hợp lệ. Vui lòng tải lại cuộc trò chuyện.' });
+          return;
+        }
+      }
+      socket.join(`room_${chatId}`);
+      socket.chatGuestId = chatId;
       socket.userId = user?.id || null;
       socket.chatUser = user || null;
 
-      try {
-        const guestToken = signGuestChatToken(guestId);
-        socket.emit("guest_session_token", { token: guestToken, guestId });
-      } catch (tokenError) {
-        console.error("[Socket] Error issuing guest chat token:", tokenError);
+      if (!user) {
+        try {
+          const guestToken = signGuestChatToken(chatId);
+          socket.emit("guest_session_token", { token: guestToken, guestId: chatId });
+        } catch (tokenError) {
+          console.error("[Socket] Error issuing guest chat token:", tokenError);
+        }
       }
 
       const adminRoom = io.sockets.adapter.rooms.get("admin_room");
@@ -161,13 +208,28 @@ const initSocket = (server, corsOptions) => {
           : null);
         const senderName = getChatUserName(chatUser, name);
         const senderEmail = chatUser?.profile?.email || email || null;
-        const newMessage = await LiveChatMessage.create({
-          guestId,
-          userId: chatUser?.id || socket.userId || null,
-          role: "user",
-          content: text,
-          name: senderName,
-          email: senderEmail,
+        const newMessage = await sequelize.transaction(async transaction => {
+          await LiveChatMessage.findAll({
+            where: { guestId, userId: null },
+            attributes: ['id'],
+            transaction,
+            lock: transaction.LOCK.UPDATE,
+          });
+          const created = await LiveChatMessage.create({
+            guestId,
+            userId: chatUser?.id || socket.userId || null,
+            role: "user",
+            content: text,
+            name: senderName,
+            email: senderEmail,
+          }, { transaction });
+          if (!chatUser?.id) {
+            await LiveChatMessage.update(
+              { guestCleanupAt: null },
+              { where: { guestId, userId: null }, transaction },
+            );
+          }
+          return created;
         });
         const purchase = await getConversationSnapshot(guestId);
 
@@ -181,6 +243,7 @@ const initSocket = (server, corsOptions) => {
           purchase,
           guideContext: newMessage.guideContext || null,
           questionSnapshot: newMessage.questionSnapshot || null,
+          isAccountChat: Boolean(chatUser?.id),
           timestamp: newMessage.createdAt,
         });
       } catch (err) {
@@ -225,6 +288,7 @@ const initSocket = (server, corsOptions) => {
         }
         const newMessage = await LiveChatMessage.create({
           guestId,
+          userId: isAccountChat(guestId) ? String(guestId).slice(5) : null,
           role: "admin",
           content: text,
           isRead: false,

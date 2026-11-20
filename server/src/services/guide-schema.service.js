@@ -154,8 +154,10 @@ const ensureGuideSchema = async () => {
       guideContext: { type: DataTypes.JSON, allowNull: true },
       questionSnapshot: { type: DataTypes.JSON, allowNull: true },
       replyContext: { type: DataTypes.JSON, allowNull: true },
+      guestCleanupAt: { type: DataTypes.DATE, allowNull: true },
     });
     await ensureIndex('LiveChatMessages', 'LiveChatMessages_userId', ['userId']);
+    await ensureIndex('LiveChatMessages', 'LiveChatMessages_guestCleanupAt', ['guestCleanupAt']);
 
     ensured = true;
     console.info('[Schema] Guide, question template, role, and support chat schema ready.');

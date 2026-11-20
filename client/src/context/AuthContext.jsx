@@ -52,6 +52,7 @@ export const AuthProvider = ({ children }) => {
 
   const logout = useCallback(() => {
     applyAuth('', null);
+    window.dispatchEvent(new Event('chat-auth-logout'));
   }, [applyAuth]);
 
   const refreshAccount = useCallback(async (overrideToken = '') => {

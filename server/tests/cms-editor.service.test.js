@@ -8,6 +8,7 @@ const { assertCmsImageBuffer, MAX_IMAGE_BYTES } = require('../src/services/cms-u
 const { requireRoles } = require('../src/middleware/require-admin.middleware');
 const { publishDue } = require('../src/services/cms-scheduler.service');
 const { DEFAULT_TEMPLATE_ID, formatSupportRequestNumber, parseFields, normalizeFields } = require('../src/services/guide-question.service');
+const { GUEST_CHAT_RETENTION_MS, scheduleGuestConversationCleanup } = require('../src/services/guest-chat-cleanup.service');
 
 test('slugify: converts Vietnamese text into a stable URL slug', () => {
   assert.equal(slugify('  Hướng dẫn Đổi Mực In 2026!  '), 'huong-dan-doi-muc-in-2026');
@@ -31,6 +32,12 @@ test('guide question fields: accepts JSON strings and wrapped field objects', ()
   assert.deepEqual(normalizeFields(JSON.stringify(fields)), fields);
   assert.equal(DEFAULT_TEMPLATE_ID, 'default-guide-question');
   assert.equal(formatSupportRequestNumber('12345678-abcd-efgh-ijkl-mnopqrstuvwx'), 'QRSTUVWX');
+});
+
+test('guest support cleanup expires exactly ten minutes after completion', () => {
+  const now = new Date('2026-11-20T00:00:00.000Z');
+  assert.equal(scheduleGuestConversationCleanup('guest_123', now).getTime() - now.getTime(), GUEST_CHAT_RETENTION_MS);
+  assert.throws(() => scheduleGuestConversationCleanup('user_123', now), { status: 400 });
 });
 
 test('sanitizeContent: removes scripts, event handlers, and javascript URLs', () => {

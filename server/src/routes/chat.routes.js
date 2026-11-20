@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
+const { Op } = require('sequelize');
 const { LiveChatMessage } = require('../models');
 const { protect } = require('../middleware/auth.middleware');
 const { requireRoles } = require('../middleware/require-admin.middleware');
@@ -8,6 +9,8 @@ const { getJwtSecret } = require('../utils/jwt.util');
 const { requireAdmin } = require('../middleware/require-admin.middleware');
 const { assignConversationPurchase, getConversationSnapshot } = require('../services/chat-purchase.service');
 const { submitGuideQuestion } = require('../services/guide-question.service');
+const { scheduleGuestConversationCleanup } = require('../services/guest-chat-cleanup.service');
+const { notifyAdmin } = require('../services/socket.service');
 const rateLimit = require('express-rate-limit');
 
 const guideQuestionLimiter = rateLimit({
@@ -39,25 +42,25 @@ const isValidGuestToken = (token, guestId) => {
   }
 };
 
+const accountChatId = userId => `user_${userId}`;
+
+const authorizeConversation = (req, guestId) => {
+  const isAdminRequest = ['owner', 'support'].includes(req.user?.role);
+  if (isAdminRequest) return { isAdminRequest, isAccountChat: guestId.startsWith('user_') };
+  if (req.user) {
+    if (guestId !== accountChatId(req.user.id)) return null;
+    return { isAdminRequest: false, isAccountChat: true };
+  }
+  const guestToken = String(req.headers['x-guest-token'] || req.query.guest_token || '').trim();
+  if (guestId.startsWith('user_') || !isValidGuestToken(guestToken, guestId)) return null;
+  return { isAdminRequest: false, isAccountChat: false };
+};
+
 router.get('/history/:guestId', optionalProtect, async (req, res) => {
   try {
     const { guestId } = req.params;
-    const isAdminRequest = ['owner', 'support'].includes(req.user?.role);
-
-    if (req.user && !isAdminRequest) {
-      return res.status(403).json({ message: 'Bạn không có quyền xem hội thoại hỗ trợ.' });
-    }
-
-    if (!isAdminRequest) {
-      const guestToken = String(
-        req.headers['x-guest-token'] || req.query.guest_token || ''
-      ).trim();
-
-      if (!isValidGuestToken(guestToken, guestId)) {
-        return res.status(401).json({
-          message: 'Unauthorized guest chat history access.',
-        });
-      }
+    if (!authorizeConversation(req, guestId)) {
+      return res.status(403).json({ message: 'Bạn không có quyền xem hội thoại hỗ trợ này.' });
     }
 
     const messages = await LiveChatMessage.findAll({
@@ -91,9 +94,8 @@ router.put('/read/:guestId', protect, requireRoles('owner', 'support'), async (r
 
 router.get('/unread/:guestId', optionalProtect, async (req, res) => {
   const { guestId } = req.params;
-  const guestToken = String(req.headers['x-guest-token'] || req.query.guest_token || '').trim();
-  if (!isValidGuestToken(guestToken, guestId)) {
-    return res.status(401).json({ message: 'Phiên chat không hợp lệ hoặc đã hết hạn.' });
+  if (!authorizeConversation(req, guestId)) {
+    return res.status(403).json({ message: 'Bạn không có quyền xem tin nhắn chưa đọc của hội thoại này.' });
   }
   try {
     const count = await LiveChatMessage.count({ where: { guestId, role: 'admin', isRead: false } });
@@ -105,9 +107,8 @@ router.get('/unread/:guestId', optionalProtect, async (req, res) => {
 
 router.put('/read-user/:guestId', optionalProtect, async (req, res) => {
   const { guestId } = req.params;
-  const guestToken = String(req.headers['x-guest-token'] || req.query.guest_token || '').trim();
-  if (!isValidGuestToken(guestToken, guestId)) {
-    return res.status(401).json({ message: 'Phiên chat không hợp lệ hoặc đã hết hạn.' });
+  if (!authorizeConversation(req, guestId)) {
+    return res.status(403).json({ message: 'Bạn không có quyền cập nhật hội thoại này.' });
   }
   try {
     await LiveChatMessage.update(
@@ -138,21 +139,27 @@ router.patch('/purchase-status/:guestId', protect, requireAdmin, async (req, res
   }
 });
 
+router.post('/complete/:guestId', protect, requireRoles('owner', 'support'), async (req, res) => {
+  const { guestId } = req.params;
+  if (guestId.startsWith('user_')) {
+    return res.status(400).json({ message: 'Hội thoại tài khoản được lưu giữ và không cần hẹn xóa.' });
+  }
+  try {
+    const accountMessages = await LiveChatMessage.count({ where: { guestId, userId: { [Op.ne]: null } } });
+    if (accountMessages) return res.status(400).json({ message: 'Hội thoại có liên kết tài khoản nên không thể hẹn xóa.' });
+    const guestCleanupAt = scheduleGuestConversationCleanup(guestId);
+    const [affected] = await LiveChatMessage.update({ guestCleanupAt }, { where: { guestId } });
+    if (!affected) return res.status(404).json({ message: 'Không tìm thấy hội thoại guest.' });
+    notifyAdmin('guest_support_completed', { guestId, guestCleanupAt });
+    return res.json({ guestCleanupAt });
+  } catch (error) {
+    return res.status(500).json({ message: 'Không thể kết thúc hỗ trợ guest.' });
+  }
+});
+
 router.post('/guide-question', protect, guideQuestionLimiter, async (req, res) => {
   try {
-    const guestId = String(req.body?.guestId || '').trim();
-    const guestToken = String(req.headers['x-guest-token'] || '').trim();
-    if (!isValidGuestToken(guestToken, guestId)) {
-      return res.status(401).json({ message: 'Phiên chat không hợp lệ hoặc đã hết hạn. Hãy tải lại trang và thử lại.' });
-    }
-    const previousMessage = await LiveChatMessage.findOne({
-      where: { guestId },
-      order: [['createdAt', 'DESC']],
-      attributes: ['userId'],
-    });
-    if (previousMessage?.userId && String(previousMessage.userId) !== String(req.user.id)) {
-      return res.status(403).json({ message: 'Phiên chat này đã được liên kết với tài khoản khác.' });
-    }
+    const guestId = accountChatId(req.user.id);
     const data = await submitGuideQuestion({
       user: { id: req.user.id, username: req.user.username },
       guestId,

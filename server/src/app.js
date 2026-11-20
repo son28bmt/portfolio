@@ -35,6 +35,7 @@ const { initSocket } = require('./services/socket.service');
 const { startBlogAutomationScheduler } = require('./services/blog-automation.service');
 const { startMarketplaceSupplierScheduler } = require('./services/marketplace-supplier-sync.service');
 const { startCmsScheduler } = require('./services/cms-scheduler.service');
+const { cleanupExpiredGuestChats } = require('./services/guest-chat-cleanup.service');
 
 const app = express();
 app.set('trust proxy', 1);
@@ -185,6 +186,12 @@ const startServer = async () => {
   startBlogAutomationScheduler();
   startMarketplaceSupplierScheduler();
   startCmsScheduler();
+  const cleanupGuestChats = () => cleanupExpiredGuestChats().catch(error => {
+    console.error('[Guest chat cleanup]', error.message);
+  });
+  const guestChatCleanupTimer = setInterval(cleanupGuestChats, 60 * 1000);
+  if (typeof guestChatCleanupTimer.unref === 'function') guestChatCleanupTimer.unref();
+  setTimeout(cleanupGuestChats, 10000);
   server.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
   });

@@ -12,6 +12,7 @@ import {
   Search,
   Bell,
   BellOff,
+  CheckCircle2,
   Trash2,
   MoreVertical
 } from 'lucide-react';
@@ -30,6 +31,7 @@ const LiveChat = () => {
   const [purchaseForm, setPurchaseForm] = useState({ purchaseStatus: 'unknown', packageType: '', printerModel: '', assignmentNotes: '' });
   const [purchaseError, setPurchaseError] = useState('');
   const [replyTarget, setReplyTarget] = useState(null);
+  const [completionNotice, setCompletionNotice] = useState('');
   
   const socketRef = useRef();
   const messagesEndRef = useRef(null);
@@ -97,7 +99,7 @@ const LiveChat = () => {
     });
 
     socketRef.current.on('new_user_message', (data) => {
-      const { id, guestId, text, name, email, purchase, messageType, questionSnapshot, guideContext, timestamp } = data;
+      const { id, guestId, text, name, email, purchase, messageType, questionSnapshot, guideContext, timestamp, isAccountChat } = data;
       console.log('[AdminSocket] New user message from:', guestId);
       
       setSessions(prev => {
@@ -111,6 +113,8 @@ const LiveChat = () => {
             lastMessageType: messageType || (questionSnapshot ? 'guide_question' : 'text'),
             guideContext: guideContext || updated[index].guideContext,
             questionSnapshot: questionSnapshot || updated[index].questionSnapshot,
+            isAccountChat: Boolean(isAccountChat || updated[index].isAccountChat),
+            guestCleanupAt: null,
             unreadCount: activeChatIdRef.current === guestId ? 0 : (updated[index].unreadCount + 1)
           };
           const session = updated.splice(index, 1)[0];
@@ -125,6 +129,8 @@ const LiveChat = () => {
             lastMessageType: messageType || (questionSnapshot ? 'guide_question' : 'text'),
             guideContext,
             questionSnapshot,
+            isAccountChat: Boolean(isAccountChat),
+            guestCleanupAt: null,
             unreadCount: activeChatIdRef.current === guestId ? 0 : 1
           }, ...prev];
         }
@@ -140,6 +146,18 @@ const LiveChat = () => {
       }
     });
 
+    socketRef.current.on('guest_support_completed', ({ guestId, guestCleanupAt }) => {
+      setSessions(prev => prev.map(session => session.guestId === guestId ? { ...session, guestCleanupAt } : session));
+    });
+
+    socketRef.current.on('guest_chat_deleted', ({ guestId }) => {
+      setSessions(prev => prev.filter(session => session.guestId !== guestId));
+      if (activeChatIdRef.current === guestId) {
+        setActiveChatId(null);
+        setMessages([]);
+      }
+    });
+
     return () => {
       if (socketRef.current) socketRef.current.disconnect();
     };
@@ -148,6 +166,7 @@ const LiveChat = () => {
   useEffect(() => {
     if (activeChatId) {
       setReplyTarget(null);
+      setCompletionNotice('');
       loadChatHistory(activeChatId);
     }
   }, [activeChatId]);
@@ -197,6 +216,18 @@ const LiveChat = () => {
       setPurchase(data);
     } catch (error) {
       setPurchaseError(error.response?.data?.message || 'Không thể cập nhật trạng thái khách mua.');
+    }
+  };
+
+  const completeGuestSupport = async () => {
+    if (!activeChatId || activeSession?.isAccountChat) return;
+    setCompletionNotice('');
+    try {
+      const { data } = await api.post(`/chat/complete/${activeChatId}`);
+      setSessions(prev => prev.map(session => session.guestId === activeChatId ? { ...session, guestCleanupAt: data.guestCleanupAt } : session));
+      setCompletionNotice('Đã kết thúc hỗ trợ. Hội thoại guest sẽ được xóa sau 10 phút.');
+    } catch (error) {
+      setCompletionNotice(error.response?.data?.message || 'Không thể kết thúc hỗ trợ.');
     }
   };
 
@@ -278,7 +309,7 @@ const LiveChat = () => {
                     {new Date(session.lastMessageAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </span>
                 </div>
-                <p className="text-[11px] text-white/30 truncate uppercase tracking-tighter font-medium italic">Guest ID: {session.guestId.slice(-6)}</p>
+                    <p className="text-[11px] text-white/30 truncate uppercase tracking-tighter font-medium italic">{session.isAccountChat ? `Tài khoản · ${session.email || session.guestId.slice(-6)}` : `Guest ID: ${session.guestId.slice(-6)}`}</p>
                  {session.lastMessageType === 'guide_question' && <p className="mt-1 text-[9px] font-bold uppercase text-secondary">Câu hỏi từ bài hướng dẫn</p>}
                  <p className={`mt-1 text-[9px] font-bold uppercase tracking-wider ${session.purchase?.purchaseStatus === 'purchased' ? 'text-emerald-300' : session.purchase?.purchaseStatus === 'not_purchased' ? 'text-amber-300' : 'text-white/25'}`}>{session.purchase?.purchaseStatus === 'purchased' ? 'Đã mua' : session.purchase?.purchaseStatus === 'not_purchased' ? 'Chưa mua' : 'Chưa xác định'}</p>
               </div>
@@ -324,6 +355,9 @@ const LiveChat = () => {
                       <div className="text-[9px] text-white/20 font-bold uppercase tracking-widest">Connection</div>
                       <div className="text-[10px] text-green-400 font-black uppercase">Established</div>
                    </div>
+                   {!activeSession.isAccountChat && <button type="button" onClick={completeGuestSupport} title="Kết thúc hỗ trợ và xóa hội thoại guest sau 10 phút" className="rounded-[18px] border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-[10px] font-bold uppercase text-amber-200 hover:bg-amber-300/20">
+                      <CheckCircle2 className="mr-1 inline h-3.5 w-3.5" />Đã hỗ trợ xong
+                   </button>}
                    <button className="w-12 h-12 bg-white/5 rounded-[20px] flex items-center justify-center hover:bg-white/10 transition-all border border-white/5 shadow-lg">
                       <MoreVertical className="w-5 h-5 text-white/20" />
                    </button>
@@ -331,6 +365,7 @@ const LiveChat = () => {
               </div>
 
               <div className="flex-grow p-6 md:p-10 overflow-y-auto space-y-8 custom-scrollbar bg-black/10">
+                {(completionNotice || activeSession.guestCleanupAt) && <p className="rounded-xl border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-xs text-amber-100">{completionNotice || `Đã kết thúc hỗ trợ. Hội thoại guest sẽ được xóa lúc ${new Date(activeSession.guestCleanupAt).toLocaleTimeString()}.`}</p>}
                 {isLoadingHistory && (
                   <div className="flex justify-center py-10">
                     <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />

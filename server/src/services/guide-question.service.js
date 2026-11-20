@@ -104,27 +104,26 @@ const submitGuideQuestion = async ({ user, guestId, guideSlug, templateId, answe
     return { key: field.key, label: field.label, value };
   });
   const text = snapshot.map(item => `${item.label}: ${item.value || '(bỏ trống)'}`).join('\n');
-  const previous = await LiveChatMessage.findOne({ where: { guestId }, order: [['createdAt', 'DESC']], attributes: ['userId'] });
-  if (previous?.userId && previous.userId !== user.id) { const error = new Error('Phiên chat này đã liên kết với tài khoản khác.'); error.status = 403; throw error; }
+  const accountGuestId = `user_${user.id}`;
   const id = randomUUID();
   const requestNumber = formatSupportRequestNumber(id);
   const message = await LiveChatMessage.create({
-    id, guestId, userId: user.id, role: 'user', messageType: 'guide_question',
+    id, guestId: accountGuestId, userId: user.id, role: 'user', messageType: 'guide_question',
     content: text, name: user.username, email,
     guideContext: { slug: guide.slug, title: guide.title },
     questionSnapshot: { templateId: template.id, templateName: template.name, requestNumber, fields: snapshot },
   });
-  const unread = await LiveChatMessage.count({ where: { guestId, role: 'user', isRead: false } });
-  const purchase = await require('./chat-purchase.service').getConversationSnapshot(guestId);
+  const unread = await LiveChatMessage.count({ where: { guestId: accountGuestId, role: 'user', isRead: false } });
+  const purchase = await require('./chat-purchase.service').getConversationSnapshot(accountGuestId);
   notifyTelegramGuideQuestion({
-    guestId,
+    guestId: accountGuestId,
     purchaseStatus: purchase?.purchaseStatus,
     email,
     guideTitle: guide.title,
     guideSlug: guide.slug,
   });
-  emitSupportRequest({ guestId, request: {
-    id: message.id, guestId, text, name: user.username, email, messageType: 'guide_question',
+  emitSupportRequest({ guestId: accountGuestId, request: {
+    id: message.id, guestId: accountGuestId, userId: user.id, isAccountChat: true, text, name: user.username, email, messageType: 'guide_question',
     timestamp: message.createdAt,
     guideContext: message.guideContext,
     questionSnapshot: message.questionSnapshot,

@@ -113,7 +113,6 @@ function GuideDetailPage({ slug }) {
   const related = (guide.relatedGuides || []).slice(0, 3);
   const tags = parseGuideTags(guide.tags);
   const questionTemplate = templates.find(item => item.id === selectedTemplateId) || templates[0];
-  const questionGuestId = localStorage.getItem('chat_guest_id') || '';
   const excerpt = guide.excerpt || guide.title;
   return <div className="mx-auto grid max-w-7xl gap-8 px-3 py-6 sm:px-5 sm:py-10 lg:grid-cols-[220px_minmax(0,1fr)_220px]">
     <aside className="hidden lg:block"><div className="sticky top-24 space-y-3"><h2 className="text-xs font-bold uppercase text-white/50">Hướng dẫn khác</h2>{related.map(item => <Link key={item.slug} to={`/huong-dan/${item.slug}`} className="block border-l border-white/10 py-1 pl-3 text-sm text-white/60 hover:border-primary hover:text-white">{item.title}</Link>)}</div></aside>
@@ -132,8 +131,9 @@ function GuideDetailPage({ slug }) {
         if (!account?.email) { setQuestionError('Hãy thêm email hợp lệ vào hồ sơ tài khoản trước khi gửi câu hỏi.'); return; }
         setSendingQuestion(true);
         try {
-          const { data } = await api.post('/chat/guide-question', { guestId: questionGuestId, guideSlug: slug, templateId: questionTemplate.id, answers }, { headers: { Authorization: `Bearer ${token}`, 'x-guest-token': localStorage.getItem('chat_guest_token_v1') || '' } });
-          sessionStorage.removeItem(draftKey(slug)); setAnswers({}); setQuestionSuccess(`Đã gửi yêu cầu hỗ trợ #${data.requestNumber || ''}. Đội ngũ hỗ trợ sẽ phản hồi trong cuộc trò chuyện STAFF.`);
+          const { data } = await api.post('/chat/guide-question', { guideSlug: slug, templateId: questionTemplate.id, answers }, { headers: { Authorization: `Bearer ${token}` } });
+          const requestNumber = data.requestNumber || String(data.id || '').replace(/-/g, '').slice(-8).toUpperCase();
+          sessionStorage.removeItem(draftKey(slug)); setAnswers({}); setQuestionSuccess(`Đã gửi yêu cầu hỗ trợ #${requestNumber}. Đội ngũ hỗ trợ sẽ phản hồi trong cuộc trò chuyện STAFF.`);
         } catch (error) { setQuestionError(error.response?.data?.message || 'Không thể gửi câu hỏi. Vui lòng thử lại.'); }
         finally { setSendingQuestion(false); }
       }}>

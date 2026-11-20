@@ -39,6 +39,10 @@ const LiveChatMessage = sequelize.define('LiveChatMessage', {
     type: DataTypes.JSON,
     allowNull: true,
   },
+  guestCleanupAt: {
+    type: DataTypes.DATE,
+    allowNull: true,
+  },
   name: {
     type: DataTypes.STRING,
     allowNull: true,
