@@ -37,7 +37,7 @@ const BlogList = () => {
   const fetchPosts = async (pageNum = 1) => {
     setLoading(true);
     try {
-      const { data } = await api.get('/blog', { params: { page: pageNum, limit: 10 } });
+      const { data } = await api.get('/admin/cms/blog/list', { params: { page: pageNum, limit: 10 } });
       const items = Array.isArray(data.items) ? data.items : [];
       setPosts(items);
       setTotalPages(data.totalPages || 1);

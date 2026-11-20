@@ -34,7 +34,20 @@ select option:checked {
   @apply bg-white/5 backdrop-blur-md border border-white/10;
 }
 
-/* React Quill Dark Mode Fixes */
+/* Shared editor dark mode */
+.rich-editor-content .ProseMirror { min-height: 360px; outline: none; }
+.rich-editor-content .ProseMirror h2 { font-size: 1.5rem; font-weight: 700; margin: 1rem 0 .5rem; }
+.rich-editor-content .ProseMirror h3 { font-size: 1.25rem; font-weight: 700; margin: 1rem 0 .5rem; }
+.rich-editor-content .ProseMirror blockquote { border-left: 3px solid #9d00ff; padding-left: 1rem; color: rgba(255,255,255,.65); }
+.rich-editor-content .ProseMirror pre { background: #090909; border: 1px solid rgba(255,255,255,.1); border-radius: .5rem; padding: .75rem; overflow-x: auto; }
+.rich-editor-content .ProseMirror img { max-width: 100%; border-radius: .5rem; }
+.rich-editor-content .ProseMirror table { border-collapse: collapse; width: 100%; }
+.rich-editor-content .ProseMirror th, .rich-editor-content .ProseMirror td { border: 1px solid rgba(255,255,255,.2); padding: .4rem; }
+.rich-preview img { max-width: 100%; border-radius: .5rem; }
+.rich-preview iframe { width: 100%; min-height: 360px; border: 0; border-radius: .5rem; }
+.rich-preview blockquote { border-left: 3px solid #9d00ff; padding-left: 1rem; }
+
+/* Legacy Quill styles retained for unrelated historical markup. */
 .quill-container .ql-toolbar {
   @apply border-white/10 bg-white/5 border-none !important;
 }

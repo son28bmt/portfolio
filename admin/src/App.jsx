@@ -1,8 +1,7 @@
-import React, { useState } from 'react';
+import React, { lazy, Suspense, useState } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
 import GuideList from './pages/Guides/GuideList';
-import GuideEditor from './pages/Guides/GuideEditor';
 import TopicManager from './pages/Guides/TopicManager';
 import QuestionManager from './pages/Guides/QuestionManager';
 import Login from './pages/Login';
@@ -11,8 +10,6 @@ import ProjectList from './pages/Projects/ProjectList';
 import AddProject from './pages/Projects/AddProject';
 import EditProject from './pages/Projects/EditProject';
 import BlogList from './pages/Blog/BlogList';
-import AddBlog from './pages/Blog/AddBlog';
-import EditBlog from './pages/Blog/EditBlog';
 import AutomationBlog from './pages/Blog/AutomationBlog';
 import AISettings from './pages/AI/AISettings';
 import Messages from './pages/Contact/Messages';
@@ -22,6 +19,11 @@ import MarketplaceManager from './pages/Marketplace/MarketplaceManager';
 import UserManager from './pages/Users/UserManager';
 import BankAccounts from './pages/Payment/BankAccounts';
 import { Menu } from 'lucide-react';
+
+const GuideEditor = lazy(() => import('./pages/Guides/GuideEditor'));
+const AddBlog = lazy(() => import('./pages/Blog/AddBlog'));
+const EditBlog = lazy(() => import('./pages/Blog/EditBlog'));
+const EditorFallback = () => <div className="p-6 text-white/70">Đang tải trình soạn thảo…</div>;
 
 // Simple Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -68,7 +70,7 @@ function App() {
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/guides" element={<ProtectedRoute><GuideList /></ProtectedRoute>} />
-      <Route path="/guides/editor/:id?" element={<ProtectedRoute><GuideEditor /></ProtectedRoute>} />
+      <Route path="/guides/editor/:id?" element={<ProtectedRoute><Suspense fallback={<EditorFallback />}><GuideEditor /></Suspense></ProtectedRoute>} />
       <Route path="/guides/topics" element={<ProtectedRoute><TopicManager /></ProtectedRoute>} />
       <Route path="/guides/questions/:id" element={<ProtectedRoute><QuestionManager /></ProtectedRoute>} />
       <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
@@ -76,8 +78,8 @@ function App() {
       <Route path="/projects/add" element={<ProtectedRoute><AddProject /></ProtectedRoute>} />
       <Route path="/projects/edit/:id" element={<ProtectedRoute><EditProject /></ProtectedRoute>} />
       <Route path="/blog" element={<ProtectedRoute><BlogList /></ProtectedRoute>} />
-      <Route path="/blog/add" element={<ProtectedRoute><AddBlog /></ProtectedRoute>} />
-      <Route path="/blog/edit/:id" element={<ProtectedRoute><EditBlog /></ProtectedRoute>} />
+      <Route path="/blog/add" element={<ProtectedRoute><Suspense fallback={<EditorFallback />}><AddBlog /></Suspense></ProtectedRoute>} />
+      <Route path="/blog/edit/:id" element={<ProtectedRoute><Suspense fallback={<EditorFallback />}><EditBlog /></Suspense></ProtectedRoute>} />
       <Route path="/blog/automation" element={<ProtectedRoute><AutomationBlog /></ProtectedRoute>} />
       <Route path="/ai-settings" element={<ProtectedRoute><AISettings /></ProtectedRoute>} />
       <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
