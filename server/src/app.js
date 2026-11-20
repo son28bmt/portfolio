@@ -29,10 +29,12 @@ const donateRoutes = require('./routes/donate.routes');
 const shopRoutes = require('./routes/shop.routes');
 const marketplaceRoutes = require('./routes/marketplace.routes');
 const chatRoutes = require('./routes/chat.routes');
+const cmsAdminRoutes = require('./routes/cms-admin.routes');
 const http = require('http');
 const { initSocket } = require('./services/socket.service');
 const { startBlogAutomationScheduler } = require('./services/blog-automation.service');
 const { startMarketplaceSupplierScheduler } = require('./services/marketplace-supplier-sync.service');
+const { startCmsScheduler } = require('./services/cms-scheduler.service');
 
 const app = express();
 app.set('trust proxy', 1);
@@ -141,6 +143,7 @@ app.use('/api/projects', projectRoutes);
 app.use('/api/blog', blogRoutes);
 app.use('/api/guides', guidesRoutes);
 app.use('/api/admin/guides', guidesAdminRoutes);
+app.use('/api/admin/cms', cmsAdminRoutes);
 app.use('/api/blog-auto', blogAutomationRoutes);
 app.use('/api/contact', contactRoutes);
 app.use('/api/ai', aiRoutes);
@@ -181,6 +184,7 @@ const startServer = async () => {
   initSocket(server, corsOptions);
   startBlogAutomationScheduler();
   startMarketplaceSupplierScheduler();
+  startCmsScheduler();
   server.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
   });

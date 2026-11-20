@@ -2,9 +2,10 @@ const express = require('express');
 const router = express.Router();
 const Blog = require('../models/Blog');
 const { protect } = require('../middleware/auth.middleware');
-const { requireAdmin } = require('../middleware/require-admin.middleware');
+const { requireRoles } = require('../middleware/require-admin.middleware');
 const { Op } = require('sequelize');
 const { notifyTelegramBlogChanged } = require('../services/telegram.service');
+const { normalizeCmsFields, createPostRevision, revisionApi, autosavePost, sanitizeContent } = require('../services/cms-post.service');
 
 const decodePossibleJson = (value) => {
   let current = value;
@@ -65,6 +66,7 @@ const normalizeBlogRecord = (post) => {
 
   return {
     ...plain,
+    content: sanitizeContent(plain.content),
     tags: toStringArray(plain.tags, { allowCommaSplit: true }),
   };
 };
@@ -81,6 +83,19 @@ const findBlog = async (idOrSlug) => {
   });
 };
 
+const findPublishedBlog = async (idOrSlug) => Blog.findOne({
+  where: {
+    status: 'published',
+    [Op.or]: [
+      { id: idOrSlug.length === 36 ? idOrSlug : null },
+      { slug: idOrSlug },
+    ],
+  },
+});
+
+const blogRevisions = revisionApi('blog', Blog);
+const editorOnly = requireRoles('owner', 'editor');
+
 // Public: Get all posts (With Pagination)
 router.get('/', async (req, res) => {
   try {
@@ -89,6 +104,7 @@ router.get('/', async (req, res) => {
     const offset = (page - 1) * limit;
 
     const { count, rows } = await Blog.findAndCountAll({
+      where: { status: 'published' },
       order: [['createdAt', 'DESC']],
       limit,
       offset
@@ -105,10 +121,19 @@ router.get('/', async (req, res) => {
   }
 });
 
+// Admin revision endpoints must precede the public dynamic slug route.
+router.get('/:idOrSlug/revisions', protect, editorOnly, async (req, res) => {
+  try {
+    const post = await findBlog(req.params.idOrSlug);
+    if (!post) return res.status(404).json({ message: 'Blog post not found' });
+    return res.json(await blogRevisions.list(post.id));
+  } catch (error) { return res.status(error.status || 500).json({ message: error.message }); }
+});
+
 // Public: Get single post by ID or Slug
 router.get('/:idOrSlug', async (req, res) => {
   try {
-    const post = await findBlog(req.params.idOrSlug);
+    const post = await findPublishedBlog(req.params.idOrSlug);
     if (!post) return res.status(404).json({ message: 'Blog post not found' });
     res.json(normalizeBlogRecord(post));
   } catch (error) {
@@ -117,10 +142,11 @@ router.get('/:idOrSlug', async (req, res) => {
 });
 
 // Admin: Create post
-router.post('/', protect, requireAdmin, async (req, res) => {
+router.post('/', protect, editorOnly, async (req, res) => {
   try {
-    const payload = normalizeBlogPayload(req.body);
+    const payload = await normalizeCmsFields(Blog, normalizeBlogPayload(req.body));
     const post = await Blog.create(payload);
+    await createPostRevision({ postType: 'blog', post, action: 'created', authorId: req.user?.id });
     notifyTelegramBlogChanged({
       blog: normalizeBlogRecord(post),
       action: 'created',
@@ -134,13 +160,14 @@ router.post('/', protect, requireAdmin, async (req, res) => {
 });
 
 // Admin: Update post
-router.put('/:idOrSlug', protect, requireAdmin, async (req, res) => {
+router.put('/:idOrSlug', protect, editorOnly, async (req, res) => {
   try {
     const post = await findBlog(req.params.idOrSlug);
     if (!post) return res.status(404).json({ message: 'Blog post not found' });
 
-    const payload = normalizeBlogPayload(req.body);
+    const payload = await normalizeCmsFields(Blog, normalizeBlogPayload(req.body), post);
     await post.update(payload);
+    await createPostRevision({ postType: 'blog', post, action: 'updated', authorId: req.user?.id });
     notifyTelegramBlogChanged({
       blog: normalizeBlogRecord(post),
       action: 'updated',
@@ -154,7 +181,7 @@ router.put('/:idOrSlug', protect, requireAdmin, async (req, res) => {
 });
 
 // Admin: Delete post
-router.delete('/:idOrSlug', protect, requireAdmin, async (req, res) => {
+router.delete('/:idOrSlug', protect, editorOnly, async (req, res) => {
   try {
     const post = await findBlog(req.params.idOrSlug);
     if (!post) return res.status(404).json({ message: 'Blog post not found' });
@@ -164,6 +191,40 @@ router.delete('/:idOrSlug', protect, requireAdmin, async (req, res) => {
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
+});
+
+router.post('/:idOrSlug/restore/:revisionId', protect, editorOnly, async (req, res) => {
+  try {
+    const post = await findBlog(req.params.idOrSlug);
+    if (!post) return res.status(404).json({ message: 'Blog post not found' });
+    const restored = await blogRevisions.restore(post.id, req.params.revisionId, req.user?.id);
+    return res.json(normalizeBlogRecord(restored));
+  } catch (error) {
+    return res.status(error.status || 500).json({ message: error.message });
+  }
+});
+
+router.post('/:idOrSlug/autosave', protect, editorOnly, async (req, res) => {
+  try {
+    const existing = await findBlog(req.params.idOrSlug);
+    if (!existing) return res.status(404).json({ message: 'Blog post not found' });
+    const post = await autosavePost(Blog, existing.id, req.body);
+    await createPostRevision({ postType: 'blog', post, action: 'autosaved', authorId: req.user?.id });
+    return res.json(normalizeBlogRecord(post));
+  } catch (error) {
+    return res.status(error.status || 500).json({ message: error.message });
+  }
+});
+
+router.post('/:idOrSlug/status', protect, editorOnly, async (req, res) => {
+  try {
+    const post = await findBlog(req.params.idOrSlug);
+    if (!post) return res.status(404).json({ message: 'Blog post not found' });
+    const payload = await normalizeCmsFields(Blog, { ...post.toJSON(), ...req.body }, post);
+    await post.update(payload);
+    await createPostRevision({ postType: 'blog', post, action: payload.status, authorId: req.user?.id });
+    return res.json(normalizeBlogRecord(post));
+  } catch (error) { return res.status(error.status || 400).json({ message: error.message }); }
 });
 
 module.exports = router;

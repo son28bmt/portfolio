@@ -3,6 +3,7 @@ const rateLimit = require('express-rate-limit');
 const { Op, fn, col } = require('sequelize');
 const { Guide, GuideTopic } = require('../models');
 const { listTemplatesForGuide } = require('../services/guide-question.service');
+const { sanitizeGuideHtml } = require('../utils/sanitizeGuideHtml');
 
 const router = express.Router();
 
@@ -194,6 +195,7 @@ router.get('/:slug', async (req, res) => {
 
     return res.json({
       ...guide.toJSON(),
+      content: sanitizeGuideHtml(guide.content),
       relatedGuides,
     });
   } catch (error) {

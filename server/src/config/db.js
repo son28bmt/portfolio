@@ -26,14 +26,16 @@ const connectDB = async () => {
     await sequelize.authenticate();
     console.log("MySQL connected successfully.");
 
-    try {
-      const { ensureGuideSchema } = require('../services/guide-schema.service');
-      await ensureGuideSchema();
-      return true;
-    } catch (schemaError) {
-      console.error('[Schema] Automatic guide/support schema setup failed:', schemaError?.message || schemaError);
-      return false;
+    if (process.env.AUTO_SCHEMA_BOOTSTRAP === 'true') {
+      try {
+        const { ensureGuideSchema } = require('../services/guide-schema.service');
+        await ensureGuideSchema();
+      } catch (schemaError) {
+        console.error('[Schema] Automatic guide/support schema setup failed:', schemaError?.message || schemaError);
+        return false;
+      }
     }
+    return true;
   } catch (error) {
     const retryMs = Number(process.env.DB_RETRY_MS || 5000);
     console.error(

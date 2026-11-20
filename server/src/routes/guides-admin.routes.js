@@ -1,12 +1,13 @@
 const express = require('express');
 const rateLimit = require('express-rate-limit');
 const sanitizeHtml = require('sanitize-html');
-const { Op } = require('sequelize');
+const { Op, literal } = require('sequelize');
 const { Guide, GuideTopic, GuideQuestionTemplate } = require('../models');
 const { protect } = require('../middleware/auth.middleware');
 const { requireRoles } = require('../middleware/require-admin.middleware');
 const { saveTemplate, deleteTemplate } = require('../services/guide-question.service');
 const { sanitizeGuideHtml } = require('../utils/sanitizeGuideHtml');
+const { normalizeCmsFields, createPostRevision, revisionApi, autosavePost } = require('../services/cms-post.service');
 
 const router = express.Router();
 const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -23,6 +24,8 @@ const writeLimiter = rateLimit({
   skip: (req) => req.method === 'OPTIONS',
   message: { message: 'Bạn đã gửi quá nhiều yêu cầu ghi. Vui lòng thử lại sau.' },
 });
+
+const guideRevisions = revisionApi('guide', Guide);
 
 router.use(protect, requireRoles('owner', 'editor'));
 
@@ -134,7 +137,7 @@ const buildGuidePayload = async (body, { creating = false, currentId = null } = 
 const parseGuideListQuery = (query) => {
   const page = parsePositiveInteger(query.page, 1, 'page');
   const limit = parsePositiveInteger(query.limit, 12, 'limit', 50);
-  if (query.status !== undefined && !['draft', 'published'].includes(query.status)) throw new InputError('status không hợp lệ.');
+  if (query.status !== undefined && !['draft', 'scheduled', 'published', 'archived'].includes(query.status)) throw new InputError('status không hợp lệ.');
   if (query.topic !== undefined && (typeof query.topic !== 'string' || !slugPattern.test(query.topic))) throw new InputError('topic không hợp lệ.');
   if (query.q !== undefined && (typeof query.q !== 'string' || query.q.length > 100)) throw new InputError('q phải là chuỗi không quá 100 ký tự.');
   return { page, limit, status: query.status, topic: query.topic, q: String(query.q || '').trim() };
@@ -198,7 +201,7 @@ router.put('/questions/:id', writeLimiter, async (req, res) => {
 router.delete('/questions/:id', writeLimiter, async (req, res) => {
   try {
     await deleteTemplate(req.params.id);
-    return res.status(204).end();
+    return res.json(guide);
   } catch (error) {
     if (error.status === 404) return notFound(res, error.message);
     console.error('[Guide Admin API] Cannot delete question template:', error);
@@ -290,7 +293,7 @@ router.get('/', async (req, res) => {
     }
     const include = [{ model: GuideTopic, as: 'topic', attributes: ['id', 'name', 'slug'], required: Boolean(query.topic), ...(query.topic ? { where: { slug: query.topic } } : {}) }];
     const result = await Guide.findAndCountAll({
-      attributes: ['id', 'slug', 'title', 'excerpt', 'image', 'status', 'readTime', 'publishedAt', 'updatedAt'],
+      attributes: ['id', 'slug', 'title', 'excerpt', 'image', 'status', 'readTime', 'publishedAt', 'scheduledAt', 'seoTitle', 'seoDescription', 'ogImage', 'canonicalUrl', 'coverAlt', 'coverCaption', 'updatedAt'],
       where, include, distinct: true,
       order: [['updatedAt', 'DESC']], limit: query.limit, offset: (query.page - 1) * query.limit,
     });
@@ -304,7 +307,9 @@ router.get('/', async (req, res) => {
 router.post('/', writeLimiter, async (req, res) => {
   try {
     const payload = await buildGuidePayload(req.body || {}, { creating: true });
-    const guide = await Guide.create({ ...payload, status: 'draft' });
+    const cmsFields = await normalizeCmsFields(Guide, { ...payload, ...req.body }, null);
+    const guide = await Guide.create({ ...cmsFields, topicId: payload.topicId, status: cmsFields.status || 'draft' });
+    await createPostRevision({ postType: 'guide', post: guide, action: 'created', authorId: req.user?.id });
     return res.status(201).json(guide);
   } catch (error) {
     if (isInputError(error)) return badRequest(res, error.message || 'Dữ liệu không hợp lệ.');
@@ -318,7 +323,8 @@ router.post('/:id/publish', writeLimiter, async (req, res) => {
     if (!uuidPattern.test(req.params.id)) return badRequest(res, 'ID bài hướng dẫn không hợp lệ.');
     const guide = await Guide.findByPk(req.params.id);
     if (!guide) return notFound(res, 'Không tìm thấy bài hướng dẫn.');
-    await guide.update({ status: 'published', publishedAt: guide.publishedAt || new Date() });
+    await guide.update({ status: 'published', publishedAt: guide.publishedAt || new Date(), cmsVersion: literal('cms_version + 1') });
+    await createPostRevision({ postType: 'guide', post: guide, action: 'published', authorId: req.user?.id });
     return res.json(guide);
   } catch (error) {
     console.error('[Guide Admin API] Cannot publish guide:', error);
@@ -331,7 +337,8 @@ router.post('/:id/unpublish', writeLimiter, async (req, res) => {
     if (!uuidPattern.test(req.params.id)) return badRequest(res, 'ID bài hướng dẫn không hợp lệ.');
     const guide = await Guide.findByPk(req.params.id);
     if (!guide) return notFound(res, 'Không tìm thấy bài hướng dẫn.');
-    await guide.update({ status: 'draft' });
+    await guide.update({ status: 'draft', cmsVersion: literal('cms_version + 1') });
+    await createPostRevision({ postType: 'guide', post: guide, action: 'updated', authorId: req.user?.id });
     return res.json(guide);
   } catch (error) {
     console.error('[Guide Admin API] Cannot unpublish guide:', error);
@@ -356,13 +363,41 @@ router.put('/:id', writeLimiter, async (req, res) => {
     const guide = await Guide.findByPk(req.params.id);
     if (!guide) return notFound(res, 'Không tìm thấy bài hướng dẫn.');
     const payload = await buildGuidePayload(req.body || {}, { currentId: guide.id });
-    await guide.update(payload);
+    const cmsFields = await normalizeCmsFields(Guide, { ...payload, ...req.body }, guide);
+    await guide.update({ ...cmsFields, topicId: payload.topicId });
+    await createPostRevision({ postType: 'guide', post: guide, action: 'updated', authorId: req.user?.id });
     return res.json(guide);
   } catch (error) {
     if (isInputError(error)) return badRequest(res, error.message || 'Dữ liệu không hợp lệ.');
     console.error('[Guide Admin API] Cannot update guide:', error);
     return res.status(500).json({ message: 'Không thể cập nhật bài hướng dẫn.' });
   }
+});
+
+router.get('/:id/revisions', async (req, res) => {
+  try {
+    if (!uuidPattern.test(req.params.id)) return badRequest(res, 'ID bài hướng dẫn không hợp lệ.');
+    return res.json(await guideRevisions.list(req.params.id));
+  } catch (error) { return res.status(error.status || 500).json({ message: error.message }); }
+});
+
+router.post('/:id/restore/:revisionId', writeLimiter, async (req, res) => {
+  try {
+    if (!uuidPattern.test(req.params.id)) return badRequest(res, 'ID bài hướng dẫn không hợp lệ.');
+    const guide = await guideRevisions.restore(req.params.id, req.params.revisionId, req.user?.id);
+    return res.json(guide);
+  } catch (error) { return res.status(error.status || 500).json({ message: error.message }); }
+});
+
+router.post('/:id/autosave', writeLimiter, async (req, res) => {
+  try {
+    if (!uuidPattern.test(req.params.id)) return badRequest(res, 'ID bài hướng dẫn không hợp lệ.');
+    const existing = await Guide.findByPk(req.params.id);
+    if (!existing) return notFound(res, 'Không tìm thấy bài hướng dẫn.');
+    const guide = await autosavePost(Guide, existing.id, req.body);
+    await createPostRevision({ postType: 'guide', post: guide, action: 'autosaved', authorId: req.user?.id });
+    return res.status(204).end();
+  } catch (error) { return res.status(error.status || 500).json({ message: error.message }); }
 });
 
 router.delete('/:id', writeLimiter, async (req, res) => {

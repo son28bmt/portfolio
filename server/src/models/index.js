@@ -19,6 +19,7 @@ const WalletTopup = require('./WalletTopup');
 const GuideTopic = require('./GuideTopic');
 const Guide = require('./Guide');
 const GuideQuestionTemplate = require('./GuideQuestionTemplate');
+const PostRevision = require('./PostRevision');
 
 // Associations
 Category.hasMany(Product, { foreignKey: 'categoryId', as: 'products' });
@@ -127,4 +128,5 @@ module.exports = {
   GuideTopic,
   Guide,
   GuideQuestionTemplate,
+  PostRevision,
 };

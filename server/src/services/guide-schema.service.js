@@ -41,6 +41,20 @@ const ensureIndex = async (tableName, name, fields) => {
   }
 };
 
+const ensureStatusValues = async (tableName, columnName, values) => {
+  const query = sequelize.getQueryInterface();
+  const tables = await query.showAllTables();
+  const actualName = tables.map(table => String(typeof table === 'object' ? table.tableName : table))
+    .find(name => name.toLowerCase() === tableName.toLowerCase());
+  if (!actualName) return;
+  const columns = await query.describeTable(actualName);
+  const type = String(columns[columnName]?.type || '').toLowerCase();
+  if (values.every(value => type.includes(`'${value}'`))) return;
+  const definition = { ...columns[columnName], type: DataTypes.ENUM(...values) };
+  delete definition.defaultValue;
+  await query.changeColumn(actualName, columnName, definition);
+};
+
 let ensured = false;
 let inFlight = null;
 
@@ -70,6 +84,7 @@ const ensureGuideSchema = async () => {
       image: { type: DataTypes.TEXT, allowNull: true },
       topic_id: { type: DataTypes.BIGINT.UNSIGNED, allowNull: true, references: { model: 'guide_topics', key: 'id' }, onDelete: 'SET NULL' },
       status: { type: DataTypes.ENUM('draft', 'published'), allowNull: false, defaultValue: 'draft' },
+      cms_version: { type: DataTypes.INTEGER.UNSIGNED, allowNull: false, defaultValue: 0 },
       read_time: { type: DataTypes.STRING(20), allowNull: false, defaultValue: '5 min' },
       published_at: { type: DataTypes.DATE, allowNull: true },
       created_at: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
@@ -89,6 +104,37 @@ const ensureGuideSchema = async () => {
       updated_at: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
     });
     await ensureIndex('guide_question_templates', 'idx_guide_question_templates_guide_active', ['guide_id', 'is_active']);
+
+    await ensureTable('post_revisions', {
+      id: { type: DataTypes.CHAR(36), allowNull: false, primaryKey: true },
+      post_type: { type: DataTypes.ENUM('blog', 'guide'), allowNull: false },
+      post_id: { type: DataTypes.CHAR(36), allowNull: false },
+      action: { type: DataTypes.STRING(40), allowNull: false, defaultValue: 'updated' },
+      snapshot: { type: DataTypes.JSON, allowNull: false },
+      author_id: { type: DataTypes.CHAR(36), allowNull: true },
+      created_at: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+    });
+    await ensureIndex('post_revisions', 'idx_post_revisions_post', ['post_type', 'post_id', 'created_at']);
+
+    await ensureColumns('Blogs', {
+      status: { type: DataTypes.ENUM('draft', 'scheduled', 'published', 'archived'), allowNull: false, defaultValue: 'published' },
+      published_at: { type: DataTypes.DATE, allowNull: true }, scheduled_at: { type: DataTypes.DATE, allowNull: true },
+      author_id: { type: DataTypes.STRING(191), allowNull: true }, seo_title: { type: DataTypes.STRING(255), allowNull: true },
+      seo_description: { type: DataTypes.STRING(500), allowNull: true }, og_image: { type: DataTypes.TEXT, allowNull: true },
+      canonical_url: { type: DataTypes.TEXT, allowNull: true }, cover_alt: { type: DataTypes.STRING(255), allowNull: true },
+      cover_caption: { type: DataTypes.STRING(500), allowNull: true },
+      cms_version: { type: DataTypes.INTEGER.UNSIGNED, allowNull: false, defaultValue: 0 },
+    });
+    await ensureColumns('guides', {
+      tags: { type: DataTypes.JSON, allowNull: true },
+      cms_version: { type: DataTypes.INTEGER.UNSIGNED, allowNull: false, defaultValue: 0 },
+    });
+    await ensureStatusValues('Blogs', 'status', ['draft', 'scheduled', 'published', 'archived']);
+    await ensureStatusValues('guides', 'status', ['draft', 'scheduled', 'published', 'archived']);
+    await ensureIndex('Blogs', 'idx_blogs_status_scheduled_at', ['status', 'scheduled_at']);
+    await ensureIndex('Blogs', 'idx_blogs_status_published_at', ['status', 'published_at']);
+    await ensureIndex('guides', 'idx_guides_status_scheduled_at', ['status', 'scheduled_at']);
+    await ensureIndex('guides', 'idx_guides_status_published_at', ['status', 'published_at']);
 
     await ensureColumns('admins', {
       role: { type: DataTypes.ENUM('owner', 'editor', 'support'), allowNull: false, defaultValue: 'owner' },

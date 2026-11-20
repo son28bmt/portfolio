@@ -35,6 +35,57 @@ const Blog = sequelize.define('Blog', {
   image: {
     type: DataTypes.TEXT('long'),
   },
+  status: {
+    type: DataTypes.ENUM('draft', 'scheduled', 'published', 'archived'),
+    allowNull: false,
+    defaultValue: 'published',
+  },
+  cmsVersion: { type: DataTypes.INTEGER.UNSIGNED, allowNull: false, defaultValue: 0, field: 'cms_version' },
+  publishedAt: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    field: 'published_at',
+  },
+  scheduledAt: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    field: 'scheduled_at',
+  },
+  authorId: {
+    type: DataTypes.STRING(191),
+    allowNull: true,
+    field: 'author_id',
+  },
+  seoTitle: {
+    type: DataTypes.STRING(255),
+    allowNull: true,
+    field: 'seo_title',
+  },
+  seoDescription: {
+    type: DataTypes.STRING(500),
+    allowNull: true,
+    field: 'seo_description',
+  },
+  ogImage: {
+    type: DataTypes.TEXT('long'),
+    allowNull: true,
+    field: 'og_image',
+  },
+  canonicalUrl: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+    field: 'canonical_url',
+  },
+  coverAlt: {
+    type: DataTypes.STRING(255),
+    allowNull: true,
+    field: 'cover_alt',
+  },
+  coverCaption: {
+    type: DataTypes.STRING(500),
+    allowNull: true,
+    field: 'cover_caption',
+  },
 }, {
   hooks: {
     beforeValidate: (blog) => {
@@ -42,11 +93,6 @@ const Blog = sequelize.define('Blog', {
         blog.slug = slugify(blog.title) + '-' + Math.floor(Math.random() * 10000);
       }
     },
-    beforeUpdate: (blog) => {
-      if (blog.changed('title')) {
-        blog.slug = slugify(blog.title) + '-' + Math.floor(Math.random() * 10000);
-      }
-    }
   }
 });
 

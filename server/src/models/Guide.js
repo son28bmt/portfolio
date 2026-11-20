@@ -42,10 +42,11 @@ const Guide = sequelize.define('Guide', {
     field: 'topic_id',
   },
   status: {
-    type: DataTypes.ENUM('draft', 'published'),
+    type: DataTypes.ENUM('draft', 'scheduled', 'published', 'archived'),
     allowNull: false,
     defaultValue: 'draft',
   },
+  cmsVersion: { type: DataTypes.INTEGER.UNSIGNED, allowNull: false, defaultValue: 0, field: 'cms_version' },
   readTime: {
     type: DataTypes.STRING(20),
     allowNull: false,
@@ -56,6 +57,50 @@ const Guide = sequelize.define('Guide', {
     type: DataTypes.DATE,
     allowNull: true,
     field: 'published_at',
+  },
+  scheduledAt: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    field: 'scheduled_at',
+  },
+  authorId: {
+    type: DataTypes.STRING(191),
+    allowNull: true,
+    field: 'author_id',
+  },
+  seoTitle: {
+    type: DataTypes.STRING(255),
+    allowNull: true,
+    field: 'seo_title',
+  },
+  seoDescription: {
+    type: DataTypes.STRING(500),
+    allowNull: true,
+    field: 'seo_description',
+  },
+  ogImage: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+    field: 'og_image',
+  },
+  canonicalUrl: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+    field: 'canonical_url',
+  },
+  coverAlt: {
+    type: DataTypes.STRING(255),
+    allowNull: true,
+    field: 'cover_alt',
+  },
+  coverCaption: {
+    type: DataTypes.STRING(500),
+    allowNull: true,
+    field: 'cover_caption',
+  },
+  tags: {
+    type: DataTypes.JSON,
+    allowNull: true,
   },
   createdAt: {
     type: DataTypes.DATE,
