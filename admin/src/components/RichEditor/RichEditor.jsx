@@ -16,15 +16,26 @@ const button = 'rounded-md border border-white/10 px-2 py-1 text-xs text-white/7
 
 export default function RichEditor({ value = '', onChange, disabled = false, folder = 'cms/content' }) {
   const fileRef = useRef(null);
+  const contentRef = useRef(sanitizeHtml(value));
   const editor = useEditor({
     extensions: [StarterKit, Underline, Image.configure({ inline: false, allowBase64: false }), Link.configure({ openOnClick: false }), Youtube.configure({ modestBranding: true, nocookie: true }), Table.configure({ resizable: true }), TableRow, TableHeader, TableCell],
-    content: sanitizeHtml(value),
+    content: contentRef.current,
     editable: !disabled,
-    onUpdate: ({ editor: instance }) => onChange(sanitizeHtml(instance.getHTML())),
+    onUpdate: ({ editor: instance }) => {
+      if (instance.isDestroyed) return;
+      const html = sanitizeHtml(instance.getHTML());
+      contentRef.current = html;
+      onChange(html);
+    },
   });
 
-  useEffect(() => { if (editor && value !== editor.getHTML() && !editor.isFocused) editor.commands.setContent(sanitizeHtml(value), false); }, [editor, value]);
-  useEffect(() => { editor?.setEditable(!disabled); }, [editor, disabled]);
+  useEffect(() => {
+    const nextContent = sanitizeHtml(value);
+    if (!editor || editor.isDestroyed || editor.isFocused || contentRef.current === nextContent) return;
+    editor.commands.setContent(nextContent, false);
+    contentRef.current = nextContent;
+  }, [editor, value]);
+  useEffect(() => { if (editor && !editor.isDestroyed) editor.setEditable(!disabled); }, [editor, disabled]);
 
   const addImage = useCallback(async file => {
     const url = await uploadCmsImage(file, folder);
@@ -34,7 +45,7 @@ export default function RichEditor({ value = '', onChange, disabled = false, fol
   }, [editor, folder]);
 
   useEffect(() => {
-    if (!editor) return undefined;
+    if (!editor || editor.isDestroyed) return undefined;
     const drop = event => { const file = event.dataTransfer?.files?.[0]; if (file?.type.startsWith('image/')) { event.preventDefault(); addImage(file).catch(err => window.alert(err.message)); } };
     const paste = event => { const file = [...(event.clipboardData?.files || [])].find(item => item.type.startsWith('image/')); if (file) { event.preventDefault(); addImage(file).catch(err => window.alert(err.message)); } };
     const element = editor.view.dom; element.addEventListener('drop', drop); element.addEventListener('paste', paste);
