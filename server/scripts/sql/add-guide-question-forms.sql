@@ -21,7 +21,8 @@ DROP PROCEDURE `upgrade_guide_question_message_content`;
 ALTER TABLE `LiveChatMessages`
   ADD COLUMN IF NOT EXISTS `messageType` ENUM('text', 'guide_question') NULL AFTER `content`,
   ADD COLUMN IF NOT EXISTS `guideContext` JSON NULL AFTER `messageType`,
-  ADD COLUMN IF NOT EXISTS `questionSnapshot` JSON NULL AFTER `guideContext`;
+  ADD COLUMN IF NOT EXISTS `questionSnapshot` JSON NULL AFTER `guideContext`,
+  ADD COLUMN IF NOT EXISTS `replyContext` JSON NULL AFTER `questionSnapshot`;
 
 CREATE TABLE IF NOT EXISTS `guide_question_templates` (
   `id` CHAR(36) NOT NULL,

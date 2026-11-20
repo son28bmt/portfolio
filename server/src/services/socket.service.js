@@ -143,6 +143,9 @@ const initSocket = (server, corsOptions) => {
         socket.emit("init_sessions", enriched);
       } catch (err) {
         console.error("[Socket] Error fetching sessions:", err);
+        socket.emit('session_load_error', {
+          message: 'Không tải được danh sách hội thoại. Kiểm tra schema LiveChatMessages và quyền database.',
+        });
       }
     });
 

@@ -16,18 +16,31 @@ const ensureColumns = async (tableName, definitions) => {
     .find(name => name.toLowerCase() === tableName.toLowerCase());
   if (!actualName) return;
 
-  let columns;
-  try {
-    columns = await query.describeTable(actualName);
-  } catch {
-    return;
-  }
+  const columns = await query.describeTable(actualName);
   for (const [name, definition] of Object.entries(definitions)) {
     if (!columns[name]) {
       await query.addColumn(actualName, name, definition);
       columns[name] = definition;
     }
   }
+};
+
+const ensureLiveChatColumns = async () => {
+  if (!sequelize) ({ sequelize } = require('../config/db'));
+  await ensureColumns('LiveChatMessages', {
+    userId: { type: DataTypes.CHAR(36), allowNull: true },
+    purchaseStatus: { type: DataTypes.ENUM('unknown', 'purchased', 'not_purchased'), allowNull: true },
+    assignedBy: { type: DataTypes.STRING(191), allowNull: true },
+    assignedAt: { type: DataTypes.DATE, allowNull: true },
+    assignmentNotes: { type: DataTypes.TEXT, allowNull: true },
+    packageType: { type: DataTypes.STRING(120), allowNull: true },
+    printerModel: { type: DataTypes.STRING(160), allowNull: true },
+    messageType: { type: DataTypes.ENUM('text', 'guide_question'), allowNull: true },
+    guideContext: { type: DataTypes.JSON, allowNull: true },
+    questionSnapshot: { type: DataTypes.JSON, allowNull: true },
+    replyContext: { type: DataTypes.JSON, allowNull: true },
+    guestCleanupAt: { type: DataTypes.DATE, allowNull: true },
+  });
 };
 
 const ensureIndex = async (tableName, name, fields) => {
@@ -170,4 +183,4 @@ const ensureGuideSchema = async () => {
   }
 };
 
-module.exports = { ensureGuideSchema };
+module.exports = { ensureGuideSchema, ensureLiveChatColumns };

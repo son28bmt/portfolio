@@ -32,6 +32,8 @@ const LiveChat = () => {
   const [purchaseError, setPurchaseError] = useState('');
   const [replyTarget, setReplyTarget] = useState(null);
   const [completionNotice, setCompletionNotice] = useState('');
+  const [sessionLoadError, setSessionLoadError] = useState('');
+  const [isLoadingSessions, setIsLoadingSessions] = useState(true);
   
   const socketRef = useRef();
   const messagesEndRef = useRef(null);
@@ -86,16 +88,35 @@ const LiveChat = () => {
 
     socketRef.current.on('connect', () => {
       console.log('[AdminSocket] Connected as admin');
+      setSessionLoadError('');
+      setIsLoadingSessions(true);
       const adminToken = localStorage.getItem('adminToken') || '';
       socketRef.current.emit('join_admin_room', { token: adminToken });
     });
 
+    socketRef.current.on('admin_auth_error', ({ message }) => {
+      setIsLoadingSessions(false);
+      setSessionLoadError(message || 'Phiên admin hết hạn. Hãy đăng nhập lại.');
+    });
+
     socketRef.current.on('init_sessions', (data) => {
       console.log('[AdminSocket] Received sessions:', data.length);
+      setIsLoadingSessions(false);
+      setSessionLoadError('');
       setSessions(data.map(s => ({
         ...s,
         unreadCount: parseInt(s.unreadCount) || 0
       })));
+    });
+
+    socketRef.current.on('session_load_error', ({ message }) => {
+      setIsLoadingSessions(false);
+      setSessionLoadError(message || 'Không tải được danh sách hội thoại.');
+    });
+
+    socketRef.current.on('connect_error', (error) => {
+      setIsLoadingSessions(false);
+      setSessionLoadError(`Không kết nối được máy chủ chat: ${error.message}`);
     });
 
     socketRef.current.on('new_user_message', (data) => {
@@ -231,6 +252,16 @@ const LiveChat = () => {
     }
   };
 
+  const retryLoadSessions = () => {
+    if (!socketRef.current?.connected) {
+      socketRef.current?.connect();
+      return;
+    }
+    setSessionLoadError('');
+    setIsLoadingSessions(true);
+    socketRef.current.emit('join_admin_room', { token: localStorage.getItem('adminToken') || '' });
+  };
+
   const handleSend = async (e) => {
     e.preventDefault();
     if (!input.trim() || !activeChatId) return;
@@ -287,7 +318,7 @@ const LiveChat = () => {
         <div className="flex-grow overflow-y-auto space-y-2.5 custom-scrollbar pr-2">
           {filteredSessions.length === 0 ? (
             <div className="text-center py-20 border border-dashed border-white/5 rounded-[40px] text-white/10 text-xs uppercase tracking-widest font-bold">
-               Zero active sessions
+              {isLoadingSessions ? 'Đang tải hội thoại...' : sessionLoadError ? <div className="space-y-3 px-5 normal-case tracking-normal"><p className="text-red-300">{sessionLoadError}</p><button type="button" onClick={retryLoadSessions} className="rounded-lg border border-white/15 px-3 py-2 text-white/70 hover:bg-white/5">Thử tải lại</button></div> : 'Chưa có hội thoại'}
             </div>
           ) : filteredSessions.map(session => (
             <button

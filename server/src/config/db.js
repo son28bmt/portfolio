@@ -26,6 +26,13 @@ const connectDB = async () => {
     await sequelize.authenticate();
     console.log("MySQL connected successfully.");
 
+    try {
+      const { ensureLiveChatColumns } = require('../services/guide-schema.service');
+      await ensureLiveChatColumns();
+    } catch (schemaError) {
+      console.error('[Schema] Live chat column repair failed; run server/scripts/sql/add-guest-chat-cleanup.sql:', schemaError?.message || schemaError);
+    }
+
     if (process.env.AUTO_SCHEMA_BOOTSTRAP === 'true') {
       try {
         const { ensureGuideSchema } = require('../services/guide-schema.service');
