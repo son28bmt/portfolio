@@ -208,7 +208,21 @@ const LiveChat = () => {
     setIsLoadingHistory(true);
     try {
       const { data } = await api.get(`/chat/history/${guestId}`);
-      const normalizedMessages = data.map(normalizeChatMessage);
+      const sessionHasQuestion = sessions.find(s => s.guestId === guestId)?.lastMessageType === 'guide_question';
+      let lastQuestionId = null;
+      if (sessionHasQuestion) {
+        for (let index = data.length - 1; index >= 0; index -= 1) {
+          if (data[index].questionSnapshot) {
+            lastQuestionId = data[index].id;
+            break;
+          }
+        }
+      }
+      const normalizedMessages = data.map(message => normalizeChatMessage(
+        lastQuestionId && message.id === lastQuestionId
+          ? { ...message, messageType: 'guide_question' }
+          : message,
+      ));
       setMessages(normalizedMessages);
       const lastQuestion = [...normalizedMessages].reverse().find(message => message.questionSnapshot);
       if (lastQuestion) {
@@ -420,7 +434,7 @@ const LiveChat = () => {
                         : 'bg-white/[0.06] text-white/90 border-white/5 rounded-tl-none backdrop-blur-md'
                       }`}>
                         {msg.replyContext?.requestNumber && <p className="mb-2 text-[10px] font-bold uppercase text-secondary">Phản hồi yêu cầu #{msg.replyContext.requestNumber}{msg.replyContext.guideTitle ? ` từ bài ${msg.replyContext.guideTitle}` : ''}</p>}
-                        {msg.questionSnapshot?.fields ? <div className="space-y-3"><p className="font-bold">Yêu cầu #{msg.questionSnapshot.requestNumber || String(msg.id || '').replace(/-/g, '').slice(-8).toUpperCase()} từ bài: {msg.guideContext?.title || 'Hướng dẫn'}</p>{msg.guideContext?.slug && <a className="text-xs text-secondary underline" href={`https://nguyenquangson.id.vn/huong-dan/${encodeURIComponent(msg.guideContext.slug)}`} target="_blank" rel="noreferrer">Mở bài hướng dẫn</a>}{msg.questionSnapshot.fields.map((field, fieldIndex) => <div key={`${field.key}-${fieldIndex}`}><p className="text-[10px] font-bold uppercase opacity-60">{field.label}</p><p className="whitespace-pre-wrap">{field.value || '(bỏ trống)'}</p></div>)}<button type="button" onClick={() => setReplyTarget(msg)} className="mt-2 rounded-lg bg-secondary px-3 py-2 text-xs font-bold text-white">Phản hồi yêu cầu #{msg.questionSnapshot.requestNumber || String(msg.id || '').replace(/-/g, '').slice(-8).toUpperCase()}</button></div> : msg.content}
+       {msg.messageType === 'guide_question' ? <div className="space-y-3"><p className="font-bold">Yêu cầu #{msg.questionSnapshot?.requestNumber || String(msg.id || '').replace(/-/g, '').slice(-8).toUpperCase()} từ bài: {msg.guideContext?.title || 'Hướng dẫn'}</p>{msg.guideContext?.slug && <a className="text-xs text-secondary underline" href={`https://nguyenquangson.id.vn/huong-dan/${encodeURIComponent(msg.guideContext.slug)}`} target="_blank" rel="noreferrer">Mở bài hướng dẫn</a>}{msg.questionSnapshot?.fields?.length ? msg.questionSnapshot.fields.map((field, fieldIndex) => <div key={`${field.key}-${fieldIndex}`}><p className="text-[10px] font-bold uppercase opacity-60">{field.label}</p><p className="whitespace-pre-wrap">{field.value || '(bỏ trống)'}</p></div>) : <p className="whitespace-pre-wrap">{msg.content || 'Nội dung yêu cầu không còn trong snapshot.'}</p>}<button type="button" onClick={() => setReplyTarget(msg)} className="mt-2 rounded-lg bg-secondary px-3 py-2 text-xs font-bold text-white">Phản hồi yêu cầu #{msg.questionSnapshot?.requestNumber || String(msg.id || '').replace(/-/g, '').slice(-8).toUpperCase()}</button></div> : msg.content}
                       </div>
                       <div className={`text-[9px] text-white/10 font-bold uppercase tracking-widest ${msg.role === 'admin' ? 'text-right' : 'text-left'}`}>
                         {msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString() : ''}
