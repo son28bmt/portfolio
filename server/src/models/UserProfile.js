@@ -21,6 +21,12 @@ const UserProfile = sequelize.define(
         isEmail: true,
       },
     },
+    googleSub: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+      unique: true,
+      field: 'google_sub',
+    },
     phone: {
       type: DataTypes.STRING(40),
       allowNull: true,

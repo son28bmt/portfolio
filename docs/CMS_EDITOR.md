@@ -6,6 +6,8 @@ Server upload processing requires `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRE
 
 `JWT_SECRET` is required for authenticated admin routes. `ADMIN_USERNAMES` identifies legacy user-admin accounts. Keep `AUTO_SCHEMA_BOOTSTRAP` unset or `false` in staging/production and run the SQL migration manually. It may be set to `true` only for a disposable local development database.
 
+Google member sign-in additionally requires `GOOGLE_CLIENT_ID` on the server and `VITE_GOOGLE_CLIENT_ID` when building the public client. They should normally be the same Web OAuth client ID. Never put a Google client secret in Vite or browser code.
+
 ## Manual database rollout
 
 1. Back up the staging database.
@@ -19,6 +21,7 @@ Server upload processing requires `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRE
 - `GET /api/admin/cms/:postType/check-slug`, `GET /api/admin/cms/:postType/list`, `GET /api/admin/cms/:postType/:id`.
 - `GET|POST /api/blog/:idOrSlug/revisions`, `POST /api/blog/:idOrSlug/restore/:revisionId`, `POST /api/blog/:idOrSlug/autosave`.
 - `GET|POST /api/admin/guides/:id/revisions`, `POST /api/admin/guides/:id/restore/:revisionId`, `POST /api/admin/guides/:id/autosave`.
+- `POST /api/auth/google`: verifies a Google Identity Services ID token, links by verified email or `google_sub`, and returns the existing member JWT.
 
 Autosave requires the current `cmsVersion` value and returns `409` rather than overwrite a newer save, publish, schedule, or restore.
 
@@ -35,6 +38,7 @@ Revert the CMS code commits and redeploy the previous server/admin/client versio
 - Verify scripts, event handlers, `javascript:` URLs, and non-YouTube iframes are removed.
 - With two browser tabs, save in one then let the other autosave; verify the stale tab receives no overwrite.
 - Run two server instances against staging and verify one scheduled post creates one publish revision.
+- Configure a Google Web OAuth client, test login with a new member and an existing email, reject a token from another client ID, and verify Google login never grants admin/editor access.
 
 ## Phone checklist
 

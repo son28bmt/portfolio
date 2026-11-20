@@ -85,3 +85,29 @@ SHOW COLUMNS FROM `guides` LIKE 'scheduled_at';
 SHOW INDEX FROM `Blogs` WHERE Key_name IN ('idx_blogs_status_scheduled_at', 'idx_blogs_status_published_at');
 SHOW INDEX FROM `guides` WHERE Key_name IN ('idx_guides_status_scheduled_at', 'idx_guides_status_published_at');
 SHOW INDEX FROM `post_revisions` WHERE Key_name = 'idx_post_revisions_post';
+
+-- Google member sign-in (run this section together with the CMS migration).
+DELIMITER $$
+DROP PROCEDURE IF EXISTS `member_add_google_sub_if_missing`$$
+CREATE PROCEDURE `member_add_google_sub_if_missing`()
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'user_profiles')
+     AND NOT EXISTS (SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'user_profiles' AND COLUMN_NAME = 'google_sub') THEN
+    ALTER TABLE `user_profiles` ADD COLUMN `google_sub` VARCHAR(255) NULL;
+  END IF;
+END$$
+DELIMITER ;
+CALL `member_add_google_sub_if_missing`();
+DROP PROCEDURE IF EXISTS `member_add_google_sub_if_missing`;
+DELIMITER $$
+DROP PROCEDURE IF EXISTS `member_add_google_sub_index_if_missing`$$
+CREATE PROCEDURE `member_add_google_sub_index_if_missing`()
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'user_profiles' AND COLUMN_NAME = 'google_sub')
+     AND NOT EXISTS (SELECT 1 FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'user_profiles' AND INDEX_NAME = 'user_profiles_google_sub_unique') THEN
+    ALTER TABLE `user_profiles` ADD UNIQUE KEY `user_profiles_google_sub_unique` (`google_sub`);
+  END IF;
+END$$
+DELIMITER ;
+CALL `member_add_google_sub_index_if_missing`();
+DROP PROCEDURE IF EXISTS `member_add_google_sub_index_if_missing`;

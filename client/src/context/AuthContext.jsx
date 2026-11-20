@@ -94,6 +94,14 @@ export const AuthProvider = ({ children }) => {
     return freshAccount;
   }, [applyAuth, refreshAccount]);
 
+  const loginWithGoogle = useCallback(async (credential) => {
+    const { data } = await api.post('/auth/google', { credential });
+    const nextAccount = data?.account || null;
+    applyAuth(data?.token || '', nextAccount);
+    if (!nextAccount) await refreshAccount(data?.token || '');
+    return nextAccount;
+  }, [applyAuth, refreshAccount]);
+
   const register = useCallback(async ({
     username,
     password,
@@ -128,12 +136,13 @@ export const AuthProvider = ({ children }) => {
       isAuthenticated: Boolean(token),
       loading,
       login,
+      loginWithGoogle,
       register,
       logout,
       refreshAccount,
       updateAccount,
     }),
-    [account, loading, login, logout, refreshAccount, register, token, updateAccount],
+    [account, loading, login, loginWithGoogle, logout, refreshAccount, register, token, updateAccount],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -25,6 +25,13 @@ const ensureColumn = async (tableName, columnName, definition) => {
   await queryInterface.addColumn(tableName, columnName, definition);
 };
 
+const ensureIndex = async (tableName, indexName, fields, unique = false) => {
+  const queryInterface = sequelize.getQueryInterface();
+  const indexes = await queryInterface.showIndex(tableName);
+  if (indexes.some(index => index.name === indexName)) return;
+  await queryInterface.addIndex(tableName, fields, { name: indexName, unique });
+};
+
 const ensureMemberSchema = async () => {
   if (schemaEnsured) return;
   if (schemaEnsuringPromise) {
@@ -37,6 +44,11 @@ const ensureMemberSchema = async () => {
     await ensureTableExists(WalletAccount, 'wallet_accounts');
     await ensureTableExists(WalletLedgerEntry, 'wallet_ledger_entries');
     await ensureTableExists(WalletTopup, 'wallet_topups');
+    await ensureColumn('user_profiles', 'google_sub', {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+    });
+    await ensureIndex('user_profiles', 'user_profiles_google_sub_unique', ['google_sub'], true);
 
     await ensureColumn('orders', 'user_id', {
       type: DataTypes.UUID,

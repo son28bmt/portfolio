@@ -1,12 +1,13 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { LockKeyhole, UserRound } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import GoogleSignInButton from '../components/auth/GoogleSignInButton';
 
 const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, isAuthenticated } = useAuth();
+  const { login, loginWithGoogle, isAuthenticated } = useAuth();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -17,9 +18,6 @@ const Login = () => {
     ? redirectTo
     : `${redirectTo.pathname || '/tai-khoan'}${redirectTo.search || ''}${redirectTo.hash || ''}`;
 
-  if (isAuthenticated) {
-    return <Navigate to={redirectPath} replace />;
-  }
   const fromMarketplace = Boolean(location.state?.fromMarketplace);
 
   const handleSubmit = async (event) => {
@@ -35,6 +33,23 @@ const Login = () => {
       setLoading(false);
     }
   };
+
+  const handleGoogleCredential = useCallback(async (credential) => {
+    setLoading(true);
+    setError('');
+    try {
+      await loginWithGoogle(credential);
+      navigate(redirectPath, { replace: true });
+    } catch (err) {
+      setError(err?.response?.data?.message || 'Không thể đăng nhập với Google lúc này.');
+    } finally {
+      setLoading(false);
+    }
+  }, [loginWithGoogle, navigate, redirectPath]);
+
+  if (isAuthenticated) {
+    return <Navigate to={redirectPath} replace />;
+  }
 
   return (
     <div className="mx-auto max-w-xl py-12 md:py-20">
@@ -102,6 +117,11 @@ const Login = () => {
               {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
             </button>
           </form>
+
+          {import.meta.env.VITE_GOOGLE_CLIENT_ID && <>
+            <div className="flex items-center gap-3 text-xs text-white/35"><span className="h-px flex-1 bg-white/10" />hoặc<span className="h-px flex-1 bg-white/10" /></div>
+            <GoogleSignInButton onCredential={handleGoogleCredential} disabled={loading} />
+          </>}
 
           <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-4 text-sm text-white/65">
             Chưa có tài khoản?{' '}

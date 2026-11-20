@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken');
 const { getJwtSecret } = require('../utils/jwt.util');
 const { getAccountMe, registerUser } = require('../services/account.service');
 const { notifyTelegramAuthEvent } = require('../services/telegram.service');
+const { verifyGoogleCredential, findOrCreateGoogleUser } = require('../services/google-auth.service');
 
 const generateToken = (id) => {
   return jwt.sign({ id }, getJwtSecret(), {
@@ -69,5 +70,19 @@ exports.login = async (req, res) => {
         ? 'Máy chủ thiếu cấu hình bảo mật JWT_SECRET.'
         : error.message,
     });
+  }
+};
+
+exports.googleLogin = async (req, res) => {
+  try {
+    const identity = await verifyGoogleCredential(req.body?.credential);
+    const { user } = await findOrCreateGoogleUser(identity);
+    const token = generateToken(user.id);
+    const account = await getAccountMe(user.id);
+    notifyTelegramAuthEvent({ event: 'login_google', account, req });
+    return res.json({ id: user.id, username: user.username, token, account });
+  } catch (error) {
+    const status = error.status || (/JWT_SECRET/.test(String(error?.message || '')) ? 500 : 401);
+    return res.status(status).json({ message: error.message || 'Đăng nhập Google thất bại.' });
   }
 };
