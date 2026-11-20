@@ -5,7 +5,7 @@ const { Op, literal } = require('sequelize');
 const { Guide, GuideTopic, GuideQuestionTemplate } = require('../models');
 const { protect } = require('../middleware/auth.middleware');
 const { requireRoles } = require('../middleware/require-admin.middleware');
-const { saveTemplate, deleteTemplate } = require('../services/guide-question.service');
+const { saveTemplate, deleteTemplate, parseFields } = require('../services/guide-question.service');
 const { sanitizeGuideHtml } = require('../utils/sanitizeGuideHtml');
 const { normalizeCmsFields, createPostRevision, revisionApi, autosavePost } = require('../services/cms-post.service');
 
@@ -161,7 +161,10 @@ router.get('/questions', async (req, res) => {
       where: { [Op.or]: [{ guideId }, { guideId: null }] },
       order: [['createdAt', 'DESC']],
     });
-    return res.json(templates);
+    return res.json(templates.map(item => ({
+      ...item.toJSON(),
+      fields: parseFields(item.fields),
+    })));
   } catch (error) {
     console.error('[Guide Admin API] Cannot list question templates:', error);
     return res.status(500).json({ message: 'Không thể tải mẫu câu hỏi.' });
@@ -201,7 +204,7 @@ router.put('/questions/:id', writeLimiter, async (req, res) => {
 router.delete('/questions/:id', writeLimiter, async (req, res) => {
   try {
     await deleteTemplate(req.params.id);
-    return res.json(guide);
+    return res.json({ deleted: true });
   } catch (error) {
     if (error.status === 404) return notFound(res, error.message);
     console.error('[Guide Admin API] Cannot delete question template:', error);

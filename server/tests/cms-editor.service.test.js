@@ -7,6 +7,7 @@ const {
 const { assertCmsImageBuffer, MAX_IMAGE_BYTES } = require('../src/services/cms-upload.service');
 const { requireRoles } = require('../src/middleware/require-admin.middleware');
 const { publishDue } = require('../src/services/cms-scheduler.service');
+const { DEFAULT_TEMPLATE_ID, parseFields, normalizeFields } = require('../src/services/guide-question.service');
 
 test('slugify: converts Vietnamese text into a stable URL slug', () => {
   assert.equal(slugify('  Hướng dẫn Đổi Mực In 2026!  '), 'huong-dan-doi-muc-in-2026');
@@ -21,6 +22,14 @@ test('buildSlug: appends a suffix for a duplicate slug', async () => {
 test('readingTime: returns one minute minimum and rounds by 200 words', () => {
   assert.equal(readingTime(''), '1 min');
   assert.equal(readingTime(`<p>${Array(201).fill('word').join(' ')}</p>`), '2 min');
+});
+
+test('guide question fields: accepts JSON strings and wrapped field objects', () => {
+  const fields = [{ key: 'question', label: 'Câu hỏi', type: 'textarea', required: true, maxLength: 2000 }];
+  assert.deepEqual(parseFields(JSON.stringify(fields)), fields);
+  assert.deepEqual(parseFields(JSON.stringify({ fields })), fields);
+  assert.deepEqual(normalizeFields(JSON.stringify(fields)), fields);
+  assert.equal(DEFAULT_TEMPLATE_ID, 'default-guide-question');
 });
 
 test('sanitizeContent: removes scripts, event handlers, and javascript URLs', () => {

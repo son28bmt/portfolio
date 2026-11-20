@@ -5,6 +5,15 @@ import { errorMessage, guideService } from '../../services/guideService';
 const blank = { name: '', isActive: true, reusable: false, fields: [{ key: 'question', label: 'Câu hỏi của bạn', type: 'textarea', required: true, maxLength: 2000 }] };
 const control = 'block w-full rounded-lg border border-white/10 bg-background px-3 py-2';
 
+const normalizeFields = value => {
+  let fields = value;
+  for (let i = 0; i < 5 && typeof fields === 'string'; i += 1) {
+    try { fields = JSON.parse(fields); } catch { return blank.fields; }
+  }
+  if (fields && !Array.isArray(fields) && Array.isArray(fields.fields)) fields = fields.fields;
+  return Array.isArray(fields) && fields.length ? fields : blank.fields;
+};
+
 export default function QuestionManager() {
   const { id } = useParams();
   const [items, setItems] = useState([]);
@@ -13,17 +22,18 @@ export default function QuestionManager() {
   const [busy, setBusy] = useState(true);
 
   async function reload() {
-    setItems(await guideService.questionTemplates(id));
+    const result = await guideService.questionTemplates(id);
+    setItems(Array.isArray(result) ? result.map(item => ({ ...item, fields: normalizeFields(item.fields) })) : []);
   }
   useEffect(() => { reload().catch(e => setError(errorMessage(e))).finally(() => setBusy(false)); }, [id]);
   const change = (key, value) => setForm(f => ({ ...f, [key]: value }));
-  const updateField = (index, key, value) => change('fields', form.fields.map((field, i) => i === index ? { ...field, [key]: value } : field));
+  const updateField = (index, key, value) => change('fields', normalizeFields(form.fields).map((field, i) => i === index ? { ...field, [key]: value } : field));
   async function save(event) {
     event.preventDefault();
     setBusy(true);
     setError('');
     try {
-      await guideService.saveQuestionTemplate(form.id, { ...form, guideId: form.reusable ? null : id, fields: form.fields.map(field => ({ ...field, maxLength: Number(field.maxLength) })) });
+      await guideService.saveQuestionTemplate(form.id, { ...form, guideId: form.reusable ? null : id, fields: normalizeFields(form.fields).map(field => ({ ...field, maxLength: Number(field.maxLength) })) });
       setForm(blank);
       await reload();
     } catch (e) { setError(errorMessage(e)); }
@@ -47,19 +57,19 @@ export default function QuestionManager() {
       <label className="block"><input type="checkbox" checked={form.isActive} onChange={e => change('isActive', e.target.checked)} /> Đang bật trên bài đã đăng</label>
       <label className="block"><input type="checkbox" checked={Boolean(form.reusable || form.guideId === null && form.id)} onChange={e => change('reusable', e.target.checked)} /> Dùng lại cho mọi bài hướng dẫn</label>
       <fieldset disabled={busy} className="space-y-3"><legend className="font-semibold">Các trường</legend>
-        {form.fields.map((field, index) => <div key={index} className="grid gap-2 rounded-lg border border-white/10 p-3 md:grid-cols-2">
+        {normalizeFields(form.fields).map((field, index) => <div key={index} className="grid gap-2 rounded-lg border border-white/10 p-3 md:grid-cols-2">
           <input className={control} required placeholder="Key" maxLength={40} value={field.key} onChange={e => updateField(index, 'key', e.target.value)} />
           <input className={control} required placeholder="Nhãn hiển thị" maxLength={120} value={field.label} onChange={e => updateField(index, 'label', e.target.value)} />
           <select className={control} value={field.type} onChange={e => updateField(index, 'type', e.target.value)}><option value="text">Văn bản ngắn</option><option value="textarea">Văn bản dài</option><option value="email">Email</option><option value="tel">Điện thoại</option></select>
           <input className={control} type="number" min="1" max="2000" value={field.maxLength} onChange={e => updateField(index, 'maxLength', e.target.value)} />
           <label><input type="checkbox" checked={field.required} onChange={e => updateField(index, 'required', e.target.checked)} /> Bắt buộc</label>
-          <button type="button" className="text-red-400" disabled={form.fields.length === 1} onClick={() => change('fields', form.fields.filter((_, i) => i !== index))}>Xóa trường</button>
+          <button type="button" className="text-red-400" disabled={normalizeFields(form.fields).length === 1} onClick={() => change('fields', normalizeFields(form.fields).filter((_, i) => i !== index))}>Xóa trường</button>
         </div>)}
-        <button type="button" onClick={() => change('fields', [...form.fields, { key: `field_${form.fields.length + 1}`, label: '', type: 'text', required: false, maxLength: 500 }])}>Thêm trường</button>
+        <button type="button" onClick={() => change('fields', [...normalizeFields(form.fields), { key: `field_${normalizeFields(form.fields).length + 1}`, label: '', type: 'text', required: false, maxLength: 500 }])}>Thêm trường</button>
       </fieldset>
       <button className="rounded-lg bg-primary px-4 py-2">{form.id ? 'Lưu mẫu' : 'Tạo mẫu'}</button>
       {form.id && <button type="button" onClick={() => setForm(blank)} className="ml-3">Hủy sửa</button>}
     </form>
-    <ul className="space-y-2">{items.map(item => <li key={item.id} className="flex items-center gap-3 rounded-lg border border-white/10 p-3"><div className="mr-auto"><strong>{item.name}</strong> · {item.isActive ? 'Bật' : 'Tắt'} · {item.fields.length} trường · {item.guideId ? 'Chỉ bài này' : 'Dùng chung'}</div><button disabled={busy} onClick={() => setForm({ ...item, reusable: !item.guideId, fields: item.fields })}>Sửa</button><button disabled={busy} className="text-red-400" onClick={() => remove(item)}>Xóa</button></li>)}</ul>
+    <ul className="space-y-2">{items.map(item => <li key={item.id} className="flex items-center gap-3 rounded-lg border border-white/10 p-3"><div className="mr-auto"><strong>{item.name}</strong> · {item.isActive ? 'Bật' : 'Tắt'} · {normalizeFields(item.fields).length} trường · {item.guideId ? 'Chỉ bài này' : 'Dùng chung'}</div><button disabled={busy} onClick={() => setForm({ ...item, reusable: !item.guideId, fields: normalizeFields(item.fields) })}>Sửa</button><button disabled={busy} className="text-red-400" onClick={() => remove(item)}>Xóa</button></li>)}</ul>
   </section>;
 }

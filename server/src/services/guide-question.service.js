@@ -4,8 +4,20 @@ const { notifyAdmin } = require('./socket.service');
 const { notifyTelegramGuideQuestion } = require('./telegram.service');
 
 const clean = (value, max) => String(value || '').trim().slice(0, max);
+const DEFAULT_TEMPLATE_ID = 'default-guide-question';
+const DEFAULT_FIELDS = [{ key: 'question', label: 'Câu hỏi của bạn', type: 'textarea', required: true, maxLength: 2000 }];
+
+const parseFields = value => {
+  let fields = value;
+  for (let i = 0; i < 5 && typeof fields === 'string'; i += 1) {
+    try { fields = JSON.parse(fields); } catch { return DEFAULT_FIELDS; }
+  }
+  if (fields && !Array.isArray(fields) && Array.isArray(fields.fields)) return fields.fields;
+  return Array.isArray(fields) && fields.length ? fields : DEFAULT_FIELDS;
+};
 
 const normalizeFields = (input) => {
+  input = parseFields(input);
   if (!Array.isArray(input) || input.length < 1 || input.length > 12) {
     const error = new Error('Mẫu cần có từ 1 đến 12 trường.'); error.status = 400; throw error;
   }
@@ -28,11 +40,21 @@ const normalizeFields = (input) => {
 const listTemplatesForGuide = async (slug) => {
   const guide = await Guide.findOne({ where: { slug, status: 'published' }, attributes: ['id'] });
   if (!guide) return null;
-  return GuideQuestionTemplate.findAll({
+  const templates = await GuideQuestionTemplate.findAll({
     where: { isActive: true, [Op.or]: [{ guideId: guide.id }, { guideId: null }] },
     attributes: ['id', 'name', 'fields'],
     order: [['createdAt', 'ASC']],
   });
+  const normalized = templates.map(template => ({
+    ...template.toJSON(),
+    fields: parseFields(template.fields),
+  })).filter(template => template.fields.length > 0);
+  if (normalized.length) return normalized;
+  return [{
+    id: DEFAULT_TEMPLATE_ID,
+    name: 'Câu hỏi của bạn',
+    fields: DEFAULT_FIELDS,
+  }];
 };
 
 const saveTemplate = async ({ id, guideId, name, isActive, fields, actor }) => {
@@ -63,13 +85,17 @@ const submitGuideQuestion = async ({ user, guestId, guideSlug, templateId, answe
   if (!clean(guestId, 191)) { const error = new Error('Phiên hỏi đáp không hợp lệ.'); error.status = 400; throw error; }
   const guide = await Guide.findOne({ where: { slug: guideSlug, status: 'published' }, attributes: ['id', 'slug', 'title'] });
   if (!guide) { const error = new Error('Không tìm thấy bài hướng dẫn đã đăng.'); error.status = 404; throw error; }
-  const template = await GuideQuestionTemplate.findOne({
-    where: { id: templateId, isActive: true, [Op.or]: [{ guideId: guide.id }, { guideId: null }] },
-  });
+  const template = templateId === DEFAULT_TEMPLATE_ID
+    ? { id: DEFAULT_TEMPLATE_ID, name: 'Câu hỏi của bạn', fields: DEFAULT_FIELDS }
+    : await GuideQuestionTemplate.findOne({
+      where: { id: templateId, isActive: true, [Op.or]: [{ guideId: guide.id }, { guideId: null }] },
+    });
   if (!template) { const error = new Error('Mẫu câu hỏi không tồn tại hoặc đã tắt.'); error.status = 404; throw error; }
   if (!answers || typeof answers !== 'object' || Array.isArray(answers)) { const error = new Error('Câu trả lời không hợp lệ.'); error.status = 400; throw error; }
 
-  const snapshot = template.fields.map(field => {
+  const fields = parseFields(template.fields);
+  if (!fields.length) { const error = new Error('Mẫu câu hỏi chưa có trường hợp lệ.'); error.status = 400; throw error; }
+  const snapshot = fields.map(field => {
     const value = clean(answers[field.key], field.maxLength);
     if (field.required && !value) { const error = new Error(`${field.label} là bắt buộc.`); error.status = 400; throw error; }
     if (field.type === 'email' && value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) { const error = new Error(`${field.label} cần là email hợp lệ.`); error.status = 400; throw error; }
@@ -104,4 +130,4 @@ const submitGuideQuestion = async ({ user, guestId, guideSlug, templateId, answe
   return { id: message.id, createdAt: message.createdAt };
 };
 
-module.exports = { listTemplatesForGuide, saveTemplate, deleteTemplate, submitGuideQuestion };
+module.exports = { DEFAULT_TEMPLATE_ID, parseFields, normalizeFields, listTemplatesForGuide, saveTemplate, deleteTemplate, submitGuideQuestion };
