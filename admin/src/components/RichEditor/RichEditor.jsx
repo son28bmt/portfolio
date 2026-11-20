@@ -1,7 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { EditorContent, useEditor } from '@tiptap/react';
-import StarterKit from '@tiptap/starter-kit';
-import Image from '@tiptap/extension-image';
 import Link from '@tiptap/extension-link';
 import Underline from '@tiptap/extension-underline';
 import Youtube from '@tiptap/extension-youtube';
@@ -18,7 +16,18 @@ export default function RichEditor({ value = '', onChange, disabled = false, fol
   const fileRef = useRef(null);
   const contentRef = useRef(sanitizeHtml(value));
   const editor = useEditor({
-    extensions: [StarterKit, Underline, Image.configure({ inline: false, allowBase64: false }), Link.configure({ openOnClick: false }), Youtube.configure({ modestBranding: true, nocookie: true }), Table.configure({ resizable: true }), TableRow, TableHeader, TableCell],
+    extensions: [
+      StarterKit.configure({
+        link: { openOnClick: false, autolink: true },
+        underline: {},
+      }),
+      Image.configure({ inline: false, allowBase64: false }),
+      Youtube.configure({ modestBranding: true, nocookie: true }),
+      Table.configure({ resizable: true }),
+      TableRow,
+      TableHeader,
+      TableCell,
+    ],
     content: contentRef.current,
     editable: !disabled,
     onUpdate: ({ editor: instance }) => {
