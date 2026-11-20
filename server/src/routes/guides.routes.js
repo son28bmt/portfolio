@@ -158,7 +158,7 @@ router.get('/', async (req, res) => {
     });
 
     return res.json({
-      items: result.rows,
+      items: result.rows.map(guide => ({ ...guide.toJSON(), tags: normalizeTags(guide.tags) })),
       total: result.count,
       page: query.page,
       totalPages: Math.ceil(result.count / query.limit),

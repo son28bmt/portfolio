@@ -10,6 +10,18 @@ const siteUrl = 'https://nguyenquangson.id.vn';
 const draftKey = slug => `guide-question-draft:${slug}`;
 const formatDate = value => value ? new Date(value).toLocaleDateString('vi-VN', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
 
+const parseGuideTags = value => {
+  let current = value;
+  for (let i = 0; i < 6 && typeof current === 'string'; i += 1) {
+    const text = current.trim();
+    if (!text) return [];
+    if (!['[', '"'].includes(text[0])) return text.split(',').map(tag => tag.trim()).filter(Boolean);
+    try { current = JSON.parse(text); } catch { return text.split(',').map(tag => tag.trim()).filter(Boolean); }
+  }
+  const flatten = input => Array.isArray(input) ? input.flatMap(flatten) : [input];
+  return flatten(current).map(tag => String(tag || '').trim()).filter(Boolean);
+};
+
 function useHeadings(content) {
   return useMemo(() => {
     if (!content || typeof window === 'undefined' || !window.DOMParser) return [];
@@ -99,6 +111,7 @@ function GuideDetailPage({ slug }) {
   if (!guide) return null;
 
   const related = (guide.relatedGuides || []).slice(0, 3);
+  const tags = parseGuideTags(guide.tags);
   const questionTemplate = templates.find(item => item.id === selectedTemplateId) || templates[0];
   const questionGuestId = localStorage.getItem('chat_guest_id') || '';
   const excerpt = guide.excerpt || guide.title;
@@ -107,7 +120,7 @@ function GuideDetailPage({ slug }) {
     <article className="min-w-0 px-1 py-0">
     <Helmet><title>{guide.seoTitle || guide.title} | Hướng dẫn Nguyễn Quang Sơn</title><meta name="description" content={guide.seoDescription || excerpt} /><link rel="canonical" href={guide.canonicalUrl || canonical} /><meta property="og:title" content={guide.seoTitle || guide.title} /><meta property="og:description" content={guide.seoDescription || excerpt} />{(guide.ogImage || guide.image) && <meta property="og:image" content={guide.ogImage || guide.image} />}<meta property="og:url" content={guide.canonicalUrl || canonical} /><meta property="og:type" content="article" /></Helmet>
     <Link to="/huong-dan" className="mb-7 inline-flex items-center gap-2 text-white/50 transition hover:text-white"><ArrowLeft className="h-4 w-4" />Tất cả hướng dẫn</Link>
-    <header className="mb-9"><div className="mb-4">{guide.topic && <Link to={`/huong-dan?topic=${encodeURIComponent(guide.topic.slug)}`} className="rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-sm text-primary">{guide.topic.name}</Link>}</div><h1 className="mb-5 text-3xl font-extrabold leading-tight sm:text-4xl md:text-5xl">{guide.title}</h1><div className="flex flex-wrap gap-5 text-sm text-white/45"><span className="flex items-center gap-2"><Calendar className="h-4 w-4 text-secondary" />{formatDate(guide.updatedAt)}</span><span className="flex items-center gap-2"><Clock className="h-4 w-4 text-secondary" />{guide.readTime}</span>{(guide.authorName || guide.authorId) && <span>Tác giả: {guide.authorName || guide.authorId}</span>}</div>{guide.tags?.length > 0 && <div className="mt-3 flex flex-wrap gap-2">{guide.tags.map(tag => <span key={tag} className="rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-xs text-primary">#{tag}</span>)}</div>}</header>
+    <header className="mb-9"><div className="mb-4">{guide.topic && <Link to={`/huong-dan?topic=${encodeURIComponent(guide.topic.slug)}`} className="rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-sm text-primary">{guide.topic.name}</Link>}</div><h1 className="mb-5 text-3xl font-extrabold leading-tight sm:text-4xl md:text-5xl">{guide.title}</h1><div className="flex flex-wrap gap-5 text-sm text-white/45"><span className="flex items-center gap-2"><Calendar className="h-4 w-4 text-secondary" />{formatDate(guide.updatedAt)}</span><span className="flex items-center gap-2"><Clock className="h-4 w-4 text-secondary" />{guide.readTime}</span>{(guide.authorName || guide.authorId) && <span>Tác giả: {guide.authorName || guide.authorId}</span>}</div>{tags.length > 0 && <div className="mt-3 flex flex-wrap gap-2">{tags.map(tag => <span key={tag} className="rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-xs text-primary">#{tag}</span>)}</div>}</header>
     {guide.image && <div className="mb-10 overflow-hidden rounded-3xl border border-white/10"><img src={guide.image} alt={guide.title} fetchPriority="high" className="max-h-[520px] w-full object-cover" /></div>}
     {headings.length >= 3 && <nav aria-label="Mục lục" className="mb-10 rounded-2xl border border-white/10 bg-white/[0.03] p-5"><h2 className="mb-3 font-bold">Trong bài viết</h2><ol className="space-y-2">{headings.map(item => <li key={item.id} className={item.level === 'h3' ? 'ml-5' : ''}><a className="text-sm text-white/60 hover:text-secondary" href={`#${item.id}`}>{item.text}</a></li>)}</ol></nav>}
     <div className="overflow-hidden rounded-3xl border border-white/10 bg-white/[0.02] p-4 text-white/80 sm:p-8"><div className="blog-content guide-article-content" dangerouslySetInnerHTML={{ __html: content }} /></div>
