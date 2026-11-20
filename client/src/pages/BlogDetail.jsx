@@ -154,12 +154,12 @@ const BlogDetail = () => {
   return (
     <div className="py-6 sm:py-10 md:py-12 max-w-4xl mx-auto px-3 sm:px-4 blog-page-shell">
       <Helmet>
-        <title>{pageTitle}</title>
-        <meta name="description" content={pageDesc} />
-        <link rel="canonical" href={canonicalUrl} />
-        <meta property="og:title" content={pageTitle} />
-        <meta property="og:description" content={pageDesc} />
-        <meta property="og:image" content={post.image || 'https://api.nguyenquangson.id.vn/logo.png'} />
+        <title>{post.seoTitle || pageTitle}</title>
+        <meta name="description" content={post.seoDescription || pageDesc} />
+        <link rel="canonical" href={post.canonicalUrl || canonicalUrl} />
+        <meta property="og:title" content={post.seoTitle || pageTitle} />
+        <meta property="og:description" content={post.seoDescription || pageDesc} />
+        <meta property="og:image" content={post.ogImage || post.image || 'https://api.nguyenquangson.id.vn/logo.png'} />
         <meta property="og:url" content={canonicalUrl} />
         <meta property="og:type" content="article" />
       </Helmet>
@@ -203,10 +203,11 @@ const BlogDetail = () => {
       <div className="relative h-56 sm:h-[300px] md:h-[500px] rounded-3xl sm:rounded-[40px] overflow-hidden mb-10 sm:mb-16 glass border border-white/10">
         <img
           src={post.image || 'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?q=80&w=2670&auto=format&fit=crop'}
-          alt={post.title}
+          alt={post.coverAlt || post.title}
           className="w-full h-full object-cover"
         />
       </div>
+      {post.coverCaption && <p className="-mt-8 mb-10 text-center text-sm text-white/50">{post.coverCaption}</p>}
 
       <div className="w-full mb-10 sm:mb-16 mx-auto">
         <div
