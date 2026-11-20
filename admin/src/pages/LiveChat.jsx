@@ -38,6 +38,7 @@ const LiveChat = () => {
   const [purchase, setPurchase] = useState(null);
   const [purchaseForm, setPurchaseForm] = useState({ purchaseStatus: 'unknown', packageType: '', printerModel: '', assignmentNotes: '' });
   const [purchaseError, setPurchaseError] = useState('');
+  const [showCustomerMeta, setShowCustomerMeta] = useState(false);
   const [replyTarget, setReplyTarget] = useState(null);
   const [completionNotice, setCompletionNotice] = useState('');
   const [sessionLoadError, setSessionLoadError] = useState('');
@@ -194,6 +195,7 @@ const LiveChat = () => {
 
   useEffect(() => {
     if (activeChatId) {
+      setShowCustomerMeta(false);
       setReplyTarget(null);
       setCompletionNotice('');
       loadChatHistory(activeChatId);
@@ -412,8 +414,14 @@ const LiveChat = () => {
                    {!activeSession.isAccountChat && <button type="button" onClick={completeGuestSupport} title="Kết thúc hỗ trợ và xóa hội thoại guest sau 10 phút" className="rounded-[18px] border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-[10px] font-bold uppercase text-amber-200 hover:bg-amber-300/20">
                       <CheckCircle2 className="mr-1 inline h-3.5 w-3.5" />Đã hỗ trợ xong
                    </button>}
-                   <button className="w-12 h-12 bg-white/5 rounded-[20px] flex items-center justify-center hover:bg-white/10 transition-all border border-white/5 shadow-lg">
-                      <MoreVertical className="w-5 h-5 text-white/20" />
+                    <button
+                      type="button"
+                      onClick={() => setShowCustomerMeta(value => !value)}
+                      aria-label={showCustomerMeta ? 'Ẩn thông tin khách hàng' : 'Hiện thông tin khách hàng'}
+                      title={showCustomerMeta ? 'Ẩn thông tin khách hàng' : 'Hiện thông tin khách hàng'}
+                      className={`w-12 h-12 rounded-[20px] flex items-center justify-center transition-all border shadow-lg ${showCustomerMeta ? 'bg-primary/15 border-primary/30 text-primary' : 'bg-white/5 border-white/5 text-white/20 hover:bg-white/10'}`}
+                    >
+                       <MoreVertical className="w-5 h-5" />
                    </button>
                 </div>
               </div>
@@ -445,7 +453,7 @@ const LiveChat = () => {
                 <div ref={messagesEndRef} />
               </div>
 
-              <form onSubmit={savePurchaseStatus} className="border-t border-white/5 bg-white/[0.02] p-4 space-y-3">
+              {showCustomerMeta && <form onSubmit={savePurchaseStatus} className="border-t border-white/5 bg-white/[0.02] p-4 space-y-3">
                 <div className="grid gap-3 md:grid-cols-3">
                   <select value={purchaseForm.purchaseStatus} onChange={e => setPurchaseForm(f => ({ ...f, purchaseStatus: e.target.value }))} className="rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-xs">
                     <option value="unknown">Chưa xác định</option><option value="purchased">Đã mua</option><option value="not_purchased">Chưa mua</option>
@@ -455,7 +463,7 @@ const LiveChat = () => {
                 </div>
                 <div className="flex gap-3"><input value={purchaseForm.assignmentNotes} onChange={e => setPurchaseForm(f => ({ ...f, assignmentNotes: e.target.value }))} placeholder="Ghi chú gán khách" className="min-w-0 flex-grow rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-xs" /><button className="rounded-xl bg-secondary px-4 py-2 text-xs font-bold text-white">Lưu nhãn</button></div>
                 {purchaseError && <p className="text-xs text-red-300">{purchaseError}</p>}
-              </form>
+              </form>}
 
               <div className="p-4 md:p-5 bg-white/[0.03] border-t border-white/5 backdrop-blur-3xl shrink-0">
                 {replyTarget && <div className="mb-3 flex items-center justify-between gap-3 rounded-lg border border-secondary/30 bg-secondary/10 px-3 py-2 text-xs"><span>Đang phản hồi yêu cầu #{replyTarget.questionSnapshot?.requestNumber || String(replyTarget.id || '').replace(/-/g, '').slice(-8).toUpperCase()}{replyTarget.guideContext?.title ? ` từ bài ${replyTarget.guideContext.title}` : ''}</span><button type="button" onClick={() => setReplyTarget(null)} aria-label="Hủy phản hồi" className="text-white/60 hover:text-white">×</button></div>}
