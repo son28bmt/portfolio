@@ -99,7 +99,7 @@ export default function GridCanvas() {
               }}><Trash2 size={14} /></button>
             </div>
           </div>
-          <div className="bp-block-content" style={{ textAlign: block.align }}>
+          <div className={`bp-block-content bp-block-content-${block.type}`} style={{ textAlign: block.align }}>
             <BlockComponent block={block} align={block.align} content={contentByBlockId[block.id]} template={questionTemplates.find((item) => item.id === block.props?.templateId)} onContentChange={(content) => useBlockPostStore.getState().updateBlockContent(block.id, content)} editable onChange={(props) => updateBlock(block.id, { props }, { trackHistory: block.type !== 'text' })} />
           </div>
           {activeBlockId === block.id && <div className="bp-size-tooltip">W: {block.w} cột · H: {block.h} hàng</div>}
