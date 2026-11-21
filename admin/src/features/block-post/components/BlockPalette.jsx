@@ -6,7 +6,7 @@ export default function BlockPalette({ onAdd }) {
     <section className="bp-panel bp-palette">
       <div className="bp-panel-heading">
         <div><span className="bp-kicker">THÀNH PHẦN</span><h2>Kho công cụ</h2></div>
-        <span className="bp-count">03</span>
+        <span className="bp-count">07</span>
       </div>
       <p className="bp-muted">Kéo một block vào canvas để bắt đầu.</p>
       <div className="bp-palette-list">

@@ -16,6 +16,7 @@ import MarketplaceCards from '../pages/MarketplaceCards';
 import MarketplaceHome from '../pages/MarketplaceHome';
 import Terms from '../pages/Terms';
 import Privacy from '../pages/Privacy';
+import LayoutPostDetail from '../pages/LayoutPostDetail';
 import Login from '../pages/Login';
 import Register from '../pages/Register';
 import Account from '../pages/Account';
@@ -61,6 +62,7 @@ const AppRoutes = () => {
         <Route path="/du-an/:id" element={<PageTransition><ProjectDetail /></PageTransition>} />
         <Route path="/blog" element={<PageTransition><Blog /></PageTransition>} />
         <Route path="/blog/:id" element={<PageTransition><BlogDetail /></PageTransition>} />
+        <Route path="/bai-viet/:id" element={<PageTransition><LayoutPostDetail /></PageTransition>} />
         <Route path="/lien-he" element={<PageTransition><Contact /></PageTransition>} />
         <Route path="/cua-hang" element={<PageTransition><MarketplaceHome /></PageTransition>} />
         <Route

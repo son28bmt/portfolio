@@ -2,13 +2,14 @@ const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
 const { Op } = require('sequelize');
-const { LiveChatMessage } = require('../models');
+const { LiveChatMessage, LayoutPost, UserProfile } = require('../models');
 const { protect } = require('../middleware/auth.middleware');
 const { requireRoles } = require('../middleware/require-admin.middleware');
 const { getJwtSecret } = require('../utils/jwt.util');
 const { requireAdmin } = require('../middleware/require-admin.middleware');
 const { assignConversationPurchase, getConversationSnapshot } = require('../services/chat-purchase.service');
-const { submitGuideQuestion } = require('../services/guide-question.service');
+const { submitGuideQuestion, findReusableTemplate, validateAnswerValues, formatSupportRequestNumber } = require('../services/guide-question.service');
+const { emitSupportRequest } = require('../services/socket.service');
 const { scheduleGuestConversationCleanup } = require('../services/guest-chat-cleanup.service');
 const { notifyAdmin } = require('../services/socket.service');
 const rateLimit = require('express-rate-limit');
@@ -157,10 +158,22 @@ router.post('/complete/:guestId', protect, requireRoles('owner', 'support'), asy
   }
 });
 
-router.post('/guide-question', protect, guideQuestionLimiter, async (req, res) => {
+const registerQuestionRoutes = (target, {
+  protectMiddleware = protect,
+  limiter = guideQuestionLimiter,
+  PostModel = LayoutPost,
+  ProfileModel = UserProfile,
+  MessageModel = LiveChatMessage,
+  submitGuide = submitGuideQuestion,
+  findTemplate = findReusableTemplate,
+  validateValues = validateAnswerValues,
+  formatRequestNumber = formatSupportRequestNumber,
+  emitRequest = emitSupportRequest,
+} = {}) => {
+target.post('/guide-question', protectMiddleware, limiter, async (req, res) => {
   try {
     const guestId = accountChatId(req.user.id);
-    const data = await submitGuideQuestion({
+    const data = await submitGuide({
       user: { id: req.user.id, username: req.user.username },
       guestId,
       guideSlug: req.body?.guideSlug,
@@ -173,4 +186,30 @@ router.post('/guide-question', protect, guideQuestionLimiter, async (req, res) =
   }
 });
 
+target.post('/layout-post-question', protectMiddleware, limiter, async (req, res) => {
+  try {
+    const post = await PostModel.findOne({ where: { id: req.body?.postId, status: 'published' }, attributes: ['id', 'title', 'layout'] });
+    if (!post) return res.status(404).json({ message: 'Không tìm thấy bài viết đã đăng.' });
+    const block = (post.layout || []).find(item => item.type === 'question');
+    const templateId = block?.props?.templateId;
+    const template = templateId ? await findTemplate(templateId) : null;
+    if (!template) return res.status(404).json({ message: 'Bộ câu hỏi không tồn tại hoặc đã tắt.' });
+    const profile = await ProfileModel.findByPk(req.user.id, { attributes: ['email'] });
+    const email = String(profile?.email || '').trim().toLowerCase();
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ message: 'Hãy thêm email hợp lệ vào hồ sơ tài khoản trước khi gửi câu hỏi.' });
+    const snapshot = validateValues(template.fields, req.body?.values);
+    const id = require('crypto').randomUUID();
+    const requestNumber = formatRequestNumber(id);
+    const text = snapshot.map(item => `${item.label}: ${item.value || '(bỏ trống)'}`).join('\n');
+    const message = await MessageModel.create({ id, guestId: `user_${req.user.id}`, userId: req.user.id, role: 'user', messageType: 'guide_question', content: text, name: req.user.username, email, guideContext: { kind: 'layout_post', id: post.id, title: post.title, url: `/bai-viet/${post.id}` }, questionSnapshot: { templateId: template.id, templateName: template.name, requestNumber, fields: snapshot } });
+    emitRequest({ guestId: message.guestId, request: { id: message.id, guestId: message.guestId, userId: req.user.id, isAccountChat: true, text, name: message.name, email, messageType: 'guide_question', timestamp: message.createdAt, guideContext: message.guideContext, questionSnapshot: message.questionSnapshot } });
+    return res.status(201).json({ id: message.id, requestNumber, createdAt: message.createdAt });
+  } catch (error) { return res.status(error.status || 500).json({ message: error.status ? error.message : 'Không thể gửi câu hỏi.' }); }
+});
+return target;
+};
+
+registerQuestionRoutes(router);
+
 module.exports = router;
+module.exports.registerQuestionRoutes = registerQuestionRoutes;

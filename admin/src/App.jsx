@@ -24,6 +24,8 @@ const GuideEditor = lazy(() => import('./pages/Guides/GuideEditor'));
 const AddBlog = lazy(() => import('./pages/Blog/AddBlog'));
 const EditBlog = lazy(() => import('./pages/Blog/EditBlog'));
 const BlockPostEditor = lazy(() => import('./features/block-post/BlockPostEditor'));
+const LayoutPostList = lazy(() => import('./pages/LayoutPosts/LayoutPostList'));
+const LayoutPostPreview = lazy(() => import('./pages/LayoutPosts/LayoutPostPreview'));
 const EditorFallback = () => <div className="p-6 text-white/70">Đang tải trình soạn thảo…</div>;
 
 // Simple Protected Route Component
@@ -82,6 +84,9 @@ function App() {
       <Route path="/blog" element={<ProtectedRoute><BlogList /></ProtectedRoute>} />
       <Route path="/blog/add" element={<ProtectedRoute><Suspense fallback={<EditorFallback />}><AddBlog /></Suspense></ProtectedRoute>} />
       <Route path="/layout-posts/new" element={<ProtectedRoute><Suspense fallback={<EditorFallback />}><BlockPostEditor /></Suspense></ProtectedRoute>} />
+      <Route path="/layout-posts" element={<ProtectedRoute><Suspense fallback={<EditorFallback />}><LayoutPostList /></Suspense></ProtectedRoute>} />
+      <Route path="/layout-posts/:id/edit" element={<ProtectedRoute><Suspense fallback={<EditorFallback />}><BlockPostEditor /></Suspense></ProtectedRoute>} />
+      <Route path="/layout-posts/:id/preview" element={<ProtectedRoute><Suspense fallback={<EditorFallback />}><LayoutPostPreview /></Suspense></ProtectedRoute>} />
       <Route path="/blog/edit/:id" element={<ProtectedRoute><Suspense fallback={<EditorFallback />}><EditBlog /></Suspense></ProtectedRoute>} />
       <Route path="/blog/automation" element={<ProtectedRoute><AutomationBlog /></ProtectedRoute>} />
       <Route path="/ai-settings" element={<ProtectedRoute><AISettings /></ProtectedRoute>} />

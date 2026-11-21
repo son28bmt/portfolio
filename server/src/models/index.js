@@ -20,6 +20,8 @@ const GuideTopic = require('./GuideTopic');
 const Guide = require('./Guide');
 const GuideQuestionTemplate = require('./GuideQuestionTemplate');
 const PostRevision = require('./PostRevision');
+const LayoutTemplate = require('./LayoutTemplate');
+const LayoutPost = require('./LayoutPost');
 
 // Associations
 Category.hasMany(Product, { foreignKey: 'categoryId', as: 'products' });
@@ -106,6 +108,9 @@ Guide.belongsTo(GuideTopic, {
 Guide.hasMany(GuideQuestionTemplate, { foreignKey: 'guideId', as: 'questionTemplates' });
 GuideQuestionTemplate.belongsTo(Guide, { foreignKey: 'guideId', as: 'guide' });
 
+LayoutTemplate.hasMany(LayoutPost, { foreignKey: 'templateId', as: 'posts', onDelete: 'RESTRICT' });
+LayoutPost.belongsTo(LayoutTemplate, { foreignKey: 'templateId', as: 'template', onDelete: 'RESTRICT' });
+
 module.exports = {
   Category,
   Product,
@@ -129,4 +134,6 @@ module.exports = {
   Guide,
   GuideQuestionTemplate,
   PostRevision,
+  LayoutTemplate,
+  LayoutPost,
 };

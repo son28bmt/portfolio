@@ -1,10 +1,13 @@
-import { useCallback, useMemo } from 'react';
-import GridLayout, { useContainerWidth } from 'react-grid-layout';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import GridLayout, { noCompactor, useContainerWidth } from 'react-grid-layout';
 import { Copy, Grip, Trash2 } from 'lucide-react';
 import { useBlockPostStore } from '../store/useBlockPostStore';
 import { blockRegistry } from '../registry/blockRegistry';
+import { ROW_HEIGHT } from '@layout-post-renderer/constants';
+import { hasBlockContent } from '../utils/layout';
+import { layoutPostApi } from '../api/layoutPostApi';
 
-const gridConfig = { cols: 12, rowHeight: 36, margin: [12, 12], containerPadding: [8, 8], maxRows: 200 };
+const gridConfig = { cols: 12, rowHeight: ROW_HEIGHT, margin: [12, 12], containerPadding: [8, 8], maxRows: 200 };
 const initialLayout = [
   { i: 'demo-header', x: 0, y: 0, w: 12, h: 3 },
   { i: 'demo-text', x: 0, y: 4, w: 8, h: 8 },
@@ -16,23 +19,35 @@ export default function GridCanvas() {
   const blocks = useBlockPostStore((state) => state.blocks);
   const selectedBlockId = useBlockPostStore((state) => state.selectedBlockId);
   const activeBlockId = useBlockPostStore((state) => state.activeBlockId);
+  const contentByBlockId = useBlockPostStore((state) => state.contentByBlockId);
   const pendingBlockType = useBlockPostStore((state) => state.pendingBlockType);
   const templateBlocks = useBlockPostStore((state) => state.blocks);
   const addBlock = useBlockPostStore((state) => state.addBlock);
   const updateBlock = useBlockPostStore((state) => state.updateBlock);
-  const updatePosition = useBlockPostStore((state) => state.updatePosition);
+  const applyGridLayout = useBlockPostStore((state) => state.applyGridLayout);
+  const setCanvasWidth = useBlockPostStore((state) => state.setCanvasWidth);
   const removeBlock = useBlockPostStore((state) => state.removeBlock);
+  const duplicateBlock = useBlockPostStore((state) => state.duplicateBlock);
   const selectBlock = useBlockPostStore((state) => state.selectBlock);
   const setActiveBlock = useBlockPostStore((state) => state.setActiveBlock);
+  const [questionTemplates, setQuestionTemplates] = useState([]);
+
+  useEffect(() => {
+    if (!blocks.some((block) => block.type === 'question')) return;
+    layoutPostApi.questionTemplates().then(setQuestionTemplates).catch(() => setQuestionTemplates([]));
+  }, [blocks]);
 
   const layout = useMemo(() => blocks.length
     ? blocks.map(({ id, x, y, w, h }) => ({ i: id, x, y, w, h, minW: 2, minH: 2 }))
     : initialLayout, [blocks]);
 
+  useEffect(() => {
+    if (mounted) setCanvasWidth(width);
+  }, [mounted, setCanvasWidth, width]);
+
   const commitLayout = useCallback((nextLayout) => {
-    if (!blocks.length) return;
-    nextLayout.forEach((item) => updatePosition(item.i, { x: item.x, y: item.y, w: item.w, h: item.h }));
-  }, [blocks.length, updatePosition]);
+    if (blocks.length) applyGridLayout(nextLayout);
+  }, [applyGridLayout, blocks.length]);
 
   const handleDrop = useCallback((_, item, event) => {
     const type = event.dataTransfer?.getData('application/x-block-post-type')
@@ -54,13 +69,15 @@ export default function GridCanvas() {
   }), [pendingBlockType]);
 
   const onDragStop = useCallback((nextLayout, oldItem, newItem) => {
+    commitLayout(nextLayout);
     setActiveBlock(null);
     if (newItem && templateBlocks.some((block) => block.id === newItem.i)) selectBlock(newItem.i);
-  }, [selectBlock, setActiveBlock, templateBlocks]);
+  }, [commitLayout, selectBlock, setActiveBlock, templateBlocks]);
   const onResizeStop = useCallback((nextLayout, oldItem, newItem) => {
+    commitLayout(nextLayout);
     setActiveBlock(null);
     if (newItem && templateBlocks.some((block) => block.id === newItem.i)) selectBlock(newItem.i);
-  }, [selectBlock, setActiveBlock, templateBlocks]);
+  }, [commitLayout, selectBlock, setActiveBlock, templateBlocks]);
 
   const children = blocks.length ? blocks.map((block) => {
     const definition = blockRegistry[block.type];
@@ -73,14 +90,17 @@ export default function GridCanvas() {
             <div className="bp-block-actions">
               <span className="bp-size-label">W:{block.w} · H:{block.h}</span>
               <button type="button" title="Nhân bản block" onClick={() => {
-                const clone = { ...block, id: `block-${Date.now()}`, y: block.y + block.h + 1, props: { ...block.props } };
-                useBlockPostStore.setState((state) => ({ blocks: [...state.blocks, clone], selectedBlockId: clone.id }));
+                duplicateBlock(block.id);
               }}><Copy size={13} /></button>
-              <button type="button" title="Xóa block" onClick={() => removeBlock(block.id)}><Trash2 size={14} /></button>
+              <button type="button" title="Xóa block" onClick={() => {
+                const hasText = hasBlockContent(block, contentByBlockId[block.id]);
+                if (hasText && !window.confirm('Block này đang có nội dung. Bạn chắc chắn muốn xóa?')) return;
+                removeBlock(block.id);
+              }}><Trash2 size={14} /></button>
             </div>
           </div>
           <div className="bp-block-content" style={{ textAlign: block.align }}>
-            <BlockComponent block={block} editable onChange={(props) => updateBlock(block.id, { props })} />
+            <BlockComponent block={block} align={block.align} content={contentByBlockId[block.id]} template={questionTemplates.find((item) => item.id === block.props?.templateId)} onContentChange={(content) => useBlockPostStore.getState().updateBlockContent(block.id, content)} editable onChange={(props) => updateBlock(block.id, { props }, { trackHistory: block.type !== 'text' })} />
           </div>
           {activeBlockId === block.id && <div className="bp-size-tooltip">W: {block.w} cột · H: {block.h} hàng</div>}
         </div>
@@ -101,22 +121,26 @@ export default function GridCanvas() {
         <div><span className="bp-kicker">BỐ CỤC BÀI VIẾT</span><h2>Gridbox Canvas</h2></div>
         <span className="bp-grid-badge"><span className="bp-status-dot" />12 CỘT</span>
       </div>
-      <div className="bp-canvas-viewport" ref={containerRef}>
+      <div
+        className="bp-canvas-viewport"
+        ref={containerRef}
+        onMouseDown={(event) => { if (!event.target.closest('.bp-grid-item')) selectBlock(null); }}
+      >
         {mounted && (
           <GridLayout
             width={width}
             layout={layout}
             gridConfig={gridConfig}
-            dragConfig={{ enabled: true, bounded: false, handle: '.bp-drag-handle', cancel: 'button:not(.bp-drag-handle), input, textarea, .ProseMirror, .ProseMirror *', allowMobileScroll: true }}
+            dragConfig={{ enabled: true, bounded: false, handle: '.bp-drag-handle', cancel: '.bp-block-content, .bp-block-content *, button, input, textarea, .ProseMirror, .ProseMirror *', allowMobileScroll: true }}
             resizeConfig={{ enabled: true, handles: ['se', 'e', 's'] }}
             dropConfig={dropConfig}
             droppingItem={{ i: '__new-block__', x: 0, y: 0, w: 8, h: 6 }}
-            onLayoutChange={commitLayout}
+            compactor={{ ...noCompactor, preventCollision: true }}
             onDragStart={(next, oldItem, newItem) => newItem && setActiveBlock(newItem.i)}
             onDragStop={onDragStop}
             onResizeStart={(next, oldItem, newItem) => newItem && setActiveBlock(newItem.i)}
             onResizeStop={onResizeStop}
-            onDrop={handleDrop}
+            onDrop={(nextLayout, item, event) => handleDrop(nextLayout, item, event)}
             className="bp-grid-layout"
           >
             {children}

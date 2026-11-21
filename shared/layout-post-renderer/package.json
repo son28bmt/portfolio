@@ -1,0 +1,10 @@
+{
+  "name": "@portfolio/layout-post-renderer",
+  "private": true,
+  "type": "module",
+  "peerDependencies": {
+    "dompurify": "^3.4.18",
+    "react": ">=19.0.0",
+    "react-dom": ">=19.0.0"
+  }
+}

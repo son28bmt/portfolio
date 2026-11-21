@@ -39,6 +39,31 @@ const normalizeFields = (input) => {
   return fields;
 };
 
+const validateAnswerValues = (inputFields, answers) => {
+  if (!answers || typeof answers !== 'object' || Array.isArray(answers)) {
+    const error = new Error('Câu trả lời không hợp lệ.'); error.status = 400; throw error;
+  }
+  const fields = normalizeFields(inputFields);
+  const allowedKeys = new Set(fields.map(field => field.key));
+  const unknownKey = Object.keys(answers).find(key => !allowedKeys.has(key));
+  if (unknownKey) { const error = new Error(`Trường ${unknownKey} không hợp lệ.`); error.status = 400; throw error; }
+  const snapshot = fields.map(field => {
+    const rawValue = String(answers[field.key] || '').trim();
+    if (rawValue.length > field.maxLength) { const error = new Error(`${field.label} không được vượt quá ${field.maxLength} ký tự.`); error.status = 400; throw error; }
+    const value = rawValue;
+    if (field.required && !value) { const error = new Error(`${field.label} là bắt buộc.`); error.status = 400; throw error; }
+    if (field.type === 'email' && value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) { const error = new Error(`${field.label} cần là email hợp lệ.`); error.status = 400; throw error; }
+    if (field.type === 'tel' && value && !/^\+?[0-9\s().-]{7,30}$/.test(value)) { const error = new Error(`${field.label} cần là số điện thoại hợp lệ.`); error.status = 400; throw error; }
+    return { key: field.key, label: field.label, value };
+  });
+  return snapshot;
+};
+
+const findReusableTemplate = (templateId) => GuideQuestionTemplate.findOne({
+  where: { id: templateId, isActive: true, guideId: null },
+  attributes: ['id', 'name', 'fields'],
+});
+
 const listTemplatesForGuide = async (slug) => {
   const guide = await Guide.findOne({ where: { slug, status: 'published' }, attributes: ['id'] });
   if (!guide) return null;
@@ -93,16 +118,7 @@ const submitGuideQuestion = async ({ user, guestId, guideSlug, templateId, answe
       where: { id: templateId, isActive: true, [Op.or]: [{ guideId: guide.id }, { guideId: null }] },
     });
   if (!template) { const error = new Error('Mẫu câu hỏi không tồn tại hoặc đã tắt.'); error.status = 404; throw error; }
-  if (!answers || typeof answers !== 'object' || Array.isArray(answers)) { const error = new Error('Câu trả lời không hợp lệ.'); error.status = 400; throw error; }
-
-  const fields = parseFields(template.fields);
-  if (!fields.length) { const error = new Error('Mẫu câu hỏi chưa có trường hợp lệ.'); error.status = 400; throw error; }
-  const snapshot = fields.map(field => {
-    const value = clean(answers[field.key], field.maxLength);
-    if (field.required && !value) { const error = new Error(`${field.label} là bắt buộc.`); error.status = 400; throw error; }
-    if (field.type === 'email' && value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) { const error = new Error(`${field.label} cần là email hợp lệ.`); error.status = 400; throw error; }
-    return { key: field.key, label: field.label, value };
-  });
+  const snapshot = validateAnswerValues(template.fields, answers);
   const text = snapshot.map(item => `${item.label}: ${item.value || '(bỏ trống)'}`).join('\n');
   const accountGuestId = `user_${user.id}`;
   const id = randomUUID();
@@ -133,4 +149,4 @@ const submitGuideQuestion = async ({ user, guestId, guideSlug, templateId, answe
   return { id: message.id, requestNumber, createdAt: message.createdAt };
 };
 
-module.exports = { DEFAULT_TEMPLATE_ID, formatSupportRequestNumber, parseFields, normalizeFields, listTemplatesForGuide, saveTemplate, deleteTemplate, submitGuideQuestion };
+module.exports = { DEFAULT_TEMPLATE_ID, formatSupportRequestNumber, parseFields, normalizeFields, validateAnswerValues, findReusableTemplate, listTemplatesForGuide, saveTemplate, deleteTemplate, submitGuideQuestion };

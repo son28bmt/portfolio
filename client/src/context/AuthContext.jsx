@@ -51,6 +51,9 @@ export const AuthProvider = ({ children }) => {
   }, [persist, token]);
 
   const logout = useCallback(() => {
+    Object.keys(window.sessionStorage)
+      .filter(key => key.startsWith('layout-post-question:'))
+      .forEach(key => window.sessionStorage.removeItem(key));
     applyAuth('', null);
     window.dispatchEvent(new Event('chat-auth-logout'));
   }, [applyAuth]);
