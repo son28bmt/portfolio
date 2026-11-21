@@ -86,6 +86,9 @@ const Blog = sequelize.define('Blog', {
     allowNull: true,
     field: 'cover_caption',
   },
+  layout: { type: DataTypes.JSON, allowNull: true },
+  contentJson: { type: DataTypes.JSON, allowNull: true, field: 'content_json' },
+  layoutPostId: { type: DataTypes.UUID, allowNull: true, field: 'layout_post_id' },
 }, {
   hooks: {
     beforeValidate: (blog) => {

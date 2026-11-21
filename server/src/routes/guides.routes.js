@@ -211,6 +211,8 @@ router.get('/:slug', async (req, res) => {
     return res.json({
       ...(await resolveGuideAuthor(guide)),
       content: sanitizeGuideHtml(guide.content),
+      layout: typeof guide.layout === 'string' ? (() => { try { return JSON.parse(guide.layout); } catch { return null; } })() : guide.layout,
+      contentJson: typeof guide.contentJson === 'string' ? (() => { try { return JSON.parse(guide.contentJson); } catch { return null; } })() : guide.contentJson,
       tags: normalizeTags(guide.tags),
       relatedGuides,
     });

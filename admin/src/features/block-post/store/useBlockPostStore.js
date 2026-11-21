@@ -70,6 +70,7 @@ export const useBlockPostStore = create((set) => ({
   postTitle: '',
   postStatus: null,
   postUpdatedAt: null,
+  publishTarget: 'blog',
   savedSnapshot: snapshotState(loadDraft()),
 
   addBlock: (type, position = {}) => set((state) => {
@@ -161,6 +162,7 @@ export const useBlockPostStore = create((set) => ({
       postTitle: '',
       postStatus: null,
       postUpdatedAt: null,
+      publishTarget: 'blog',
     });
     return parsed.skipped;
   },
@@ -192,12 +194,12 @@ export const useBlockPostStore = create((set) => ({
       selectedBlockId: null, activeBlockId: null, pendingBlockType: null,
       templateId: post.templateId || null, templateName: '',
       savedSnapshot: snapshot, postId: post.id, postTitle: post.title,
-      postStatus: post.status, postUpdatedAt: post.updatedAt,
+      postStatus: post.status, postUpdatedAt: post.updatedAt, publishTarget: post.publishTarget === 'guide' ? 'guide' : 'blog',
     });
     return parsed.skipped;
   },
   markPostSaved: (post) => set((state) => ({
-    postId: post.id, postTitle: post.title, postStatus: post.status, postUpdatedAt: post.updatedAt,
+    postId: post.id, postTitle: post.title, postStatus: post.status, postUpdatedAt: post.updatedAt, publishTarget: post.publishTarget === 'guide' ? 'guide' : 'blog',
     savedSnapshot: snapshotState(state.blocks), savedContentSnapshot: snapshotContent(state.contentByBlockId),
     past: [], present: state.blocks, future: [],
   })),

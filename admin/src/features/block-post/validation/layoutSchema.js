@@ -135,7 +135,7 @@ export function validateLayoutPostForSave(value) {
   for (const key of Object.keys(source)) if (!blockMap.has(key)) throw new Error(`Block ${key} không tồn tại trong layout.`);
   const content = {};
   for (const block of layout) content[block.id] = validateContentByType(block.type, source[block.id] || { kind: 'empty' }, block.props);
-  const result = { title, templateId: value.templateId || null, layout, content, status: value.status === 'published' ? 'published' : 'draft', updatedAt: value.updatedAt };
+  const result = { title, templateId: value.templateId || null, layout, content, status: value.status === 'published' ? 'published' : 'draft', publishTarget: value.publishTarget === 'guide' ? 'guide' : 'blog', updatedAt: value.updatedAt };
   if (new TextEncoder().encode(JSON.stringify(result)).length > 1024 * 1024) throw new Error('Dữ liệu bài không được vượt quá 1 MB.');
   return result;
 }

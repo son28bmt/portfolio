@@ -114,6 +114,9 @@ const Guide = sequelize.define('Guide', {
     defaultValue: DataTypes.NOW,
     field: 'updated_at',
   },
+  layout: { type: DataTypes.JSON, allowNull: true },
+  contentJson: { type: DataTypes.JSON, allowNull: true, field: 'content_json' },
+  layoutPostId: { type: DataTypes.UUID, allowNull: true, field: 'layout_post_id' },
 }, {
   tableName: 'guides',
   timestamps: true,

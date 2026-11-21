@@ -3,6 +3,8 @@ import { useParams, Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import api from '../services/api';
 import { Calendar, Clock, ArrowLeft, Share2, MessageCircle } from 'lucide-react';
+import BlockPostRenderer from '@layout-post-renderer/BlockPostRenderer';
+import QuestionForm from '../components/QuestionForm';
 
 const decodePossibleJson = (value) => {
   let current = value;
@@ -102,6 +104,7 @@ const BlogDetail = () => {
   const [loading, setLoading] = useState(true);
   const [featureNotice, setFeatureNotice] = useState('');
   const [guideSuggestions, setGuideSuggestions] = useState([]);
+  const [questionTemplate, setQuestionTemplate] = useState(null);
 
   useEffect(() => {
     const fetchPost = async () => {
@@ -121,9 +124,16 @@ const BlogDetail = () => {
   useEffect(() => {
     api.get('/guides', { params: { limit: 3 } }).then(({ data }) => setGuideSuggestions(data.items || [])).catch(() => setGuideSuggestions([]));
   }, []);
+  useEffect(() => {
+    if (!post?.layoutPostId) { setQuestionTemplate(null); return undefined; }
+    let active = true;
+    api.get(`/public/layout-posts/${encodeURIComponent(post.layoutPostId)}/questions`).then(({ data }) => { if (active) setQuestionTemplate(data || null); }).catch(() => { if (active) setQuestionTemplate(null); });
+    return () => { active = false; };
+  }, [post?.layoutPostId]);
 
   const tags = useMemo(() => parseTags(post?.tags), [post?.tags]);
   const normalizedContent = useMemo(() => normalizeBlogContent(post?.content), [post?.content]);
+  const blockLayout = Array.isArray(post?.layout) && post.layout.length ? post.layout : null;
   
   // SEO Meta
   const siteUrl = 'https://nguyenquangson.id.vn';
@@ -219,10 +229,7 @@ const BlogDetail = () => {
 
       <div className="w-full mb-10 sm:mb-16 mx-auto">
         <style>{`.blog-content figure{margin:1rem 0}.blog-content figure[data-align="center"]{margin-left:auto;margin-right:auto}.blog-content figure[data-align="right"]{margin-left:auto}.blog-content figcaption{text-align:center;font-size:.8rem;color:rgba(255,255,255,.5)}`}</style>
-        <div
-          className="text-white/80 leading-relaxed blog-content"
-          dangerouslySetInnerHTML={{ __html: normalizedContent }}
-        />
+        {blockLayout ? <BlockPostRenderer layout={blockLayout} content={post.contentJson || {}} slots={{ question: ({ block }) => <QuestionForm postId={post.layoutPostId} template={questionTemplate?.id === block.props?.templateId ? questionTemplate : null} heading={block.props?.heading} /> }} /> : <div className="text-white/80 leading-relaxed blog-content" dangerouslySetInnerHTML={{ __html: normalizedContent }} />}
       </div>
 
       <footer className="pt-12 border-t border-white/10 flex flex-col md:flex-row justify-between items-center gap-8">

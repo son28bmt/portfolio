@@ -3,7 +3,7 @@ const { PostRevision } = require('../models');
 const SNAPSHOT_FIELDS = [
   'id', 'slug', 'title', 'excerpt', 'content', 'image', 'tags', 'readTime', 'topicId', 'cmsVersion',
   'status', 'publishedAt', 'scheduledAt', 'authorId', 'seoTitle', 'seoDescription',
-  'ogImage', 'canonicalUrl', 'coverAlt', 'coverCaption',
+  'ogImage', 'canonicalUrl', 'coverAlt', 'coverCaption', 'layout', 'contentJson', 'layoutPostId',
 ];
 
 const createPostRevision = async ({ postType, post, action = 'updated', authorId = null }) => {

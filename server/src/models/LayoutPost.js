@@ -35,6 +35,9 @@ const LayoutPost = sequelize.define('LayoutPost', {
     allowNull: true,
     field: 'created_by',
   },
+  publishTarget: { type: DataTypes.ENUM('blog', 'guide'), allowNull: false, defaultValue: 'blog', field: 'publish_target' },
+  publishedPostId: { type: DataTypes.UUID, allowNull: true, field: 'published_post_id' },
+  publishedPostSlug: { type: DataTypes.STRING(191), allowNull: true, field: 'published_post_slug' },
 }, {
   tableName: 'layout_posts',
   timestamps: true,

@@ -5,6 +5,8 @@ import { ArrowLeft, Calendar, Clock } from 'lucide-react';
 import { getGuideError, guideService } from '../services/guideService';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
+import BlockPostRenderer from '@layout-post-renderer/BlockPostRenderer';
+import QuestionForm from '../components/QuestionForm';
 
 const siteUrl = 'https://nguyenquangson.id.vn';
 const draftKey = slug => `guide-question-draft:${slug}`;
@@ -104,6 +106,7 @@ function GuideDetailPage({ slug }) {
 
   const headings = useHeadings(guide?.content);
   const content = useMemo(() => withHeadingIds(guide?.content, headings), [guide?.content, headings]);
+  const blockLayout = Array.isArray(guide?.layout) && guide.layout.length ? guide.layout : null;
   const canonical = `${siteUrl}/huong-dan/${encodeURIComponent(slug || '')}`;
   if (loading) return <div className="py-24 text-center text-white/50">Đang tải bài hướng dẫn…</div>;
   if (error === 'not-found') return <div className="flex min-h-[50vh] flex-col items-center justify-center p-8 text-center"><h1 className="mb-4 text-3xl font-bold">Không tìm thấy bài hướng dẫn</h1><p className="mb-8 text-white/50">Bài viết có thể không tồn tại hoặc đã được gỡ.</p><Link to="/huong-dan" className="rounded-xl bg-primary px-6 py-3 font-bold">Về trang hướng dẫn</Link></div>;
@@ -122,7 +125,7 @@ function GuideDetailPage({ slug }) {
     <header className="mb-9"><div className="mb-4">{guide.topic && <Link to={`/huong-dan?topic=${encodeURIComponent(guide.topic.slug)}`} className="rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-sm text-primary">{guide.topic.name}</Link>}</div><h1 className="mb-5 text-3xl font-extrabold leading-tight sm:text-4xl md:text-5xl">{guide.title}</h1><div className="flex flex-wrap gap-5 text-sm text-white/45"><span className="flex items-center gap-2"><Calendar className="h-4 w-4 text-secondary" />{formatDate(guide.updatedAt)}</span><span className="flex items-center gap-2"><Clock className="h-4 w-4 text-secondary" />{guide.readTime}</span>{(guide.authorName || guide.authorId) && <span>Tác giả: {guide.authorName || guide.authorId}</span>}</div>{tags.length > 0 && <div className="mt-3 flex flex-wrap gap-2">{tags.map(tag => <span key={tag} className="rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-xs text-primary">#{tag}</span>)}</div>}</header>
     {guide.image && <div className="mb-10 overflow-hidden rounded-3xl border border-white/10"><img src={guide.image} alt={guide.title} fetchPriority="high" className="max-h-[520px] w-full object-cover" /></div>}
     {headings.length >= 3 && <nav aria-label="Mục lục" className="mb-10 rounded-2xl border border-white/10 bg-white/[0.03] p-5"><h2 className="mb-3 font-bold">Trong bài viết</h2><ol className="space-y-2">{headings.map(item => <li key={item.id} className={item.level === 'h3' ? 'ml-5' : ''}><a className="text-sm text-white/60 hover:text-secondary" href={`#${item.id}`}>{item.text}</a></li>)}</ol></nav>}
-    <div className="overflow-hidden rounded-3xl border border-white/10 bg-white/[0.02] p-4 text-white/80 sm:p-8"><div className="blog-content guide-article-content" dangerouslySetInnerHTML={{ __html: content }} /></div>
+    <div className="overflow-hidden rounded-3xl border border-white/10 bg-white/[0.02] p-4 text-white/80 sm:p-8">{blockLayout ? <BlockPostRenderer layout={blockLayout} content={guide.contentJson || {}} slots={{ question: ({ block }) => <QuestionForm postId={guide.layoutPostId} template={templates.find(item => item.id === block.props?.templateId) || questionTemplate} heading={block.props?.heading} /> }} /> : <div className="blog-content guide-article-content" dangerouslySetInnerHTML={{ __html: content }} />}</div>
     {templates.length > 0 && <section className="mt-10 rounded-3xl border border-secondary/20 bg-secondary/[0.04] p-5 sm:p-8">
       <h2 className="mb-2 text-2xl font-bold">Bạn cần hỗ trợ thêm?</h2><p className="mb-5 text-sm text-white/55">Gửi câu hỏi riêng cho đội ngũ hỗ trợ. Cần đăng nhập và có email hợp lệ trong hồ sơ.</p>
       {!isAuthenticated && !authLoading && <button type="button" onClick={() => { sessionStorage.setItem(draftKey(slug), JSON.stringify({ templateId: selectedTemplateId, answers })); navigate('/dang-nhap', { state: { from: { pathname: location.pathname, search: location.search } } }); }} className="mb-4 rounded-xl bg-primary px-4 py-2 text-sm font-bold">Đăng nhập để hỏi</button>}

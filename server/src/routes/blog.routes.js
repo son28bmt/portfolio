@@ -79,6 +79,8 @@ const normalizeBlogRecord = (post) => {
   return {
     ...plain,
     content: sanitizeContent(plain.content),
+    layout: typeof plain.layout === 'string' ? (() => { try { return JSON.parse(plain.layout); } catch { return null; } })() : plain.layout,
+    contentJson: typeof plain.contentJson === 'string' ? (() => { try { return JSON.parse(plain.contentJson); } catch { return null; } })() : plain.contentJson,
     tags: toStringArray(plain.tags, { allowCommaSplit: true }),
   };
 };
@@ -117,6 +119,7 @@ router.get('/', async (req, res) => {
 
     const { count, rows } = await Blog.findAndCountAll({
       where: { status: 'published' },
+      attributes: ['id', 'slug', 'title', 'excerpt', 'image', 'readTime', 'tags', 'publishedAt', 'updatedAt', 'authorId', 'coverAlt', 'coverCaption'],
       order: [['createdAt', 'DESC']],
       limit,
       offset

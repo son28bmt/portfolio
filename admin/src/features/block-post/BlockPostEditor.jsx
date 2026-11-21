@@ -104,9 +104,11 @@ export default function BlockPostEditor() {
   const postTitle = useBlockPostStore((state) => state.postTitle);
   const postStatus = useBlockPostStore((state) => state.postStatus);
   const postUpdatedAt = useBlockPostStore((state) => state.postUpdatedAt);
+  const storedPublishTarget = useBlockPostStore((state) => state.publishTarget);
   const markPostSaved = useBlockPostStore((state) => state.markPostSaved);
   const loadPost = useBlockPostStore((state) => state.loadPost);
   const [title, setTitle] = useState(postTitle || '');
+  const [publishTarget, setPublishTarget] = useState(storedPublishTarget || 'blog');
   const [postSaving, setPostSaving] = useState(false);
   const [conflict, setConflict] = useState(false);
   const savedSnapshot = useBlockPostStore((state) => state.savedSnapshot);
@@ -162,6 +164,7 @@ export default function BlockPostEditor() {
   }, [removeBlock, selectedBlockId]);
 
   useEffect(() => { if (postTitle) setTitle(postTitle); }, [postTitle]);
+  useEffect(() => { setPublishTarget(storedPublishTarget || 'blog'); }, [storedPublishTarget]);
   useEffect(() => { if (!id) useBlockPostStore.setState({ postId: null, postTitle: '', postStatus: null, postUpdatedAt: null }); }, [id]);
   useEffect(() => {
     if (!id) return;
@@ -193,7 +196,7 @@ export default function BlockPostEditor() {
     if (postSaving) return;
     const cleanTitle = title.trim();
     if (!cleanTitle || cleanTitle.length > 200) { onToast('Tiêu đề bắt buộc và tối đa 200 ký tự.', 'error'); return; }
-    const payload = { title: cleanTitle, templateId: useBlockPostStore.getState().templateId || null, layout: blocks.map((block) => ({ ...block, props: { ...block.props } })), content: contentByBlockId, status: publish ? 'published' : 'draft', updatedAt: postUpdatedAt };
+    const payload = { title: cleanTitle, templateId: useBlockPostStore.getState().templateId || null, layout: blocks.map((block) => ({ ...block, props: { ...block.props } })), content: contentByBlockId, status: publish ? 'published' : 'draft', publishTarget, updatedAt: postUpdatedAt };
     let validated;
     try { validated = validateLayoutPostForSave(payload); }
     catch (error) { onToast(error.message, 'error'); return; }
@@ -203,7 +206,7 @@ export default function BlockPostEditor() {
       if (!postId) saved = await layoutPostApi.create(validated);
       else if (publish) saved = await layoutPostApi.publish(postId, postUpdatedAt, validated);
       else saved = await layoutPostApi.update(postId, validated);
-      markPostSaved(saved); setTitle(saved.title); setConflict(false);
+      markPostSaved(saved); setTitle(saved.title); setPublishTarget(saved.publishTarget || publishTarget); setConflict(false);
       onToast(publish ? 'Đã đăng bài.' : 'Đã lưu nháp.', 'success');
     } catch (error) {
       if (error.response?.status === 409) { setConflict(true); onToast('Bài đã được sửa ở nơi khác. Hãy tải lại trước khi tiếp tục.', 'error'); }
@@ -213,7 +216,7 @@ export default function BlockPostEditor() {
 
   const reloadConflict = async () => {
     if (!postId) return;
-    try { const post = await layoutPostApi.get(postId); loadPost(post); setTitle(post.title); setConflict(false); onToast('Đã tải lại phiên bản mới nhất.', 'success'); }
+    try { const post = await layoutPostApi.get(postId); loadPost(post); setTitle(post.title); setPublishTarget(post.publishTarget || 'blog'); setConflict(false); onToast('Đã tải lại phiên bản mới nhất.', 'success'); }
     catch (error) { onToast(error.response?.data?.message || error.message, 'error'); }
   };
 
@@ -231,7 +234,7 @@ export default function BlockPostEditor() {
         <div className="bp-topbar-title"><button type="button" className="bp-icon-button" title="Quay lại" onClick={() => navigate('/layout-posts')}><ArrowLeft size={17} /></button><div><span className="bp-kicker">CMS / GRIDBOX</span><h1>{postId ? 'Chỉnh sửa bài' : 'Đăng bài mới'}</h1></div></div>
         <div className="bp-topbar-actions"><button className="bp-secondary-button" type="button" title="Hoàn tác" disabled={!pastLength} onClick={undo}><Undo2 size={15} />Hoàn tác</button><button className="bp-secondary-button" type="button" title="Làm lại" disabled={!futureLength} onClick={redo}><Redo2 size={15} />Làm lại</button><span className="bp-save-state"><span className="bp-status-dot" />{postStatus === 'published' ? 'Đã đăng' : postId ? 'Nháp' : 'Chưa lưu'}</span><button className="bp-secondary-button" type="button" title="Xem trước bài viết" onClick={openPreview}><Eye size={15} />Xem trước</button><button className="bp-secondary-button" type="button" title="Lưu bài: lưu snapshot layout và toàn bộ content theo block" disabled={postSaving} onClick={() => savePost(false)}><Save size={15} />Lưu nháp</button>{postStatus === 'published' && <button className="bp-secondary-button" type="button" title="Chuyển bài đã đăng về nháp" disabled={postSaving} onClick={unpublishPost}>Hủy đăng</button>}<button className="bp-primary-button" type="button" title="Đăng bài: validate chặt và chuyển sang published" disabled={postSaving} onClick={() => savePost(true)}><Upload size={15} />Đăng</button></div>
       </header>
-      <div className="bp-post-meta"><label>Tiêu đề bài viết<input maxLength={200} value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Nhập tiêu đề bài viết" /></label><span>{templateDirty || contentDirty ? <b className="bp-dirty-state">Chưa lưu thay đổi</b> : postUpdatedAt ? `Cập nhật ${new Date(postUpdatedAt).toLocaleString('vi-VN')}` : 'Bản nháp mới'}</span>{conflict && <button className="bp-conflict-button" onClick={reloadConflict}><AlertTriangle size={14} />Tải lại phiên bản mới</button>}</div>
+      <div className="bp-post-meta"><label>Tiêu đề bài viết<input maxLength={200} value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Nhập tiêu đề bài viết" /></label><label>Nơi đăng<select value={publishTarget} disabled={postStatus === 'published'} onChange={(event) => setPublishTarget(event.target.value)}><option value="blog">Blog</option><option value="guide">Hướng dẫn</option></select></label><span>{templateDirty || contentDirty ? <b className="bp-dirty-state">Chưa lưu thay đổi</b> : postUpdatedAt ? `Cập nhật ${new Date(postUpdatedAt).toLocaleString('vi-VN')}` : 'Bản nháp mới'}</span>{conflict && <button className="bp-conflict-button" onClick={reloadConflict}><AlertTriangle size={14} />Tải lại phiên bản mới</button>}</div>
       {previewNotice && <div className="bp-preview-notice" role="status">Đang xem bản đã lưu, thay đổi chưa lưu không có trong bản xem trước <button type="button" onClick={() => savePost(false).then(() => { setPreviewNotice(false); window.open(`/layout-posts/${postId}/preview`, '_blank', 'noopener,noreferrer'); })}>Lưu nháp</button></div>}
       <TemplateToolbar onToast={onToast} />
       <div className="bp-workspace">

@@ -136,11 +136,18 @@ const ensureGuideSchema = async () => {
       seo_description: { type: DataTypes.STRING(500), allowNull: true }, og_image: { type: DataTypes.TEXT, allowNull: true },
       canonical_url: { type: DataTypes.TEXT, allowNull: true }, cover_alt: { type: DataTypes.STRING(255), allowNull: true },
       cover_caption: { type: DataTypes.STRING(500), allowNull: true },
+      layout: { type: DataTypes.JSON, allowNull: true }, content_json: { type: DataTypes.JSON, allowNull: true }, layout_post_id: { type: DataTypes.CHAR(36), allowNull: true },
       cms_version: { type: DataTypes.INTEGER.UNSIGNED, allowNull: false, defaultValue: 0 },
     });
     await ensureColumns('guides', {
       tags: { type: DataTypes.JSON, allowNull: true },
+      layout: { type: DataTypes.JSON, allowNull: true }, content_json: { type: DataTypes.JSON, allowNull: true }, layout_post_id: { type: DataTypes.CHAR(36), allowNull: true },
       cms_version: { type: DataTypes.INTEGER.UNSIGNED, allowNull: false, defaultValue: 0 },
+    });
+    await ensureColumns('layout_posts', {
+      publish_target: { type: DataTypes.ENUM('blog', 'guide'), allowNull: false, defaultValue: 'blog' },
+      published_post_id: { type: DataTypes.CHAR(36), allowNull: true },
+      published_post_slug: { type: DataTypes.STRING(191), allowNull: true },
     });
     await ensureStatusValues('Blogs', 'status', ['draft', 'scheduled', 'published', 'archived']);
     await ensureStatusValues('guides', 'status', ['draft', 'scheduled', 'published', 'archived']);
