@@ -58,6 +58,17 @@ export function resolveBlockGeometry(block, blocks, geometry) {
   };
 }
 
+export function normalizeBlockLayout(blocks = []) {
+  const normalized = [];
+  let adjusted = false;
+  for (const block of blocks) {
+    const resolved = resolveBlockGeometry(block, normalized, block);
+    normalized.push(resolved.block);
+    adjusted = adjusted || resolved.adjusted;
+  }
+  return { blocks: normalized, adjusted };
+}
+
 export function hasBlockContent(block, content) {
   if (!block) return false;
   if (block.type === 'image') return Boolean(String(content?.url || '').trim() || String(content?.alt || '').trim());

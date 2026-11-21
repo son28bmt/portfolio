@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { resolveBlockGeometry } from '../utils/layout';
+import { normalizeBlockLayout, resolveBlockGeometry } from '../utils/layout';
 import { normalizeTemplateBlocks } from '../validation/layoutSchema';
 import { defaultBlockContent, syncContentForBlock } from '../utils/blockContent';
 import { syncCheckboxSelections } from '@layout-post-renderer/syncCheckboxSelections';
@@ -110,10 +110,10 @@ export const useBlockPostStore = create((set) => ({
   }),
   updatePosition: (id, position) => set((state) => pushHistory(state, { blocks: state.blocks.map((block) => block.id === id ? { ...block, ...position } : block), contentByBlockId: state.contentByBlockId })),
   applyGridLayout: (layout) => set((state) => ({
-    ...pushHistory(state, { blocks: state.blocks.map((block) => {
+    ...pushHistory(state, { blocks: normalizeBlockLayout(state.blocks.map((block) => {
       const item = layout.find((entry) => entry.i === block.id);
       return item ? { ...block, x: item.x, y: item.y, w: item.w, h: item.h } : block;
-    }), contentByBlockId: state.contentByBlockId }),
+    })).blocks, contentByBlockId: state.contentByBlockId }),
   })),
   setBlockGeometry: (id, geometry) => set((state) => {
     const block = state.blocks.find((item) => item.id === id);
@@ -137,7 +137,8 @@ export const useBlockPostStore = create((set) => ({
   setPendingBlockType: (type) => set({ pendingBlockType: type }),
   setCanvasWidth: (canvasWidth) => set({ canvasWidth: Math.max(320, canvasWidth) }),
   loadTemplate: (template) => {
-    const normalized = normalizeTemplateBlocks(template.blocks || []);
+    const parsed = normalizeTemplateBlocks(template.blocks || []);
+    const normalized = normalizeBlockLayout(parsed.blocks);
     const contentByBlockId = Object.fromEntries(normalized.blocks.map((block) => [block.id, defaultBlockContent(block)]));
     const snapshot = snapshotState(normalized.blocks);
     const contentSnapshot = snapshotContent(contentByBlockId);
@@ -161,7 +162,7 @@ export const useBlockPostStore = create((set) => ({
       postStatus: null,
       postUpdatedAt: null,
     });
-    return normalized.skipped;
+    return parsed.skipped;
   },
   markTemplateSaved: (template) => set((state) => ({
     templateId: template.id,
@@ -173,7 +174,8 @@ export const useBlockPostStore = create((set) => ({
     future: [],
   })),
   loadPost: (post) => {
-    const normalized = normalizeTemplateBlocks(post.layout || []);
+    const parsed = normalizeTemplateBlocks(post.layout || []);
+    const normalized = normalizeBlockLayout(parsed.blocks);
     const contentByBlockId = Object.fromEntries(normalized.blocks.map((block) => {
       const loaded = post.content?.[block.id] || defaultBlockContent(block);
       return [block.id, syncContentForBlock(block, loaded)];
@@ -190,7 +192,7 @@ export const useBlockPostStore = create((set) => ({
       savedSnapshot: snapshot, postId: post.id, postTitle: post.title,
       postStatus: post.status, postUpdatedAt: post.updatedAt,
     });
-    return normalized.skipped;
+    return parsed.skipped;
   },
   markPostSaved: (post) => set((state) => ({
     postId: post.id, postTitle: post.title, postStatus: post.status, postUpdatedAt: post.updatedAt,

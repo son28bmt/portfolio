@@ -17,7 +17,7 @@ const cleanup = () => [tempValidation, tempRenderer, tempCss].forEach(file => { 
 try {
   run(process.execPath, ['--test', 'tests'], path.join(root, 'server'));
   run(process.execPath, ['--test', 'rendererUtils.test.js'], path.join(root, 'shared', 'layout-post-renderer'));
-  run(process.execPath, ['--test', 'src/features/block-post/store/history.test.js', 'src/features/block-post/store/useBlockPostStore.test.js', 'src/features/block-post/utils/blockContent.test.js'], path.join(root, 'admin'));
+  run(process.execPath, ['--test', 'src/features/block-post/store/history.test.js', 'src/features/block-post/store/useBlockPostStore.test.js', 'src/features/block-post/utils/blockContent.test.js', 'src/features/block-post/utils/layout.test.js'], path.join(root, 'admin'));
   run(process.execPath, [adminEsbuild, 'admin/src/features/block-post/validation/layoutSchema.test.js', '--bundle', '--platform=node', '--format=esm', '--external:dompurify', '--alias:@layout-post-renderer=' + path.join(root, 'shared', 'layout-post-renderer'), '--outfile=' + tempValidation], root);
   run(process.execPath, [tempValidation], root);
   run(process.execPath, [adminEsbuild, 'shared/layout-post-renderer/BlockPostRenderer.static.test.jsx', '--bundle', '--platform=node', '--format=esm', '--jsx=automatic', '--external:react', '--external:react-dom/server', '--external:dompurify', '--outfile=' + tempRenderer], root);
