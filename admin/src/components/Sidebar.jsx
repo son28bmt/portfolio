@@ -3,6 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import {
   Bot,
   FileText,
+  LayoutTemplate,
   FolderKanban,
   Gift,
   Headphones,
@@ -31,6 +32,7 @@ const Sidebar = ({ isOpen, onClose }) => {
     { icon: Headphones, label: 'Hỗ trợ trực tuyến', path: '/live-chat' },
     { icon: FolderKanban, label: 'Dự án', path: '/projects' },
     { icon: FileText, label: 'Blog', path: '/blog' },
+    { icon: LayoutTemplate, label: 'Đăng bài mới', path: '/layout-posts/new' },
     { icon: FileText, label: 'Hướng dẫn', path: '/guides' },
     { icon: Bot, label: 'Blog tự động', path: '/blog/automation' },
     { icon: MessageSquare, label: 'Tin nhắn', path: '/messages' },
