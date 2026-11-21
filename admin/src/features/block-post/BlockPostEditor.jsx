@@ -111,6 +111,7 @@ export default function BlockPostEditor() {
   const [conflict, setConflict] = useState(false);
   const savedSnapshot = useBlockPostStore((state) => state.savedSnapshot);
   const selectedBlockId = useBlockPostStore((state) => state.selectedBlockId);
+  const removeBlock = useBlockPostStore((state) => state.removeBlock);
   const undo = useBlockPostStore((state) => state.undo);
   const redo = useBlockPostStore((state) => state.redo);
   const pastLength = useBlockPostStore((state) => state.past.length);
