@@ -6,6 +6,10 @@ export const BLOCK_TYPES = ['header', 'text', 'footer', 'question', 'checkbox', 
 export const ALIGN_VALUES = ['left', 'center', 'right'];
 export const MAX_TEMPLATE_BLOCKS = 100;
 export const MAX_TEMPLATE_JSON_BYTES = 200 * 1024;
+export function parseJsonValue(value, fallback) {
+  if (typeof value !== 'string') return value ?? fallback;
+  try { return JSON.parse(value); } catch { return fallback; }
+}
 export const checkboxSelectionSchema = z.object({ label: z.string().trim().min(1).max(100), checked: z.boolean() }).strip();
 export const checkboxContentSchema = z.object({ kind: z.literal('checkbox'), selections: z.array(checkboxSelectionSchema).max(10) });
 
@@ -57,9 +61,11 @@ export const layoutTemplateSchema = z.object({
 });
 
 export function normalizeTemplateBlocks(blocks = []) {
+  const parsedBlocks = parseJsonValue(blocks, []);
+  const source = Array.isArray(parsedBlocks) ? parsedBlocks : Array.isArray(parsedBlocks?.blocks) ? parsedBlocks.blocks : [];
   const supported = [];
   const skipped = [];
-  for (const block of blocks) {
+  for (const block of source) {
     if (!BLOCK_TYPES.includes(block?.type)) {
       skipped.push(block?.type || 'không xác định');
       continue;
@@ -124,7 +130,8 @@ export function validateLayoutPostForSave(value) {
   if (value.status === 'published' && questionBlocks.length > 1) throw new Error(`Block ${questionBlocks[1].id}: chỉ được có tối đa 1 block Question khi đăng.`);
   if (value.status === 'published' && questionBlocks.some((block) => !block.props.templateId)) throw new Error(`Block ${questionBlocks.find((block) => !block.props.templateId).id}: cần chọn bộ câu hỏi trước khi đăng.`);
   const blockMap = new Map(layout.map((block) => [block.id, block]));
-  const source = value.content && typeof value.content === 'object' ? value.content : {};
+  const parsedContent = parseJsonValue(value.content, {});
+  const source = parsedContent && typeof parsedContent === 'object' && !Array.isArray(parsedContent) ? parsedContent : {};
   for (const key of Object.keys(source)) if (!blockMap.has(key)) throw new Error(`Block ${key} không tồn tại trong layout.`);
   const content = {};
   for (const block of layout) content[block.id] = validateContentByType(block.type, source[block.id] || { kind: 'empty' }, block.props);

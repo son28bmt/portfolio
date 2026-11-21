@@ -49,7 +49,11 @@ router.get('/', async (req, res) => {
 router.get('/question-templates', async (req, res) => {
   try {
     const templates = await QuestionTemplate.findAll({ where: { isActive: true, guideId: null }, attributes: ['id', 'name', 'fields'], order: [['createdAt', 'DESC']] });
-    return res.json(templates.map(template => template.toJSON()));
+    return res.json(templates.map(template => {
+      const data = template.toJSON();
+      if (typeof data.fields === 'string') { try { data.fields = JSON.parse(data.fields); } catch { data.fields = []; } }
+      return data;
+    }));
   } catch (error) { return errorBody(res, error, 'Không thể tải bộ câu hỏi.'); }
 });
 

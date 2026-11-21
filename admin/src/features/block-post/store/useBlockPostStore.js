@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { normalizeBlockLayout, resolveBlockGeometry } from '../utils/layout';
-import { normalizeTemplateBlocks } from '../validation/layoutSchema';
+import { normalizeTemplateBlocks, parseJsonValue } from '../validation/layoutSchema';
 import { defaultBlockContent, syncContentForBlock } from '../utils/blockContent';
 import { syncCheckboxSelections } from '@layout-post-renderer/syncCheckboxSelections';
 import { removeBlockState } from './blockPostState';
@@ -174,10 +174,12 @@ export const useBlockPostStore = create((set) => ({
     future: [],
   })),
   loadPost: (post) => {
-    const parsed = normalizeTemplateBlocks(post.layout || []);
+    const layout = parseJsonValue(post.layout, []);
+    const rawContent = parseJsonValue(post.content, {});
+    const parsed = normalizeTemplateBlocks(layout);
     const normalized = normalizeBlockLayout(parsed.blocks);
     const contentByBlockId = Object.fromEntries(normalized.blocks.map((block) => {
-      const loaded = post.content?.[block.id] || defaultBlockContent(block);
+      const loaded = rawContent?.[block.id] || defaultBlockContent(block);
       return [block.id, syncContentForBlock(block, loaded)];
     }));
     const blocks = normalized.blocks.map((block) => block.type === 'text'

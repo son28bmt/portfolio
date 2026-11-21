@@ -34,7 +34,12 @@ export default function GridCanvas() {
 
   useEffect(() => {
     if (!blocks.some((block) => block.type === 'question')) return;
-    layoutPostApi.questionTemplates().then(setQuestionTemplates).catch(() => setQuestionTemplates([]));
+    layoutPostApi.questionTemplates().then((data) => {
+      if (Array.isArray(data)) setQuestionTemplates(data);
+      else if (Array.isArray(data?.items)) setQuestionTemplates(data.items);
+      else if (typeof data === 'string') { try { const parsed = JSON.parse(data); setQuestionTemplates(Array.isArray(parsed) ? parsed : []); } catch { setQuestionTemplates([]); } }
+      else setQuestionTemplates([]);
+    }).catch(() => setQuestionTemplates([]));
   }, [blocks]);
 
   const layout = useMemo(() => blocks.length

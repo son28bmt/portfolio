@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { validateLayoutPostForSave } from './layoutSchema.js';
+import './layoutSchema.data.test.js';
 
 const block = (props = {}) => ({ id: 'q', type: 'question', x: 0, y: 0, w: 12, h: 3, align: 'left', props });
 

@@ -4,6 +4,11 @@ import { layoutPostApi } from '../api/layoutPostApi';
 
 const input = 'bp-field';
 const normalizeOptions = (text) => String(text || '').split('\n').map((item) => item.trim()).filter(Boolean);
+const asArray = (value) => {
+  if (Array.isArray(value)) return value;
+  if (Array.isArray(value?.items)) return value.items;
+  try { const parsed = typeof value === 'string' ? JSON.parse(value) : value; return Array.isArray(parsed) ? parsed : []; } catch { return []; }
+};
 
 export default function BlockSpecificProperties({ block, updateBlock, onNotice }) {
   const [optionText, setOptionText] = useState((block.props?.options || []).join('\n'));
@@ -12,7 +17,7 @@ export default function BlockSpecificProperties({ block, updateBlock, onNotice }
   useEffect(() => { setOptionText((block.props?.options || []).join('\n')); setValidationError(block.id, null); }, [block.id, setValidationError]);
   useEffect(() => {
     if (block.type !== 'question') return;
-    layoutPostApi.questionTemplates().then(setQuestionTemplates).catch(() => setQuestionTemplates([]));
+    layoutPostApi.questionTemplates().then((data) => setQuestionTemplates(asArray(data))).catch(() => setQuestionTemplates([]));
   }, [block.type]);
   const update = (props) => updateBlock(block.id, { props });
   const commitOptions = (nextText) => {

@@ -32,7 +32,11 @@ export default function TemplateToolbar({ onToast }) {
   useEffect(() => {
     if (dialog !== 'load') return undefined;
     setLoading(true);
-    layoutTemplateApi.list({ q: query, page, limit: 12 }).then((data) => { setItems(data.items || []); setTotalPages(data.totalPages || 1); })
+    layoutTemplateApi.list({ q: query, page, limit: 12 }).then((data) => {
+      const parsed = typeof data === 'string' ? JSON.parse(data) : data;
+      setItems(Array.isArray(parsed?.items) ? parsed.items : []);
+      setTotalPages(parsed?.totalPages || 1);
+    })
       .catch((error) => onToast(errorMessage(error), 'error'))
       .finally(() => setLoading(false));
     return undefined;
@@ -69,7 +73,7 @@ export default function TemplateToolbar({ onToast }) {
     if ((dirty || contentDirty) && !window.confirm('Mẫu hoặc nội dung bài hiện tại có thay đổi chưa lưu. Bạn vẫn muốn tải mẫu khác?')) return;
     setLoading(true);
     try {
-      const fullTemplate = template.blocks ? template : await layoutTemplateApi.get(template.id);
+      const fullTemplate = await layoutTemplateApi.get(template.id);
       const skipped = loadTemplate(fullTemplate);
       setDialog(null);
       onToast(skipped.length ? `Đã tải mẫu; bỏ qua block chưa hỗ trợ: ${skipped.join(', ')}.` : 'Đã tải mẫu.', skipped.length ? 'warning' : 'success');
