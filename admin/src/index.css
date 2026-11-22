@@ -38,6 +38,11 @@ select option:checked {
 .rich-editor-content .ProseMirror { min-height: 360px; outline: none; }
 .rich-editor-content .ProseMirror h2 { font-size: 1.5rem; font-weight: 700; margin: 1rem 0 .5rem; }
 .rich-editor-content .ProseMirror h3 { font-size: 1.25rem; font-weight: 700; margin: 1rem 0 .5rem; }
+.rich-editor-content .ProseMirror ul { list-style-type: disc; margin: .75rem 0; padding-left: 1.5rem; }
+.rich-editor-content .ProseMirror ol { list-style-type: decimal; margin: .75rem 0; padding-left: 1.5rem; }
+.rich-editor-content .ProseMirror li { display: list-item; margin: .25rem 0; padding-left: .15rem; }
+.rich-editor-content .ProseMirror li > p { display: inline; margin: 0; }
+.rich-editor-content .ProseMirror li > ul, .rich-editor-content .ProseMirror li > ol { margin: .35rem 0; }
 .rich-editor-content .ProseMirror blockquote { border-left: 3px solid #9d00ff; padding-left: 1rem; color: rgba(255,255,255,.65); }
 .rich-editor-content .ProseMirror pre { background: #090909; border: 1px solid rgba(255,255,255,.1); border-radius: .5rem; padding: .75rem; overflow-x: auto; }
 .rich-editor-content .ProseMirror img { max-width: 100%; border-radius: .5rem; }
