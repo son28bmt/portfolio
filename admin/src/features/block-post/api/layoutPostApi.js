@@ -2,7 +2,13 @@ import api from '../../../services/api';
 import { validateLayoutPostForSave } from '../validation/layoutSchema';
 
 const BASE_PATH = '/layout-posts';
-const normalizePost = (post) => validateLayoutPostForSave(post);
+const normalizePost = (post) => {
+  const normalized = validateLayoutPostForSave(post);
+  return {
+    ...normalized,
+    publishTarget: post.publishTarget || 'blog',
+  };
+};
 
 export const layoutPostApi = {
   async list(params = {}) { const { data } = await api.get(BASE_PATH, { params }); return data; },
