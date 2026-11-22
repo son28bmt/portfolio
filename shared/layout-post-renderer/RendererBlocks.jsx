@@ -9,6 +9,7 @@ const textAlignValue = /(?:^|;)\s*text-align\s*:\s*(left|center|right|justify)\s
 const exactTextAlign = /^text-align\s*:\s*(left|center|right|justify)$/i;
 
 const sanitizeHook = (_node, data) => {
+  if (!data) return;
   if (data.attrName === 'style') {
     const value = String(data.attrValue || '').trim();
     data.attrValue = exactTextAlign.test(value) ? value.toLowerCase() : '';
