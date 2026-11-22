@@ -14,9 +14,9 @@ export const checkboxSelectionSchema = z.object({ label: z.string().trim().min(1
 export const checkboxContentSchema = z.object({ kind: z.literal('checkbox'), selections: z.array(checkboxSelectionSchema).max(10) });
 
 const allowedProps = {
-  header: z.object({ title: z.string().max(255).optional() }).strip(),
+  header: z.object({ title: z.string().max(MAX_TEMPLATE_JSON_BYTES).optional() }).strip(),
   text: z.object({ content: z.string().max(MAX_TEMPLATE_JSON_BYTES).optional() }).strip(),
-  footer: z.object({ text: z.string().max(500).optional() }).strip(),
+  footer: z.object({ text: z.string().max(MAX_TEMPLATE_JSON_BYTES).optional() }).strip(),
   question: z.object({ templateId: z.string().uuid().optional(), heading: z.string().max(100).optional() }).strip(),
   checkbox: z.object({ options: z.array(z.string().trim().min(1).max(100)).min(1).max(10), allowMultiple: z.boolean().optional().default(true) }).strip().superRefine((props, context) => {
     if (new Set(props.options).size !== props.options.length) context.addIssue({ code: 'custom', path: ['options'], message: 'Các lựa chọn checkbox không được trùng nhau.' });

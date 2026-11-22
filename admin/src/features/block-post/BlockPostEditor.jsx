@@ -80,8 +80,8 @@ function PropertiesPanel() {
         }} /></label>
       </div>
       <div className="bp-field"><span className="bp-field-label">Căn lề</span><div className="bp-align-control">{['left', 'center', 'right'].map((align) => <button key={align} className={block.align === align ? 'is-active' : ''} type="button" aria-label={`Căn ${align}`} onClick={() => updateBlock(block.id, { align })}>{align === 'left' ? 'Trái' : align === 'center' ? 'Giữa' : 'Phải'}</button>)}</div></div>
-      {block.type === 'header' && <label className="bp-field">Tiêu đề<input value={block.props.title || ''} onChange={(event) => updateBlock(block.id, { props: { title: event.target.value } })} /></label>}
-      {block.type === 'footer' && <label className="bp-field">Nội dung<input value={block.props.text || ''} onChange={(event) => updateBlock(block.id, { props: { text: event.target.value } })} /></label>}
+      {block.type === 'header' && <label className="bp-field">Nội dung Header<textarea rows={5} value={block.props.title || ''} onChange={(event) => updateBlock(block.id, { props: { title: event.target.value } })} placeholder="Nhập tiêu đề hoặc đoạn mở đầu" /></label>}
+      {block.type === 'footer' && <label className="bp-field">Nội dung Footer<textarea rows={5} value={block.props.text || ''} onChange={(event) => updateBlock(block.id, { props: { text: event.target.value } })} placeholder="Nhập kết bài hoặc ghi chú" /></label>}
       <BlockSpecificProperties block={block} updateBlock={updateBlock} onNotice={setNotice} />
       <div className="bp-properties-divider" />
       <div className="bp-size-readout"><span>KÍCH THƯỚC HIỆN TẠI</span><strong>{columnsToPercent(block.w)}% <i>·</i> {columnsToPixels(block.w, canvasWidth)}px <i>×</i> {rowsToPixels(block.h)}px</strong></div>

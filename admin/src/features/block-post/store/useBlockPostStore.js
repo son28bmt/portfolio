@@ -7,9 +7,9 @@ import { removeBlockState } from './blockPostState';
 import { pushHistory, redoState, undoState } from './history';
 
 const blockDefaults = {
-  header: { w: 12, h: 3, props: { title: 'Tiêu đề bài viết' } },
+  header: { w: 12, h: 3, props: { title: '' } },
   text: { w: 8, h: 6, props: { content: '<p></p>' } },
-  footer: { w: 12, h: 2, props: { text: 'Thông tin cuối bài' } },
+  footer: { w: 12, h: 2, props: { text: '' } },
   question: { w: 8, h: 5, props: { heading: '' } },
   checkbox: { w: 6, h: 5, props: { options: ['Lựa chọn 1'], allowMultiple: true } },
   image: { w: 8, h: 7, props: { fit: 'cover', ratio: '16:9', borderRadius: 8 } },
@@ -184,9 +184,13 @@ export const useBlockPostStore = create((set) => ({
       const loaded = rawContent?.[block.id] || defaultBlockContent(block);
       return [block.id, syncContentForBlock(block, loaded)];
     }));
-    const blocks = normalized.blocks.map((block) => block.type === 'text'
-      ? { ...block, props: { ...block.props, content: contentByBlockId[block.id]?.html || block.props.content || '' } }
-      : block);
+    const blocks = normalized.blocks.map((block) => {
+      const html = contentByBlockId[block.id]?.html || '';
+      if (block.type === 'text') return { ...block, props: { ...block.props, content: html || block.props.content || '' } };
+      if (block.type === 'header') return { ...block, props: { ...block.props, title: html || block.props.title || '' } };
+      if (block.type === 'footer') return { ...block, props: { ...block.props, text: html || block.props.text || '' } };
+      return block;
+    });
     const snapshot = snapshotState(blocks);
     set({
       past: [], present: blocks, future: [], blocks, contentByBlockId,

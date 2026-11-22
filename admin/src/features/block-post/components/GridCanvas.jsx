@@ -115,7 +115,7 @@ export default function GridCanvas() {
     const type = ['header', 'text', 'footer'][index];
     const definition = blockRegistry[type];
     const BlockComponent = definition.component;
-    const props = type === 'header' ? { title: 'Tiêu đề bài viết' } : type === 'text' ? { content: '<p>Kéo block từ kho công cụ để bắt đầu chỉnh sửa nội dung.</p>' } : { text: 'Thông tin cuối bài' };
+    const props = type === 'header' ? { title: 'Tiêu đề và phần mở đầu' } : type === 'text' ? { content: '<p>Kéo block từ kho công cụ để bắt đầu chỉnh sửa nội dung.</p>' } : { text: 'Kết bài và ghi chú' };
     const sample = { id: item.i, type, align: 'left', props };
     return <div key={item.i} className="bp-grid-item bp-demo-item"><div className="bp-block-shell"><div className="bp-block-toolbar"><span className="bp-drag-handle"><Grip size={15} /><span>{definition.label}</span></span><span className="bp-demo-badge">MẪU</span></div><div className="bp-block-content"><BlockComponent block={sample} editable={false} onChange={() => {}} /></div></div></div>;
   });
