@@ -7,10 +7,11 @@ const { protect } = require('../middleware/auth.middleware');
 const { requireRoles } = require('../middleware/require-admin.middleware');
 const { Blog, Guide } = require('../models');
 const { uploadBufferToR2 } = require('../services/r2.service');
-const { assertCmsImageBuffer } = require('../services/cms-upload.service');
+const { assertCmsImageBuffer, assertCmsFile } = require('../services/cms-upload.service');
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024, files: 1 } });
+const fileUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024, files: 1 } });
 const limiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 60, standardHeaders: true, legacyHeaders: false, validate: { default: false } });
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -27,6 +28,17 @@ router.post('/upload-image', limiter, upload.single('image'), async (req, res) =
     return res.status(201).json({ url, mimeType: 'image/webp', size: buffer.length });
   } catch (error) {
     return res.status(400).json({ message: error.message || 'Không thể xử lý ảnh.' });
+  }
+});
+
+router.post('/upload-file', limiter, fileUpload.single('file'), async (req, res) => {
+  try {
+    assertCmsFile(req.file);
+    const folder = req.body.folder === 'cms/files' ? 'cms/files' : 'cms/files';
+    const url = await uploadBufferToR2({ buffer: req.file.buffer, originalName: req.file.originalname, mimeType: req.file.mimetype, folder });
+    return res.status(201).json({ url, name: req.file.originalname, mimeType: req.file.mimetype, size: req.file.size });
+  } catch (error) {
+    return res.status(error.status || 400).json({ message: error.message || 'Không thể tải tệp.' });
   }
 });
 

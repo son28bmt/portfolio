@@ -46,6 +46,14 @@ test('sanitizeContent: removes scripts, event handlers, and javascript URLs', ()
   assert.doesNotMatch(html, /script|onerror|onclick|javascript:/i);
 });
 
+test('sanitizeContent: preserves safe internal and downloadable links', () => {
+  const html = sanitizeContent('<p><a href="/du-an/driver-inbill-aibat">Driver</a><a href="https://example.com/file.zip" target="_blank" download="driver.zip">Tải</a><a href="javascript:bad">X</a></p>');
+  assert.match(html, /href="\/du-an\/driver-inbill-aibat"/);
+  assert.match(html, /href="https:\/\/example\.com\/file\.zip"/);
+  assert.match(html, /download="driver\.zip"/);
+  assert.doesNotMatch(html, /javascript:/i);
+});
+
 test('sanitizeContent: preserves an approved YouTube iframe only', () => {
   const html = sanitizeContent('<iframe src="https://www.youtube-nocookie.com/embed/abc123" onload="alert(1)"></iframe><iframe src="https://evil.example/embed/x"></iframe><iframe src="https://youtube.com/watch?v=x"></iframe>');
   assert.match(html, /youtube-nocookie\.com\/embed\/abc123/);

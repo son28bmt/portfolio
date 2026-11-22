@@ -1,4 +1,6 @@
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+const MAX_FILE_BYTES = 50 * 1024 * 1024;
+const CMS_FILE_TYPES = new Set(['application/pdf', 'application/zip', 'application/x-zip-compressed', 'application/vnd.rar', 'application/x-rar-compressed', 'application/x-7z-compressed', 'application/octet-stream', 'text/plain', 'application/vnd.android.package-archive', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']);
 
 const detectedImageType = buffer => {
   if (!Buffer.isBuffer(buffer)) return null;
@@ -16,4 +18,10 @@ const assertCmsImageBuffer = buffer => {
   if (!detectedImageType(buffer)) { const error = new Error('Tệp không phải định dạng ảnh được hỗ trợ.'); error.status = 400; throw error; }
 };
 
-module.exports = { MAX_IMAGE_BYTES, detectedImageType, assertCmsImageBuffer };
+const assertCmsFile = (file) => {
+  if (!file?.buffer?.length) { const error = new Error('Vui lòng chọn tệp.'); error.status = 400; throw error; }
+  if (file.buffer.length > MAX_FILE_BYTES) { const error = new Error('Tệp không được vượt quá 50 MB.'); error.status = 413; throw error; }
+  if (!CMS_FILE_TYPES.has(String(file.mimetype || '').toLowerCase())) { const error = new Error('Định dạng tệp chưa được hỗ trợ.'); error.status = 400; throw error; }
+};
+
+module.exports = { MAX_IMAGE_BYTES, MAX_FILE_BYTES, detectedImageType, assertCmsImageBuffer, assertCmsFile };

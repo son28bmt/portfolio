@@ -19,7 +19,7 @@ const sanitizeContent = (value) => sanitizeHtml(String(value || ''), {
   ],
   allowedAttributes: {
     '*': ['class', 'style', 'data-align'],
-    a: ['href', 'target', 'rel'],
+    a: ['href', 'target', 'rel', 'download'],
     img: ['src', 'alt', 'width', 'height'],
     iframe: ['src', 'width', 'height', 'title', 'allowfullscreen', 'frameborder'],
   },
@@ -31,7 +31,7 @@ const sanitizeContent = (value) => sanitizeHtml(String(value || ''), {
   allowedSchemesByTag: { a: ['http', 'https', 'mailto'], img: ['https'], iframe: ['https'] },
   allowedIframeHostnames: ['youtube.com', 'www.youtube.com', 'youtube-nocookie.com', 'www.youtube-nocookie.com'],
   transformTags: {
-    a: (tagName, attribs) => ({ tagName, attribs: { ...attribs, ...(attribs.target === '_blank' ? { rel: 'noopener noreferrer' } : {}) } }),
+    a: (tagName, attribs) => ({ tagName, attribs: { ...attribs, ...(attribs.target === '_blank' ? { rel: 'noopener noreferrer' } : {}), ...(attribs.download ? { download: String(attribs.download).slice(0, 255) } : {}) } }),
   },
   exclusiveFilter: frame => frame.tag === 'iframe' && !isAllowedYoutubeEmbed(frame.attribs.src),
 });
