@@ -191,7 +191,7 @@ test('public layout post route returns only published public fields', async () =
 test('public layout post questions endpoint uses only active shared templates', async () => {
   const express = require('express');
   const app = express();
-  const postModel = { findOne: async ({ where }) => where.id === 'p1' && where.status === 'published' ? { layout: [{ type: 'question', props: { templateId: 't1' } }] } : (where.id === 'p2' ? { layout: [{ type: 'question', props: { templateId: 't2' } }] } : null) };
+  const postModel = { findOne: async ({ where }) => where.id === 'p1' && where.status === 'published' ? { layout: JSON.stringify([{ type: 'question', props: { templateId: 't1' } }]) } : (where.id === 'p2' ? { layout: [{ type: 'question', props: { templateId: 't2' } }] } : null) };
   const templateModel = { findOne: async ({ where }) => where.id === 't1' && where.isActive === true && where.guideId === null ? { id: 't1', name: 'Form', fields: [{ key: 'q', label: 'Câu hỏi', type: 'text', required: true, maxLength: 100 }] } : null };
   app.use('/public', buildPublicLayoutPostRouter(postModel, templateModel));
   const server = app.listen(0);

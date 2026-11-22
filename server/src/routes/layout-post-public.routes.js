@@ -14,7 +14,8 @@ function buildPublicLayoutPostRouter(LayoutPost = DefaultLayoutPost, QuestionTem
     try {
       const post = await LayoutPost.findOne({ where: { id: req.params.id, status: 'published' }, attributes: ['id', 'layout'] });
       if (!post) return res.status(404).set('Cache-Control', 'no-store').json({ message: 'Không tìm thấy bài viết.' });
-      const block = (post.layout || []).find(item => item.type === 'question');
+      const layout = parseJson(post.layout, []);
+      const block = (Array.isArray(layout) ? layout : []).find(item => item?.type === 'question');
       const templateId = block?.props?.templateId;
       if (!templateId) return res.set('Cache-Control', 'no-store').json(null);
       const template = await QuestionTemplate.findOne({ where: { id: templateId, isActive: true, guideId: null }, attributes: ['id', 'name', 'fields'] });
