@@ -318,7 +318,7 @@ const Home = () => {
                     {/* Project Links */}
                     <div className="flex items-center justify-between pt-4 border-t border-white/5">
                       <Link
-                        to={`/du-an?id=${project.id}`}
+                        to={`/du-an/${project.slug || project.id}`}
                         className="inline-flex items-center gap-1.5 text-xs font-bold text-primary hover:underline"
                       >
                         Chi tiết dự án <ArrowRight className="w-3.5 h-3.5" />

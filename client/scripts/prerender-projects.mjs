@@ -49,11 +49,25 @@ function renderProjectHtml(template, project) {
     .replace('<div id="root"></div>', `<div id="root">${article}</div>`);
 }
 
+function renderProjectIndexHtml(template, projects) {
+  const links = projects.map((project) => {
+    const slug = project.slug || project.id;
+    if (!slug) return '';
+    return `<article><h2><a href="/du-an/${encodeURIComponent(slug)}">${escapeHtml(project.title || 'Dự án')}</a></h2><p>${escapeHtml(description(project))}</p></article>`;
+  }).join('');
+  const head = `<title>Dự án | Nguyễn Quang Sơn</title>\n    <meta name="description" content="Các dự án web, mobile và công cụ do Nguyễn Quang Sơn phát triển." />\n    <meta name="robots" content="index, follow" />\n    <link rel="canonical" href="${siteUrl}/du-an" />`;
+  return template
+    .replace(/<meta\s+name="description"[\s\S]*?\/>/i, '')
+    .replace(/<title>[\s\S]*?<\/title>/i, head)
+    .replace('<div id="root"></div>', `<div id="root"><main><h1>Dự án</h1>${links}</main></div>`);
+}
+
 async function main() {
   const template = await readFile(path.join(distDir, 'index.html'), 'utf8');
   const projects = await getProjects();
   await rm(projectDir, { recursive: true, force: true });
   await mkdir(projectDir, { recursive: true });
+  await writeFile(path.join(projectDir, 'index.html'), renderProjectIndexHtml(template, projects), 'utf8');
   for (const item of projects) {
     const slug = item?.slug || item?.id;
     if (!slug) continue;
