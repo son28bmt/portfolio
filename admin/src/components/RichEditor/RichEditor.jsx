@@ -24,7 +24,7 @@ const CmsLink = Link.extend({
 const CmsImage = Image.extend({
   parseHTML() {
     return [
-      { tag: 'figure.cms-image img', getAttrs: node => ({ ...this.options.HTMLAttributes, src: node.getAttribute('src'), alt: node.getAttribute('alt'), title: node.parentElement?.querySelector('figcaption')?.textContent || node.getAttribute('title'), 'data-align': node.parentElement?.getAttribute('data-align') || node.getAttribute('data-align'), width: node.getAttribute('width'), height: node.getAttribute('height') }) },
+      { tag: 'figure.cms-image', getAttrs: node => { const image = node.querySelector('img'); if (!image) return false; return { ...this.options.HTMLAttributes, src: image.getAttribute('src'), alt: image.getAttribute('alt'), title: node.querySelector('figcaption')?.textContent || image.getAttribute('title'), 'data-align': node.getAttribute('data-align') || image.getAttribute('data-align'), width: image.getAttribute('width'), height: image.getAttribute('height') }; } },
       { tag: 'img[src]' },
     ];
   },
