@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowUpRight, CornerDownLeft, LoaderCircle, Search, Sparkles } from 'lucide-react';
-import api from '../services/api';
+import { searchContent } from '../services/contentSearchService';
 
 const MATCH_LABELS = {
   title: 'Tiêu đề',
@@ -84,6 +84,7 @@ export default function SmartSearch({
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
+  const [searchError, setSearchError] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -97,14 +98,22 @@ export default function SmartSearch({
       setLoading(false);
       setActiveIndex(-1);
       setOpen(false);
+      setSearchError(false);
       return () => controller.abort();
     }
 
+    setOpen(true);
     setLoading(true);
+    setSearchError(false);
+    setSuggestions([]);
+    setTotalMatches(0);
     const timer = window.setTimeout(async () => {
       try {
-        const { data } = await api.get('/search/suggestions', {
-          params: { type, q: query, ...(topic ? { topic } : {}) },
+        const data = await searchContent({
+          type,
+          q: query,
+          limit: 6,
+          ...(topic ? { topic } : {}),
           signal: controller.signal,
         });
         if (requestRef.current !== requestId) return;
@@ -116,6 +125,7 @@ export default function SmartSearch({
         if (!controller.signal.aborted && requestRef.current === requestId) {
           setSuggestions([]);
           setTotalMatches(0);
+          setSearchError(true);
         }
       } finally {
         if (requestRef.current === requestId) setLoading(false);
@@ -188,7 +198,11 @@ export default function SmartSearch({
       autoComplete="off"
       placeholder={placeholder}
       value={value}
-      onChange={event => onChange(event.target.value)}
+      onChange={event => {
+        const nextValue = event.target.value;
+        onChange(nextValue);
+        setOpen(nextValue.trim().length >= 2);
+      }}
       onFocus={() => { if (String(value || '').trim().length >= 2) setOpen(true); }}
       onKeyDown={handleKeyDown}
       className={`w-full rounded-lg border border-white/10 bg-white/[0.04] py-3 pl-11 pr-11 text-sm text-white outline-none transition placeholder:text-white/40 focus:border-primary/50 focus:bg-white/[0.06] ${inputClassName}`}
@@ -237,8 +251,8 @@ export default function SmartSearch({
             </li>)}
           </ul>
           : <div className="px-4 py-4">
-            <p className="text-sm text-white/70">Chưa tìm thấy bài phù hợp.</p>
-            <p className="mt-1 text-xs text-white/40">Thử từ khóa ngắn hơn hoặc bỏ dấu tiếng Việt.</p>
+            <p className="text-sm text-white/70">{searchError ? 'Chưa tải được gợi ý bài viết.' : 'Chưa tìm thấy bài phù hợp.'}</p>
+            <p className="mt-1 text-xs text-white/40">{searchError ? 'Nhấn Enter để thử tìm toàn bộ bài viết.' : 'Thử từ khóa ngắn hơn hoặc bỏ dấu tiếng Việt.'}</p>
           </div>}
 
       <div className="flex items-center justify-between border-t border-white/[0.07] px-3 py-2 text-[10px] text-white/35">

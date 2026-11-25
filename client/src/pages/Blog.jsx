@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import api from '../services/api';
+import { searchContent } from '../services/contentSearchService';
 import { motion } from 'framer-motion'; // eslint-disable-line no-unused-vars
 import { Calendar, Clock, ArrowUpRight, Hash } from 'lucide-react';
 import SmartSearch from '../components/SmartSearch';
@@ -53,26 +54,25 @@ const Blog = () => {
   const [totalPosts, setTotalPosts] = useState(0);
 
   useEffect(() => {
-    const fetchPosts = async () => {
-      setLoading(true);
-      try {
-        const { data } = query.length >= 2
-          ? await api.get('/search', { params: { type: 'blog', q: query, page, limit: 9 } })
-          : await api.get('/blog', { params: { page, limit: 9 } });
-        const items = Array.isArray(data.items) ? data.items : [];
-        const normalized = items.map((post) => ({ ...post, normalizedTags: parseTags(post.tags) }));
-        
-        setPosts(normalized);
-        setTotalPosts(Number(data.total || 0));
-        setTotalPages(data.totalPages || 1);
-      } catch (err) {
-        console.error('Lỗi khi tải blog:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
+    const controller = new AbortController();
+    setLoading(true);
+    const request = query.length >= 2
+      ? searchContent({ type: 'blog', q: query, page, limit: 9, signal: controller.signal })
+      : api.get('/blog', { params: { page, limit: 9 }, signal: controller.signal }).then(response => response.data);
 
-    fetchPosts();
+    request.then(data => {
+      if (controller.signal.aborted) return;
+      const items = Array.isArray(data.items) ? data.items : [];
+      setPosts(items.map(post => ({ ...post, normalizedTags: parseTags(post.tags) })));
+      setTotalPosts(Number(data.total || 0));
+      setTotalPages(data.totalPages || 1);
+    }).catch(error => {
+      if (!controller.signal.aborted) console.error('Lỗi khi tải blog:', error);
+    }).finally(() => {
+      if (!controller.signal.aborted) setLoading(false);
+    });
+
+    return () => controller.abort();
   }, [page, query]);
 
   useEffect(() => {
@@ -92,12 +92,6 @@ const Blog = () => {
       return next;
     });
   }, [setParams]);
-
-  useEffect(() => {
-    if (searchQuery.trim() === query) return undefined;
-    const timer = window.setTimeout(() => applySearch(searchQuery), 350);
-    return () => window.clearTimeout(timer);
-  }, [searchQuery, query, applySearch]);
 
   return (
     <div className="py-12 max-w-6xl mx-auto px-4 md:px-0 blog-page-shell">

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { ArrowUpRight, Calendar, Clock } from 'lucide-react';
@@ -14,7 +14,6 @@ export default function Guides() {
   const topic = params.get('topic') || '';
   const q = params.get('q') || '';
   const page = getPage(params.get('page'));
-  const lastSubmittedQuery = useRef(q);
   const [search, setSearch] = useState(q);
   const [topics, setTopics] = useState([]);
   const [guides, setGuides] = useState(null);
@@ -28,18 +27,6 @@ export default function Guides() {
     return output;
   }), [setParams]);
   useEffect(() => { setSearch(q); }, [q]);
-  useEffect(() => { lastSubmittedQuery.current = q; }, [q]);
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      const value = search.trim();
-      const next = value.length >= 2 ? value : '';
-      if (next !== lastSubmittedQuery.current) {
-        lastSubmittedQuery.current = next;
-        setQuery({ q: next });
-      }
-    }, 400);
-    return () => window.clearTimeout(timer);
-  }, [search, q, setQuery]);
   useEffect(() => {
     const abort = new AbortController();
     guideService.topics(abort.signal).then(setTopics).catch(() => {});
