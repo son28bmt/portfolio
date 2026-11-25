@@ -287,6 +287,20 @@ const notifyTelegramProjectDownload = ({
   );
 };
 
+const notifyTelegramDonationPaid = ({ donation } = {}) => {
+  if (!donation) return;
+
+  queueTelegramLines([
+    sectionTitle('[DONATE]', 'Có lượt ủng hộ mới'),
+    divider(),
+    bullet('Mã donate', donation.orderCode),
+    bullet('Người ủng hộ', donation.donorName),
+    bullet('Số tiền', formatVnd(donation.amount)),
+    bullet('Mã giao dịch', donation.providerTxnId),
+    bullet('Lúc', formatDateTime(donation.paidAt || new Date())),
+  ]);
+};
+
 const notifyTelegramWalletTopupPaid = ({ topup, user, balanceAfter } = {}) => {
   if (!topup) return;
 
@@ -332,6 +346,7 @@ module.exports = {
   notifyTelegramBlogChanged,
   notifyTelegramProjectChanged,
   notifyTelegramProjectDownload,
+  notifyTelegramDonationPaid,
   notifyTelegramWalletTopupPaid,
   notifyTelegramGuideQuestion,
 };

@@ -38,7 +38,10 @@ TELEGRAM_MESSAGE_THREAD_ID=
 - Du an moi dang
 - Du an duoc cap nhat
 - Co luot tai APK / iOS cua du an
+- Donate da thanh toan thanh cong (ten nguoi ung ho, so tien, ma donate, ma giao dich, thoi gian)
 - Nap quy thanh cong
+
+Donate dung chung bot, chat va thread da cau hinh o tren. Chi gui sau khi webhook SePay xac nhan va luu thanh toan thanh cong; webhook gui lai cho don da thanh toan se khong gui them notify.
 
 ## Nguyen tac ky thuat
 

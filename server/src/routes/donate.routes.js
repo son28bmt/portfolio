@@ -21,8 +21,10 @@ const {
 } = require('../services/donate.service');
 const { addClient, sendEvent } = require('../services/sse.service');
 const { notifyAdmin } = require('../services/socket.service');
+const { notifyTelegramDonationPaid } = require('../services/telegram.service');
 
-const router = express.Router();
+function buildDonateRouter({ DonationModel = Donation } = {}) {
+  const router = express.Router();
 
 const validStatuses = new Set(Object.values(DONATION_STATUS));
 
@@ -33,7 +35,7 @@ router.get('/payment-accounts', async (req, res) => {
 });
 
 const expirePendingDonations = async () => {
-  await Donation.update(
+  await DonationModel.update(
     { status: DONATION_STATUS.EXPIRED },
     {
       where: {
@@ -78,7 +80,7 @@ router.post('/intents', async (req, res) => {
     let orderCode = '';
     for (let i = 0; i < 5; i += 1) {
       const candidate = generateOrderCode();
-      const existing = await Donation.findOne({ where: { orderCode: candidate } });
+      const existing = await DonationModel.findOne({ where: { orderCode: candidate } });
       if (!existing) {
         orderCode = candidate;
         break;
@@ -92,7 +94,7 @@ router.post('/intents', async (req, res) => {
     const transferContent = buildTransferContent(orderCode);
     const expiresAt = getExpiresAt(config.expireMinutes);
 
-    await Donation.create({
+    await DonationModel.create({
       orderCode,
       donorName,
       amount,
@@ -135,7 +137,7 @@ router.post('/intents', async (req, res) => {
 router.get('/intents/:orderCode/status', async (req, res) => {
   try {
     const orderCode = String(req.params.orderCode || '').trim().toUpperCase();
-    const donation = await Donation.findOne({ where: { orderCode } });
+    const donation = await DonationModel.findOne({ where: { orderCode } });
 
     if (!donation) {
       return res.status(404).json({ message: 'Không tìm thấy phiên donate.' });
@@ -168,9 +170,9 @@ router.get('/public-summary', async (req, res) => {
     await expirePendingDonations();
 
     const [totalAmount, totalCount, latestDonations] = await Promise.all([
-      Donation.sum('amount', { where: { status: DONATION_STATUS.PAID } }),
-      Donation.count({ where: { status: DONATION_STATUS.PAID } }),
-      Donation.findAll({
+      DonationModel.sum('amount', { where: { status: DONATION_STATUS.PAID } }),
+      DonationModel.count({ where: { status: DONATION_STATUS.PAID } }),
+      DonationModel.findAll({
         where: {
           status: DONATION_STATUS.PAID,
           isPublic: true,
@@ -239,7 +241,7 @@ router.post('/webhook/sepay', async (req, res) => {
       });
     }
 
-    const donation = await Donation.findOne({ where: { orderCode } });
+    const donation = await DonationModel.findOne({ where: { orderCode } });
     if (!donation) {
       return res.status(404).json({
         success: false,
@@ -259,7 +261,7 @@ router.post('/webhook/sepay', async (req, res) => {
     }
 
     if (payload.providerTxnId) {
-      const existingTxn = await Donation.findOne({ where: { providerTxnId: payload.providerTxnId } });
+      const existingTxn = await DonationModel.findOne({ where: { providerTxnId: payload.providerTxnId } });
       if (existingTxn && existingTxn.id !== donation.id) {
         return res.status(200).json({
           success: true,
@@ -286,6 +288,7 @@ router.post('/webhook/sepay', async (req, res) => {
       rawWebhook: JSON.stringify(payload.rawPayload),
     });
 
+    notifyTelegramDonationPaid({ donation });
     sendEvent('donate', donation.orderCode, { status: DONATION_STATUS.PAID });
     notifyAdmin('admin_donate_refresh');
 
@@ -328,7 +331,7 @@ router.get('/admin/donations', protect, requireAdmin, async (req, res) => {
       ];
     }
 
-    const { rows, count } = await Donation.findAndCountAll({
+    const { rows, count } = await DonationModel.findAndCountAll({
       where,
       order: [['createdAt', 'DESC']],
       limit,
@@ -349,7 +352,7 @@ router.get('/admin/donations', protect, requireAdmin, async (req, res) => {
 
 router.patch('/admin/donations/:id/visibility', protect, requireAdmin, async (req, res) => {
   try {
-    const donation = await Donation.findByPk(req.params.id);
+    const donation = await DonationModel.findByPk(req.params.id);
     if (!donation) {
       return res.status(404).json({ message: 'Không tìm thấy giao dịch donate.' });
     }
@@ -365,4 +368,8 @@ router.patch('/admin/donations/:id/visibility', protect, requireAdmin, async (re
   }
 });
 
-module.exports = router;
+  return router;
+}
+
+module.exports = buildDonateRouter();
+module.exports.buildDonateRouter = buildDonateRouter;
