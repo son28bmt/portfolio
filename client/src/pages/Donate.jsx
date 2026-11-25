@@ -232,11 +232,11 @@ const Donate = () => {
     <div className="py-12 max-w-6xl mx-auto px-4 md:px-0 space-y-10">
       <div className="text-center md:text-left">
         <h1 className="text-3xl md:text-5xl font-bold mb-4 flex items-center justify-center md:justify-start gap-3">
-          Nuôi Dev
+          ỦNG HỘ TÁC GIẢ
           <Gift className="text-primary w-8 h-8" />
         </h1>
         <p className="text-white/60 max-w-3xl">
-          Tớ là sinh viên năm cuối chưa ra trường, Cảm ơn bạn đã hổ trợ. Mỗi khoản donate gói mì tôm, nhiều hơn là gói mì có tôm giúp mình duy trì qua ngày.
+          Nếu những bài viết, công cụ hoặc dự án mã nguồn mở trên trang giúp ích được cho công việc của bạn, bạn có thể mời mình một ly cà phê. Sự ủng hộ của bạn là động lực để mình duy trì server và tiếp tục chia sẻ nhiều nội dung chất lượng hơn.
         </p>
       </div>
 
