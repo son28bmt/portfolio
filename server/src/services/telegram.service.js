@@ -109,21 +109,26 @@ const sendTelegramMessageNow = async (text, options = {}) => {
     payload.message_thread_id = config.threadId;
   }
 
-  await axios.post(`https://api.telegram.org/bot${config.token}/sendMessage`, payload, {
+  const response = await axios.post(`https://api.telegram.org/bot${config.token}/sendMessage`, payload, {
     timeout: 10000,
   });
+
+  if (response.data?.ok === false) {
+    throw new Error(response.data.description || 'Telegram API rejected the message.');
+  }
 
   return { ok: true };
 };
 
 const queueTelegramNotification = (builder) => {
-  Promise.resolve()
+  return Promise.resolve()
     .then(builder)
     .catch((error) => {
       console.error(
         '[Telegram] Gửi notify thất bại:',
         error?.response?.data || error?.message || error,
       );
+      return { ok: false, reason: 'send_failed' };
     });
 };
 
@@ -133,8 +138,19 @@ const queueTelegramLines = (lines, options = {}) => {
     .filter(Boolean)
     .join('\n');
 
-  if (!message) return;
-  queueTelegramNotification(() => sendTelegramMessageNow(message, options));
+  if (!message) return Promise.resolve({ ok: false, skipped: true, reason: 'empty_message' });
+  const notification = queueTelegramNotification(() => sendTelegramMessageNow(message, options));
+
+  if (options.logContext) {
+    return notification.then((result) => {
+      const prefix = `[Telegram] ${sanitizeText(options.logContext, 120)}:`;
+      if (result.ok) console.info(`${prefix} đã gửi.`);
+      else console.warn(`${prefix} chưa gửi (${result.reason || 'unknown'}).`);
+      return result;
+    });
+  }
+
+  return notification;
 };
 
 const sectionTitle = (prefix, title) => `${prefix} ${title}`.trim();
@@ -298,7 +314,7 @@ const notifyTelegramDonationPaid = ({ donation } = {}) => {
     bullet('Số tiền', formatVnd(donation.amount)),
     bullet('Mã giao dịch', donation.providerTxnId),
     bullet('Lúc', formatDateTime(donation.paidAt || new Date())),
-  ]);
+  ], { logContext: `Donate ${sanitizeText(donation.orderCode, 64)}` });
 };
 
 const notifyTelegramWalletTopupPaid = ({ topup, user, balanceAfter } = {}) => {

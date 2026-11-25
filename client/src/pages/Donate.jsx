@@ -51,8 +51,8 @@ const Donate = () => {
   const [error, setError] = useState('');
   const [remainingSeconds, setRemainingSeconds] = useState(0);
 
-  const fetchSummary = useCallback(async () => {
-    setSummaryLoading(true);
+  const fetchSummary = useCallback(async ({ showLoading = true } = {}) => {
+    if (showLoading) setSummaryLoading(true);
     try {
       const { data } = await api.get('/donate/public-summary');
       setSummary({
@@ -63,12 +63,29 @@ const Donate = () => {
     } catch (err) {
       console.error('Không thể tải dữ liệu donate:', err);
     } finally {
-      setSummaryLoading(false);
+      if (showLoading) setSummaryLoading(false);
     }
   }, []);
 
   useEffect(() => {
     fetchSummary();
+  }, [fetchSummary]);
+
+  useEffect(() => {
+    const refreshSummary = () => {
+      if (document.visibilityState === 'visible') {
+        fetchSummary({ showLoading: false });
+      }
+    };
+
+    const timer = window.setInterval(refreshSummary, 20000);
+    window.addEventListener('focus', refreshSummary);
+    document.addEventListener('visibilitychange', refreshSummary);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener('focus', refreshSummary);
+      document.removeEventListener('visibilitychange', refreshSummary);
+    };
   }, [fetchSummary]);
 
   useEffect(() => {
@@ -98,27 +115,55 @@ const Donate = () => {
 
     setPolling(true);
     let sse;
-    
+    let finished = false;
+    let statusRequestInFlight = false;
+
+    const applyStatus = (status, paidAt) => {
+      if (finished || !['paid', 'expired', 'failed'].includes(status)) return;
+      finished = true;
+      if (sse) sse.close();
+      setIntent((prev) => (prev ? { ...prev, status, paidAt: paidAt || prev.paidAt } : prev));
+      setPolling(false);
+      if (status === 'paid') {
+        setNotice('Đã nhận thanh toán thành công. Cảm ơn bạn đã ủng hộ!');
+        setError('');
+        fetchSummary();
+      } else {
+        setNotice(status === 'expired' ? 'Mã donate đã hết hạn.' : 'Giao dịch donate chưa thanh toán thành công.');
+      }
+    };
+
     const baseUrl = api.defaults.baseURL || 'https://api.nguyenquangson.id.vn/api';
-    sse = new EventSource(`${baseUrl}/sse/donates/${intent.orderCode}`);
+    sse = new EventSource(`${baseUrl.replace(/\/+$/, '')}/donate/sse/donates/${encodeURIComponent(intent.orderCode)}`);
 
     sse.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
-        if (data.status === 'paid') {
-          setIntent((prev) => (prev ? { ...prev, status: 'paid' } : prev));
-          setNotice('Đã nhận thanh toán thành công. Cảm ơn bạn đã ủng hộ!');
-          setError('');
-          setPolling(false);
-          fetchSummary();
-          sse.close();
-        }
+        applyStatus(data.status, data.paidAt);
       } catch {
         // ignore
       }
     };
 
+    const checkPaymentStatus = async () => {
+      if (finished || statusRequestInFlight) return;
+      statusRequestInFlight = true;
+      try {
+        const { data } = await api.get(`/donate/intents/${encodeURIComponent(intent.orderCode)}/status`);
+        applyStatus(data.status, data.paidAt);
+      } catch {
+        // Keep checking; the SSE stream may still deliver the update.
+      } finally {
+        statusRequestInFlight = false;
+      }
+    };
+
+    const statusTimer = window.setInterval(checkPaymentStatus, 8000);
+    checkPaymentStatus();
+
     return () => {
+      finished = true;
+      window.clearInterval(statusTimer);
       if (sse) sse.close();
       setPolling(false);
     };
