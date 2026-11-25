@@ -1,8 +1,9 @@
-import React, { useMemo, useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import api from '../services/api';
 import { motion } from 'framer-motion'; // eslint-disable-line no-unused-vars
-import { Search, Calendar, Clock, ArrowUpRight, Hash } from 'lucide-react';
+import { Calendar, Clock, ArrowUpRight, Hash } from 'lucide-react';
+import SmartSearch from '../components/SmartSearch';
 
 const decodePossibleJson = (value) => {
   let current = value;
@@ -42,21 +43,27 @@ const parseTags = (value) => {
 };
 
 const Blog = () => {
+  const [params, setParams] = useSearchParams();
+  const query = params.get('q') || '';
   const [searchQuery, setSearchQuery] = useState('');
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [totalPosts, setTotalPosts] = useState(0);
 
   useEffect(() => {
     const fetchPosts = async () => {
       setLoading(true);
       try {
-        const { data } = await api.get('/blog', { params: { page, limit: 9 } });
+        const { data } = query.length >= 2
+          ? await api.get('/search', { params: { type: 'blog', q: query, page, limit: 9 } })
+          : await api.get('/blog', { params: { page, limit: 9 } });
         const items = Array.isArray(data.items) ? data.items : [];
         const normalized = items.map((post) => ({ ...post, normalizedTags: parseTags(post.tags) }));
         
         setPosts(normalized);
+        setTotalPosts(Number(data.total || 0));
         setTotalPages(data.totalPages || 1);
       } catch (err) {
         console.error('Lỗi khi tải blog:', err);
@@ -66,18 +73,31 @@ const Blog = () => {
     };
 
     fetchPosts();
-  }, [page]);
+  }, [page, query]);
 
-  const filteredPosts = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
-    if (!query) return posts;
+  useEffect(() => {
+    setSearchQuery(query);
+  }, [query]);
 
-    return posts.filter((post) => {
-      const titleMatch = post.title?.toLowerCase().includes(query);
-      const tagMatch = (post.normalizedTags || []).some((tag) => tag.toLowerCase().includes(query));
-      return titleMatch || tagMatch;
+  const applySearch = useCallback((value) => {
+    const rawQuery = String(value || '').trim();
+    const nextQuery = rawQuery.length >= 2 ? rawQuery : '';
+    setSearchQuery(nextQuery);
+    setPage(1);
+    setParams(current => {
+      const next = new URLSearchParams(current);
+      if (nextQuery) next.set('q', nextQuery);
+      else next.delete('q');
+      next.delete('page');
+      return next;
     });
-  }, [posts, searchQuery]);
+  }, [setParams]);
+
+  useEffect(() => {
+    if (searchQuery.trim() === query) return undefined;
+    const timer = window.setTimeout(() => applySearch(searchQuery), 350);
+    return () => window.clearTimeout(timer);
+  }, [searchQuery, query, applySearch]);
 
   return (
     <div className="py-12 max-w-6xl mx-auto px-4 md:px-0 blog-page-shell">
@@ -94,17 +114,20 @@ const Blog = () => {
           </p>
         </motion.div>
 
-        <div className="relative w-full md:w-80">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30" />
-          <input
-            type="text"
-            placeholder="Tìm kiếm bài viết..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-surface border border-white/10 rounded-2xl py-3 pl-12 pr-4 text-sm focus:outline-none focus:border-primary transition-colors"
-          />
-        </div>
+        <SmartSearch
+          type="blog"
+          value={searchQuery}
+          onChange={setSearchQuery}
+          onSearch={applySearch}
+          placeholder="Tìm bài viết, chủ đề, từ khóa..."
+          className="z-30 w-full md:w-96"
+        />
       </div>
+
+      {query.length >= 2 && !loading && <p aria-live="polite" className="-mt-8 mb-6 text-xs text-white/40">
+        {posts.length ? `Tìm thấy ${totalPosts} bài viết phù hợp` : 'Không có kết quả phù hợp'}
+        {totalPages > 1 && ` · Trang ${page}/${totalPages}`}
+      </p>}
 
       {loading ? (
         <div className="flex flex-col items-center justify-center py-20 gap-4">
@@ -113,7 +136,7 @@ const Blog = () => {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
-          {filteredPosts.map((post, index) => (
+          {posts.map((post, index) => (
             <motion.article
               key={post.id}
               initial={{ opacity: 0, y: 20 }}
@@ -175,7 +198,7 @@ const Blog = () => {
       {totalPages > 1 && (
         <div className="flex items-center justify-center gap-4 mt-16 pt-8 border-t border-white/5">
           <button
-            disabled={page === 1}
+          disabled={page === 1}
             onClick={() => { setPage(page - 1); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
             className="px-6 py-3 rounded-2xl bg-white/5 border border-white/10 text-sm font-bold hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
           >
@@ -214,7 +237,7 @@ const Blog = () => {
         </div>
       )}
 
-      {!loading && filteredPosts.length === 0 && (
+      {!loading && posts.length === 0 && (
         <div className="py-20 text-center">
           <Hash className="w-12 h-12 text-white/10 mx-auto mb-4" />
           <p className="text-white/50">Không tìm thấy bài viết nào phù hợp.</p>

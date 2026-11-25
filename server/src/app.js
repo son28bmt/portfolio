@@ -26,6 +26,7 @@ const aiRoutes = require('./routes/ai.routes');
 const seoRoutes = require('./routes/seo.routes');
 const tempmailRoutes = require('./routes/tempmail.routes');
 const donateRoutes = require('./routes/donate.routes');
+const searchRoutes = require('./routes/search.routes');
 const shopRoutes = require('./routes/shop.routes');
 const marketplaceRoutes = require('./routes/marketplace.routes');
 const chatRoutes = require('./routes/chat.routes');
@@ -128,6 +129,7 @@ app.use('/uploads', express.static(uploadsDir));
 
 // Routes
 app.use('/', seoRoutes);
+app.use('/api/search', searchRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/account', accountRoutes);
