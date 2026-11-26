@@ -50,7 +50,7 @@ app.use(helmet({
     directives: {
       "default-src": ["'self'"],
       "script-src": ["'self'", "https://challenges.cloudflare.com", "'unsafe-inline'"],
-      "frame-src": ["'self'", "https://challenges.cloudflare.com"],
+      "frame-src": ["'self'", "https://challenges.cloudflare.com", "https://www.youtube.com", "https://youtube.com", "https://www.youtube-nocookie.com", "https://youtube-nocookie.com", "https://player.vimeo.com"],
       "connect-src": ["'self'", "https://challenges.cloudflare.com", "wss://api.nguyenquangson.id.vn", "https://api.nguyenquangson.id.vn"],
       "img-src": ["'self'", "data:", "https:"],
       "style-src": ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],

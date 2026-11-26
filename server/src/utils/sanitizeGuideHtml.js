@@ -37,7 +37,7 @@ const sanitizeGuideHtml = (html) => sanitizeHtml(String(html || ''), {
     '*': ['class', 'style', 'data-align'],
     a: ['href', 'rel', 'target'],
     img: ['src', 'alt', 'width', 'height'],
-    iframe: ['src', 'width', 'height', 'title', 'allowfullscreen', 'frameborder'],
+    iframe: ['src', 'width', 'height', 'title', 'allow', 'allowfullscreen', 'frameborder', 'loading', 'referrerpolicy'],
   },
   allowedClasses: {
     '*': [/^ql-/, /^cms-image$/],
@@ -65,7 +65,7 @@ const sanitizeGuideHtml = (html) => sanitizeHtml(String(html || ''), {
     iframe: (tagName, attribs) => {
       return {
         tagName,
-        attribs: { ...attribs, allowfullscreen: 'allowfullscreen', frameborder: '0' },
+        attribs: { ...attribs, allowfullscreen: 'allowfullscreen', frameborder: '0', referrerpolicy: 'strict-origin-when-cross-origin' },
       };
     },
   },

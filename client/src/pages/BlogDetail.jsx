@@ -228,7 +228,7 @@ const BlogDetail = () => {
       {post.coverCaption && <p className="-mt-8 mb-10 text-center text-sm text-white/50">{post.coverCaption}</p>}
 
       <div className="w-full mb-10 sm:mb-16 mx-auto">
-        <style>{`.blog-content figure{margin:1rem 0}.blog-content figure[data-align="center"]{margin-left:auto;margin-right:auto}.blog-content figure[data-align="right"]{margin-left:auto}.blog-content figcaption{text-align:center;font-size:.8rem;color:rgba(255,255,255,.5)}`}</style>
+        <style>{`.blog-content figure{margin:1rem 0}.blog-content figure[data-align="center"]{margin-left:auto;margin-right:auto}.blog-content figure[data-align="right"]{margin-left:auto}.blog-content figcaption{text-align:center;font-size:.8rem;color:rgba(255,255,255,.5)}.blog-content iframe{border:0}`}</style>
         {blockLayout ? <BlockPostRenderer layout={blockLayout} content={post.contentJson || {}} slots={{ question: ({ block }) => <QuestionForm postId={post.layoutPostId} template={questionTemplate?.id === block.props?.templateId ? questionTemplate : null} heading={block.props?.heading} /> }} /> : <div className="text-white/80 leading-relaxed blog-content" dangerouslySetInnerHTML={{ __html: normalizedContent }} />}
       </div>
 

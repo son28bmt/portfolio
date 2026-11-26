@@ -2,7 +2,7 @@ import DOMPurify from 'dompurify';
 
 export const sanitizeHtml = (html = '') => DOMPurify.sanitize(String(html), {
   ADD_TAGS: ['iframe'],
-  ADD_ATTR: ['allow', 'allowfullscreen', 'frameborder', 'loading', 'title'],
+  ADD_ATTR: ['allow', 'allowfullscreen', 'frameborder', 'loading', 'referrerpolicy', 'title'],
   ADD_DATA_URI_TAGS: [],
   FORBID_TAGS: ['script', 'style', 'object', 'embed'],
 });

@@ -21,7 +21,7 @@ const sanitizeContent = (value) => sanitizeHtml(String(value || ''), {
     '*': ['class', 'style', 'data-align'],
     a: ['href', 'target', 'rel', 'download'],
     img: ['src', 'alt', 'width', 'height'],
-    iframe: ['src', 'width', 'height', 'title', 'allowfullscreen', 'frameborder'],
+    iframe: ['src', 'width', 'height', 'title', 'allow', 'allowfullscreen', 'frameborder', 'loading', 'referrerpolicy'],
   },
   allowedClasses: { '*': [/^ql-/, /^cms-image$/] },
   allowedStyles: {
@@ -32,6 +32,10 @@ const sanitizeContent = (value) => sanitizeHtml(String(value || ''), {
   allowedIframeHostnames: ['youtube.com', 'www.youtube.com', 'youtube-nocookie.com', 'www.youtube-nocookie.com'],
   transformTags: {
     a: (tagName, attribs) => ({ tagName, attribs: { ...attribs, ...(attribs.target === '_blank' ? { rel: 'noopener noreferrer' } : {}), ...(attribs.download ? { download: String(attribs.download).slice(0, 255) } : {}) } }),
+    iframe: (tagName, attribs) => ({
+      tagName,
+      attribs: { ...attribs, allowfullscreen: 'allowfullscreen', frameborder: '0', referrerpolicy: 'strict-origin-when-cross-origin' },
+    }),
   },
   exclusiveFilter: frame => frame.tag === 'iframe' && !isAllowedYoutubeEmbed(frame.attribs.src),
 });

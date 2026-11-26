@@ -21,6 +21,21 @@ const CmsLink = Link.extend({
   },
 });
 
+const CmsYoutube = Youtube.extend({
+  parseHTML() {
+    return [
+      { tag: 'div[data-youtube-video] iframe' },
+      {
+        tag: 'iframe[src]',
+        getAttrs: element => {
+          const src = element.getAttribute('src') || '';
+          return /^https:\/\/(?:www\.)?(?:youtube\.com|youtube-nocookie\.com)\/embed\//i.test(src) ? {} : false;
+        },
+      },
+    ];
+  },
+});
+
 const CmsImage = Image.extend({
   parseHTML() {
     return [
@@ -55,7 +70,15 @@ export default function RichEditor({ value = '', onChange, disabled = false, fol
       CmsLink.configure({ openOnClick: false, autolink: true, linkOnPaste: true, protocols: ['http', 'https', 'mailto'], HTMLAttributes: { rel: 'noopener noreferrer' } }),
       CmsImage.configure({ inline: false, allowBase64: false }),
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
-      Youtube.configure({ modestBranding: true, nocookie: true }),
+      CmsYoutube.configure({
+        modestBranding: true,
+        nocookie: true,
+        HTMLAttributes: {
+          allow: 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share',
+          referrerpolicy: 'strict-origin-when-cross-origin',
+          loading: 'lazy',
+        },
+      }),
       Table.configure({ resizable: true }),
       TableRow,
       TableHeader,
@@ -146,7 +169,7 @@ export default function RichEditor({ value = '', onChange, disabled = false, fol
       <button type="button" className={button} onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()} title="Tiêu đề H3">H3</button>
       {['toggleBold','toggleItalic','toggleUnderline','toggleStrike','toggleBulletList','toggleOrderedList','toggleBlockquote','toggleCodeBlock'].map((action, i) => <button type="button" key={action} className={button} onClick={() => cmd(action)}>{['B','I','U','S','• list','1. list','quote','code'][i]}</button>)}
       {['left', 'center', 'right', 'justify'].map(align => <button type="button" key={align} className={button} onClick={() => editor.chain().focus().setTextAlign(align).run()} title={`Căn ${align}`}>{align === 'left' ? '←' : align === 'center' ? '↔' : align === 'right' ? '→' : '☷'}</button>)}
-      <button type="button" className={button} onClick={() => { const url = window.prompt('URL YouTube:'); if (url) editor.commands.setYoutubeVideo({ src: url, width: 640, height: 360 }); }}>YouTube</button>
+      <button type="button" className={button} onClick={() => { const raw = window.prompt('URL YouTube:'); const url = raw ? raw.trim() : ''; if (url && !editor.commands.setYoutubeVideo({ src: url, width: 640, height: 360 })) window.alert('URL YouTube không hợp lệ.'); }}>YouTube</button>
       <button type="button" className={button} onClick={addLink} disabled={!editor}>Link</button>
       <button type="button" className={button} onClick={() => fileRef.current?.click()}>Ảnh</button>
       <button type="button" className={button} onClick={() => documentRef.current?.click()}>File</button>
