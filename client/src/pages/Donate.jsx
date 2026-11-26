@@ -1,9 +1,66 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion'; // eslint-disable-line no-unused-vars
-import { Gift, QrCode, Clock3, CheckCircle2, AlertCircle, Copy, RefreshCw } from 'lucide-react';
+import { Gift, QrCode, Clock3, CheckCircle2, AlertCircle, Copy, RefreshCw, Crown, Medal, Award, Trophy } from 'lucide-react';
 import api from '../services/api';
 
 const SUGGESTED_AMOUNTS = [20000, 50000, 100000, 200000];
+
+const TOP_PODIUM_SLOTS = [
+  {
+    rank: 1,
+    label: 'TOP 1',
+    orderClass: 'order-1 sm:order-2 sm:-mt-2',
+    cardClass: 'border-amber-400/40 bg-gradient-to-b from-amber-500/15 via-amber-500/5 to-white/[0.03] shadow-[0_0_24px_rgba(251,191,36,0.12)] sm:py-4',
+    badgeClass: 'bg-amber-400/20 text-amber-300 border-amber-400/40',
+    amountClass: 'text-amber-300',
+    icon: Crown,
+    iconClass: 'text-amber-300',
+  },
+  {
+    rank: 2,
+    label: 'TOP 2',
+    orderClass: 'order-2 sm:order-1 sm:mt-2',
+    cardClass: 'border-slate-300/30 bg-gradient-to-b from-slate-300/10 to-white/[0.03]',
+    badgeClass: 'bg-slate-300/15 text-slate-200 border-slate-300/30',
+    amountClass: 'text-slate-200',
+    icon: Medal,
+    iconClass: 'text-slate-200',
+  },
+  {
+    rank: 3,
+    label: 'TOP 3',
+    orderClass: 'order-3 sm:order-3 sm:mt-3',
+    cardClass: 'border-orange-400/30 bg-gradient-to-b from-orange-500/10 to-white/[0.03]',
+    badgeClass: 'bg-orange-400/15 text-orange-300 border-orange-400/30',
+    amountClass: 'text-orange-300',
+    icon: Award,
+    iconClass: 'text-orange-300',
+  },
+];
+
+const aggregateFallbackTopDonations = (donations = []) => {
+  const totals = new Map();
+  donations.forEach((item) => {
+    const name = String(item?.donorName || '').trim();
+    if (!name) return;
+    const key = name.toLowerCase();
+    const prev = totals.get(key);
+    const amount = Number(item?.amount || 0);
+    const paidAt = item?.paidAt || null;
+    if (!prev) {
+      totals.set(key, { donorName: name, amount, donationCount: 1, paidAt });
+    } else {
+      prev.amount += amount;
+      prev.donationCount += 1;
+      if (paidAt && (!prev.paidAt || new Date(paidAt) > new Date(prev.paidAt))) {
+        prev.paidAt = paidAt;
+      }
+    }
+  });
+  return Array.from(totals.values())
+    .sort((a, b) => b.amount - a.amount || new Date(b.paidAt || 0) - new Date(a.paidAt || 0))
+    .slice(0, 3);
+};
 
 const STATUS_LABELS = {
   pending: 'Đang chờ thanh toán',
@@ -37,6 +94,7 @@ const Donate = () => {
   const [summary, setSummary] = useState({
     totalAmount: 0,
     totalCount: 0,
+    topDonations: [],
     latestDonations: [],
   });
   const [summaryLoading, setSummaryLoading] = useState(true);
@@ -55,10 +113,15 @@ const Donate = () => {
     if (showLoading) setSummaryLoading(true);
     try {
       const { data } = await api.get('/donate/public-summary');
+      const latestDonations = Array.isArray(data?.latestDonations) ? data.latestDonations : [];
+      const topDonations = Array.isArray(data?.topDonations)
+        ? data.topDonations.slice(0, 3)
+        : aggregateFallbackTopDonations(latestDonations);
       setSummary({
         totalAmount: Number(data?.totalAmount || 0),
         totalCount: Number(data?.totalCount || 0),
-        latestDonations: Array.isArray(data?.latestDonations) ? data.latestDonations : [],
+        topDonations,
+        latestDonations,
       });
     } catch (err) {
       console.error('Không thể tải dữ liệu donate:', err);
@@ -270,6 +333,66 @@ const Donate = () => {
                 {summaryLoading ? '...' : summary.totalCount.toLocaleString('vi-VN')}
               </p>
             </div>
+          </div>
+
+          <div className="space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-sm font-bold text-white/70 uppercase tracking-wider flex items-center gap-2">
+                <Trophy className="w-4 h-4 text-amber-300" />
+                Top Donate
+              </h3>
+              <span className="text-[11px] text-white/40">Top 1 · 2 · 3</span>
+            </div>
+
+            {!summaryLoading && summary.topDonations.length === 0 ? (
+              <div className="text-sm text-white/40 bg-white/5 border border-white/10 rounded-xl p-4">
+                Chưa có bảng xếp hạng donate.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-3 items-end gap-3 pt-1">
+                {TOP_PODIUM_SLOTS.map((slot) => {
+                  const donor = summary.topDonations[slot.rank - 1];
+                  const RankIcon = slot.icon;
+                  return (
+                    <div
+                      key={slot.rank}
+                      className={`rounded-2xl border p-3.5 transition-all ${slot.orderClass} ${slot.cardClass}`}
+                    >
+                      <div className="flex items-center justify-between gap-2 mb-2.5">
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] font-extrabold tracking-wide ${slot.badgeClass}`}>
+                          <RankIcon className={`w-3 h-3 ${slot.iconClass}`} />
+                          {slot.label}
+                        </span>
+                        {donor?.donationCount > 1 && (
+                          <span className="text-[10px] text-white/45">{donor.donationCount} lần</span>
+                        )}
+                      </div>
+
+                      {summaryLoading ? (
+                        <div className="space-y-2 animate-pulse">
+                          <div className="h-4 bg-white/10 rounded w-3/4" />
+                          <div className="h-4 bg-white/10 rounded w-1/2" />
+                        </div>
+                      ) : donor ? (
+                        <div className="space-y-1 min-w-0">
+                          <p className="font-bold text-sm text-white truncate" title={donor.donorName}>
+                            {donor.donorName}
+                          </p>
+                          <p className={`font-black text-sm ${slot.amountClass}`}>
+                            {formatVnd(donor.amount)}
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="space-y-1">
+                          <p className="text-xs font-medium text-white/35">Chưa có</p>
+                          <p className="text-xs font-bold text-white/20">—</p>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           <div className="space-y-3">

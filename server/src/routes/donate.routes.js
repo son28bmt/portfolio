@@ -1,5 +1,5 @@
 const express = require('express');
-const { Op } = require('sequelize');
+const { Op, fn, col } = require('sequelize');
 const Donation = require('../models/Donation');
 const { protect } = require('../middleware/auth.middleware');
 const { requireAdmin } = require('../middleware/require-admin.middleware');
@@ -50,6 +50,13 @@ const toPublicDonation = (donation) => ({
   donorName: donation.donorName,
   amount: donation.amount,
   paidAt: donation.paidAt,
+});
+
+const toPublicTopDonation = (row) => ({
+  donorName: row.donorName,
+  amount: Number(row.totalAmount ?? row.amount ?? 0),
+  donationCount: Number(row.donationCount || 1),
+  paidAt: row.paidAt || null,
 });
 
 router.post('/intents', async (req, res) => {
@@ -169,7 +176,7 @@ router.get('/public-summary', async (req, res) => {
   try {
     await expirePendingDonations();
 
-    const [totalAmount, totalCount, latestDonations] = await Promise.all([
+    const [totalAmount, totalCount, latestDonations, topDonorRows] = await Promise.all([
       DonationModel.sum('amount', { where: { status: DONATION_STATUS.PAID } }),
       DonationModel.count({ where: { status: DONATION_STATUS.PAID } }),
       DonationModel.findAll({
@@ -180,11 +187,28 @@ router.get('/public-summary', async (req, res) => {
         order: [['paidAt', 'DESC']],
         limit: 20,
       }),
+      DonationModel.findAll({
+        attributes: [
+          'donorName',
+          [fn('SUM', col('amount')), 'totalAmount'],
+          [fn('COUNT', col('id')), 'donationCount'],
+          [fn('MAX', col('paidAt')), 'paidAt'],
+        ],
+        where: {
+          status: DONATION_STATUS.PAID,
+          isPublic: true,
+        },
+        group: ['donorName'],
+        order: [[fn('SUM', col('amount')), 'DESC'], [fn('MAX', col('paidAt')), 'DESC']],
+        limit: 3,
+        raw: true,
+      }),
     ]);
 
     return res.json({
       totalAmount: Number(totalAmount || 0),
       totalCount: Number(totalCount || 0),
+      topDonations: (Array.isArray(topDonorRows) ? topDonorRows : []).map(toPublicTopDonation),
       latestDonations: latestDonations.map(toPublicDonation),
     });
   } catch (error) {
