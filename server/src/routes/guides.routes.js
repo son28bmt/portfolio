@@ -195,9 +195,9 @@ router.get('/:slug', async (req, res) => {
       return res.status(404).json({ message: 'Không tìm thấy bài hướng dẫn.' });
     }
 
-    const relatedGuides = guide.topicId
+    const sameTopicGuides = guide.topicId
       ? await Guide.findAll({
-        attributes: ['slug', 'title'],
+        attributes: ['id', 'slug', 'title'],
         where: {
           status: 'published',
           topicId: guide.topicId,
@@ -207,6 +207,23 @@ router.get('/:slug', async (req, res) => {
         limit: 3,
       })
       : [];
+
+    const fallbackGuides = sameTopicGuides.length < 3
+      ? await Guide.findAll({
+        attributes: ['slug', 'title'],
+        where: {
+          status: 'published',
+          id: { [Op.notIn]: [guide.id, ...sameTopicGuides.map((item) => item.id)] },
+        },
+        order: [['publishedAt', 'DESC'], ['updatedAt', 'DESC']],
+        limit: 3 - sameTopicGuides.length,
+      })
+      : [];
+
+    const relatedGuides = [
+      ...sameTopicGuides.map((item) => ({ slug: item.slug, title: item.title })),
+      ...fallbackGuides.map((item) => ({ slug: item.slug, title: item.title })),
+    ];
 
     return res.json({
       ...(await resolveGuideAuthor(guide)),
