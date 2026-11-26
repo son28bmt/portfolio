@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion'; // eslint-disable-line no-unused-vars
 import { Gift, QrCode, Clock3, CheckCircle2, AlertCircle, Copy, RefreshCw, Crown, Medal, Award, Trophy } from 'lucide-react';
 import api from '../services/api';
+import { useAuth } from '../context/AuthContext';
 
 const SUGGESTED_AMOUNTS = [20000, 50000, 100000, 200000];
 
@@ -91,6 +92,12 @@ const formatDateTime = (value) => {
 };
 
 const Donate = () => {
+  const { account, isAuthenticated } = useAuth();
+  const accountDisplayName = useMemo(
+    () => String(account?.fullName || account?.username || '').trim().replace(/\s+/g, ' ').slice(0, 120),
+    [account?.fullName, account?.username],
+  );
+  const isAccountDonorLocked = Boolean(isAuthenticated && accountDisplayName);
   const [summary, setSummary] = useState({
     totalAmount: 0,
     totalCount: 0,
@@ -102,6 +109,7 @@ const Donate = () => {
     donorName: '',
     amount: '50000',
   });
+  const effectiveDonorName = isAccountDonorLocked ? accountDisplayName : form.donorName;
   const [intent, setIntent] = useState(null);
   const [creating, setCreating] = useState(false);
   const [polling, setPolling] = useState(false);
@@ -237,7 +245,7 @@ const Donate = () => {
     setError('');
     setNotice('');
     try {
-      const cleanDonorName = String(form.donorName || '').trim();
+      const cleanDonorName = String(effectiveDonorName || '').trim();
       const cleanAmount = Number(form.amount || 0);
 
       if (cleanAmount < 100) {
@@ -431,15 +439,34 @@ const Donate = () => {
               <h2 className="text-xl md:text-2xl font-bold">Tạo mã QR donate</h2>
 
               <div className="space-y-2">
-                <label className="text-xs font-bold text-white/50 uppercase tracking-wider">Tên hiển thị</label>
+                <div className="flex items-center justify-between gap-2">
+                  <label className="text-xs font-bold text-white/50 uppercase tracking-wider">Tên hiển thị</label>
+                  {isAccountDonorLocked && (
+                    <span className="text-[11px] font-medium text-primary">Tự động theo tài khoản</span>
+                  )}
+                </div>
                 <input
-                  value={form.donorName}
-                  onChange={(e) => setForm((prev) => ({ ...prev, donorName: e.target.value }))}
+                  value={effectiveDonorName}
+                  onChange={(e) => {
+                    if (!isAccountDonorLocked) {
+                      setForm((prev) => ({ ...prev, donorName: e.target.value }));
+                    }
+                  }}
+                  readOnly={isAccountDonorLocked}
                   placeholder="Ví dụ: Nguyễn Văn A"
-                  className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:border-primary"
+                  className={`w-full border rounded-2xl px-4 py-3 text-sm focus:outline-none ${
+                    isAccountDonorLocked
+                      ? 'bg-white/[0.04] border-primary/30 text-white/90 cursor-not-allowed'
+                      : 'bg-white/5 border-white/10 focus:border-primary'
+                  }`}
                   maxLength={120}
                   required
                 />
+                {isAccountDonorLocked && (
+                  <p className="text-[11px] text-white/45">
+                    Đang tự động lấy tên tài khoản của bạn để cộng dồn chính xác vào Top Donate.
+                  </p>
+                )}
               </div>
 
               <div className="space-y-2">

@@ -1,8 +1,10 @@
 const express = require('express');
+const jwt = require('jsonwebtoken');
 const { Op, fn, col } = require('sequelize');
 const Donation = require('../models/Donation');
 const { protect } = require('../middleware/auth.middleware');
 const { requireAdmin } = require('../middleware/require-admin.middleware');
+const { getJwtSecret } = require('../utils/jwt.util');
 const {
   DONATION_STATUS,
   sanitizeDonorName,
@@ -59,11 +61,35 @@ const toPublicTopDonation = (row) => ({
   paidAt: row.paidAt || null,
 });
 
+const resolveAuthenticatedDonorName = async (req) => {
+  const authHeader = String(req.headers?.authorization || '');
+  if (!authHeader.startsWith('Bearer ')) return '';
+  const token = authHeader.slice(7).trim();
+  if (!token) return '';
+
+  try {
+    const decoded = jwt.verify(token, getJwtSecret());
+    if (!decoded?.id) return '';
+    const { User, UserProfile } = require('../models');
+    const user = await User.findByPk(decoded.id, {
+      attributes: ['id', 'username'],
+      include: [{ model: UserProfile, as: 'profile', attributes: ['fullName'] }],
+    });
+    if (!user) return '';
+    return sanitizeDonorName(user.profile?.fullName || user.username);
+  } catch {
+    return '';
+  }
+};
+
 router.post('/intents', async (req, res) => {
   try {
     const config = getDonateConfig();
     const paymentAccount = await resolveEffectivePaymentAccount(req.body?.bankKey, config);
-    const donorName = sanitizeDonorName(req.body?.donorName);
+    const authenticatedDonorName = await resolveAuthenticatedDonorName(req);
+    const donorName = authenticatedDonorName.length >= 2
+      ? authenticatedDonorName
+      : sanitizeDonorName(req.body?.donorName);
     const amount = toAmount(req.body?.amount);
 
     if (!paymentAccount) {
